@@ -1,6 +1,5 @@
 <template>
 	<div class="h-page" :class="{ 'no-scroll': scroll === false }">
-		<!-- 页面头部 -->
 		<slot name="header">
 			<div v-if="title || $slots.title || $slots.extra" class="header">
 				<div class="header-left">
@@ -17,7 +16,6 @@
 			</div>
 		</slot>
 
-		<!-- 页面主体 -->
 		<div class="body" :class="{ 'with-padding': padding !== false }">
 			<slot></slot>
 		</div>
@@ -25,12 +23,10 @@
 </template>
 
 <script setup lang="ts">
-// 全局页面组件名称
 defineOptions({
 	name: 'HPage',
 })
 
-// 组件接收属性与默认值
 withDefaults(
 	defineProps<{
 		title?: string
@@ -46,7 +42,6 @@ withDefaults(
 </script>
 
 <style scoped lang="scss">
-/* 页面外层容器 */
 .h-page {
 	display: flex;
 	flex-direction: column;
@@ -59,7 +54,6 @@ withDefaults(
 	}
 }
 
-/* 页面顶部栏 */
 .header {
 	display: flex;
 	justify-content: space-between;
@@ -75,7 +69,7 @@ withDefaults(
 		gap: 0.2rem;
 
 		.title {
-			font-size: 1rem;
+			font-size: var(--font-xl);
 			color: var(--text-primary);
 		}
 
@@ -92,7 +86,6 @@ withDefaults(
 	}
 }
 
-/* 页面内容区 */
 .body {
 	flex: 1;
 	display: flex;

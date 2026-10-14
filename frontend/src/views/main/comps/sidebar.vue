@@ -1,6 +1,5 @@
 <template>
 	<aside class="sidebar">
-		<!-- 导航菜单列表 -->
 		<nav class="nav">
 			<router-link
 				v-for="item in navItems"
@@ -17,23 +16,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { $t } from '@/i18n'
-
-// 侧边导航菜单项
-const navItems = computed(() => [
-	{ label: $t('控制台'), icon: 'pi pi-th-large', to: '/' },
-	{ label: $t('网站管理'), icon: 'pi pi-globe', to: '/sites' },
-	{ label: $t('软件商店'), icon: 'pi pi-shopping-bag', to: '/store' },
-	{ label: $t('运行环境'), icon: 'pi pi-box', to: '/runtimes' },
-	{ label: $t('服务实例'), icon: 'pi pi-server', to: '/services' },
-	{ label: $t('任务作业'), icon: 'pi pi-list-check', to: '/tasks' },
-	{ label: $t('全局设置'), icon: 'pi pi-cog', to: '/settings' },
-])
+const navItems = [
+	{ label: '环境概览', icon: 'pi pi-objects-column', to: '/' },
+	{ label: '网站管理', icon: 'pi pi-globe', to: '/sites' },
+	{ label: '软件商店', icon: 'pi pi-shopping-bag', to: '/software' },
+	{ label: '全局设置', icon: 'pi pi-cog', to: '/settings' },
+]
 </script>
 
 <style scoped lang="scss">
-/* 左侧导航栏容器 */
 .sidebar {
 	width: 11.875rem;
 	background: var(--bg-sidebar);
@@ -42,7 +33,6 @@ const navItems = computed(() => [
 	flex-direction: column;
 }
 
-/* 导航链接列表 */
 .nav {
 	display: flex;
 	flex-direction: column;
@@ -72,7 +62,7 @@ const navItems = computed(() => [
 		}
 
 		.icon {
-			font-size: var(--font-md);
+			font-size: var(--icon-md);
 		}
 	}
 }

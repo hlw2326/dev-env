@@ -31,11 +31,8 @@ func main() {
 		Bind: []any{
 			app,
 			app.Site,
-			app.Git,
-			app.Runtime,
-			app.Service,
-			app.Task,
-			app.Setting,
+			app.Software,
+			app.System,
 		},
 		Windows: &windows.Options{
 			WebviewIsTransparent:              false,

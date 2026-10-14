@@ -1,6 +1,5 @@
 <template>
 	<div class="h-card" :class="{ fill }">
-		<!-- 卡片头部 -->
 		<div v-if="title || $slots.title || $slots.extra || $slots.actions" class="header">
 			<div class="header-left">
 				<slot name="title">
@@ -12,7 +11,6 @@
 				<slot name="actions"></slot>
 			</div>
 		</div>
-		<!-- 卡片主体 -->
 		<div class="body" :class="{ 'no-padding': noPadding }">
 			<slot></slot>
 		</div>
@@ -20,12 +18,10 @@
 </template>
 
 <script setup lang="ts">
-// 全局卡片组件名称
 defineOptions({
 	name: 'HCard',
 })
 
-// 组件接收属性
 defineProps<{
 	title?: string
 	fill?: boolean
@@ -34,7 +30,6 @@ defineProps<{
 </script>
 
 <style scoped lang="scss">
-/* 卡片容器 */
 .h-card {
 	background-color: var(--bg-card);
 	border: 1px solid var(--border-color);
@@ -48,7 +43,6 @@ defineProps<{
 		min-height: 0;
 	}
 
-	/* 卡片头部栏 */
 	.header {
 		height: 3.25rem;
 		padding: 0 1.25rem;
@@ -58,12 +52,11 @@ defineProps<{
 		justify-content: space-between;
 
 		.title {
-			font-size: var(--font-md);
+			font-size: var(--font-lg);
 			color: var(--text-primary);
 		}
 	}
 
-	/* 卡片内容区 */
 	.body {
 		flex: 1;
 		min-height: 0;

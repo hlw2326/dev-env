@@ -16,6 +16,7 @@ declare module 'vue' {
     HPage: typeof import('./src/components/h-page/h-page.vue')['default']
     PButton: typeof import('primevue/button')['default']
     PConfirmPopup: typeof import('primevue/confirmpopup')['default']
+    PInputNumber: typeof import('primevue/inputnumber')['default']
     PInputText: typeof import('primevue/inputtext')['default']
     PProgressBar: typeof import('primevue/progressbar')['default']
     PSelect: typeof import('primevue/select')['default']

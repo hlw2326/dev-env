@@ -1,73 +1,97 @@
 <template>
 	<div class="panel surface-card">
-		<!-- 面板头部 -->
 		<div class="header">
 			<div class="title">
 				<i class="pi pi-bolt icon"></i>
-				<span>核心服务状态与控制</span>
+				<span>核心软件与服务状态</span>
 			</div>
 			<p-button
 				icon="pi pi-refresh"
 				label="刷新"
 				size="small"
 				severity="secondary"
-				outlined
+				variant="outlined"
 				:loading="loading"
 				@click="loadData"
 			/>
 		</div>
 
-		<!-- 空状态 -->
-		<div v-if="services.length === 0" class="empty">
-			暂无已配置的服务
+		<div v-if="readySoftware.length === 0" class="empty">
+			<span>暂无已安装的软件与服务</span>
 		</div>
 
-		<!-- 服务列表 -->
 		<div v-else class="list">
-			<div v-for="srv in services" :key="srv.id" class="row">
+			<div v-for="item in readySoftware" :key="item.id" class="row">
 				<div class="info">
 					<div class="title-line">
-						<span class="name">{{ srv.name }}</span>
+						<span class="name">{{ formatKind(item.kind) }} {{ item.version }}</span>
 						<p-tag
-							v-if="srv.status === 'running'"
-							severity="success"
-							value="运行中"
+							v-if="item.main"
+							severity="info"
+							value="默认"
 							size="small"
 						/>
+						<template v-if="isDaemon(item.kind)">
+							<p-tag
+								v-if="item.running"
+								severity="success"
+								value="运行中"
+								size="small"
+							/>
+							<p-tag
+								v-else
+								severity="secondary"
+								value="已停止"
+								size="small"
+							/>
+						</template>
 						<p-tag
 							v-else
-							severity="secondary"
-							value="已停止"
+							severity="success"
+							value="就绪"
 							size="small"
 						/>
 					</div>
 					<span class="meta font-mono">
-						<span v-if="srv.port">端口: {{ srv.port }}</span>
-						<span v-else>端口: 无</span>
-						<span v-if="srv.status === 'running'"> · PID: {{ srv.pid }}</span>
-						<span v-else> · 空闲</span>
+						<template v-if="isDaemon(item.kind)">
+							<span>端口: {{ item.port }}</span>
+							<span v-if="item.running"> · PID: {{ item.pid }}</span>
+							<span v-else> · 空闲</span>
+						</template>
+						<span v-else>{{ item.path }}</span>
 					</span>
 				</div>
 
 				<div class="actions">
-					<p-button
-						v-if="srv.status !== 'running'"
-						label="启动"
-						icon="pi pi-play"
-						size="small"
-						severity="success"
-						:loading="busyId === srv.id"
-						@click="startSrv(srv.id)"
-					/>
+					<template v-if="isDaemon(item.kind)">
+						<p-button
+							v-if="!item.running"
+							label="启动"
+							icon="pi pi-play"
+							size="small"
+							severity="success"
+							:loading="busyId === item.id"
+							@click="handleStart(item.id)"
+						/>
+						<p-button
+							v-else
+							label="停止"
+							icon="pi pi-stop"
+							size="small"
+							severity="danger"
+							variant="outlined"
+							:loading="busyId === item.id"
+							@click="handleStop(item.id)"
+						/>
+					</template>
 					<p-button
 						v-else
-						label="停止"
-						icon="pi pi-stop"
+						label="管理"
+						icon="pi pi-cog"
 						size="small"
-						severity="danger"
-						outlined
-						:loading="busyId === srv.id"
-						@click="stopSrv(srv.id)"
+						severity="secondary"
+						variant="outlined"
+						@click="$router.push('/software')"
 					/>
 				</div>
 			</div>
@@ -78,12 +102,33 @@
 <script setup lang="ts">
 import { useDashboard } from '../use-dashboard'
 
-// 获取控制台共享状态与操作
-const { services, loading, busyId, loadData, startSrv, stopSrv } = useDashboard()
+const { readySoftware, loading, busyId, loadData, handleStart, handleStop } = useDashboard()
+
+function isDaemon(kind: string): boolean {
+	return kind === 'mysql' || kind === 'redis' || kind === 'nginx'
+}
+
+function formatKind(kind: string): string {
+	if (kind === 'nginx') {
+		return 'Nginx'
+	}
+	if (kind === 'php') {
+		return 'PHP'
+	}
+	if (kind === 'nodejs') {
+		return 'Node.js'
+	}
+	if (kind === 'mysql') {
+		return 'MySQL'
+	}
+	if (kind === 'redis') {
+		return 'Redis'
+	}
+	return kind
+}
 </script>
 
 <style scoped lang="scss">
-/* 服务状态面板 */
 .panel {
 	padding: var(--h-padding);
 	display: flex;
@@ -91,7 +136,6 @@ const { services, loading, busyId, loadData, startSrv, stopSrv } = useDashboard(
 	gap: var(--h-padding);
 }
 
-/* 面板顶部栏 */
 .header {
 	display: flex;
 	justify-content: space-between;
@@ -101,7 +145,7 @@ const { services, loading, busyId, loadData, startSrv, stopSrv } = useDashboard(
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: 1rem;
+		font-size: var(--font-lg);
 		color: var(--text-primary);
 	}
 
@@ -110,14 +154,12 @@ const { services, loading, busyId, loadData, startSrv, stopSrv } = useDashboard(
 	}
 }
 
-/* 服务项列表 */
 .list {
 	display: flex;
 	flex-direction: column;
 	gap: 0.5rem;
 }
 
-/* 单个服务行 */
 .row {
 	display: flex;
 	justify-content: space-between;
@@ -136,6 +178,7 @@ const { services, loading, busyId, loadData, startSrv, stopSrv } = useDashboard(
 		display: flex;
 		flex-direction: column;
 		gap: 0.2rem;
+		min-width: 0;
 	}
 
 	.title-line {
@@ -145,17 +188,20 @@ const { services, loading, busyId, loadData, startSrv, stopSrv } = useDashboard(
 	}
 
 	.name {
-		font-size: 0.9rem;
+		font-size: var(--font-base);
 		color: var(--text-primary);
 	}
 
 	.meta {
 		font-size: var(--font-xs);
 		color: var(--text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: 22rem;
 	}
 }
 
-/* 空状态提示 */
 .empty {
 	text-align: center;
 	padding: 2rem;

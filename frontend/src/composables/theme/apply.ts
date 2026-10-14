@@ -12,6 +12,11 @@ export function applyTheme(state: ThemeState): void {
 
   root.classList.toggle('dark', isDark)
 
+  let effectiveColor = state.color
+  if (isDark && state.color.toLowerCase() === '#334155') {
+    effectiveColor = '#3b82f6'
+  }
+
   const vars = [
     '--p-primary-color',
     '--primary-color',
@@ -23,7 +28,7 @@ export function applyTheme(state: ThemeState): void {
     '--p-toggleswitch-checked-background',
   ]
   for (const v of vars) {
-    root.style.setProperty(v, state.color)
+    root.style.setProperty(v, effectiveColor)
   }
 
   // 监听操作系统色彩模式变化

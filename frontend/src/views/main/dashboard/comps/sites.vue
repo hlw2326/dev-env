@@ -1,6 +1,5 @@
 <template>
 	<div class="panel surface-card">
-		<!-- 面板头部 -->
 		<div class="header">
 			<div class="title">
 				<i class="pi pi-globe icon"></i>
@@ -9,18 +8,16 @@
 			<p-button
 				label="进入网站管理"
 				icon="pi pi-arrow-right"
-				iconPos="right"
+				icon-pos="right"
 				size="small"
 				@click="$router.push('/sites')"
 			/>
 		</div>
 
-		<!-- 空状态 -->
 		<div v-if="sites.length === 0" class="empty">
 			尚未创建任何网站
 		</div>
 
-		<!-- 最近网站列表 -->
 		<div v-else class="list">
 			<div
 				v-for="site in recentSites"
@@ -33,14 +30,26 @@
 						<span class="name">{{ site.name }}</span>
 						<span class="kind font-mono">{{ site.kind.toUpperCase() }}</span>
 					</div>
-					<span class="path font-mono" :title="site.domains.join(', ')">
-						{{ site.domains.join(', ') }} · {{ site.root }}
+					<span class="path font-mono" :title="site.hosts.join(', ')">
+						{{ site.hosts.join(', ') }} · {{ site.root }}
 					</span>
 				</div>
 				<p-tag
-					v-if="site.status === 'running'"
+					v-if="site.state === 'running'"
 					severity="success"
 					value="运行中"
+					size="small"
+				/>
+				<p-tag
+					v-else-if="site.need !== ''"
+					severity="warn"
+					value="缺少环境"
+					size="small"
+				/>
+				<p-tag
+					v-else-if="site.state === 'error'"
+					severity="danger"
+					value="异常"
 					size="small"
 				/>
 				<p-tag
@@ -58,15 +67,14 @@
 import { computed } from 'vue'
 import { useDashboard } from '../use-dashboard'
 
-// 获取控制台网站列表
 const { sites } = useDashboard()
 
-// 截取前 5 个网站
-const recentSites = computed(() => sites.value.slice(0, 5))
+const recentSites = computed(() => {
+	return sites.value.slice(0, 5)
+})
 </script>
 
 <style scoped lang="scss">
-/* 最近网站面板 */
 .panel {
 	padding: var(--h-padding);
 	display: flex;
@@ -74,7 +82,6 @@ const recentSites = computed(() => sites.value.slice(0, 5))
 	gap: var(--h-padding);
 }
 
-/* 面板头部栏 */
 .header {
 	display: flex;
 	justify-content: space-between;
@@ -84,7 +91,7 @@ const recentSites = computed(() => sites.value.slice(0, 5))
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: 1rem;
+		font-size: var(--font-lg);
 		color: var(--text-primary);
 	}
 
@@ -93,14 +100,12 @@ const recentSites = computed(() => sites.value.slice(0, 5))
 	}
 }
 
-/* 网站列表 */
 .list {
 	display: flex;
 	flex-direction: column;
 	gap: 0.5rem;
 }
 
-/* 单个网站行 */
 .row {
 	display: flex;
 	justify-content: space-between;
@@ -129,7 +134,7 @@ const recentSites = computed(() => sites.value.slice(0, 5))
 	}
 
 	.name {
-		font-size: 0.9rem;
+		font-size: var(--font-base);
 		color: var(--text-primary);
 	}
 
@@ -148,7 +153,6 @@ const recentSites = computed(() => sites.value.slice(0, 5))
 	}
 }
 
-/* 空状态提示 */
 .empty {
 	text-align: center;
 	padding: 2rem;

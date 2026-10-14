@@ -5,75 +5,93 @@ import (
 	"os"
 	"path/filepath"
 
+	"devenv/internal/infra/catalog"
 	"devenv/internal/infra/events"
-	"devenv/internal/infra/git"
+	"devenv/internal/infra/gateway"
+	"devenv/internal/infra/hosts"
+	"devenv/internal/infra/installer"
 	"devenv/internal/infra/network"
-	"devenv/internal/infra/nginx"
 	"devenv/internal/infra/process"
 	"devenv/internal/infra/sqlite"
-	"devenv/internal/infra/sqlite/repositories"
 )
 
 type Container struct {
-	DB      *sqlite.DB
-	Bus     *events.Publisher
-	Site    *SiteService
-	Git     *GitService
-	Runtime *RuntimeService
-	Service *ServiceService
-	Task    *TaskService
-	Setting *SettingService
+	BaseDir  string
+	DB       *sqlite.DB
+	Bus      *events.Publisher
+	Gateway  *gateway.Server
+	Runner   *process.Manager
+	Site     *SiteService
+	Software *SoftwareService
+	Setting  *SettingService
 }
 
 func Bootstrap() (*Container, error) {
-	dataDir := os.Getenv("LOCALAPPDATA")
-	if dataDir == "" {
-		dataDir = "."
-	}
-	baseDir := filepath.Join(dataDir, "DevEnv")
+	localAppData := os.Getenv("LOCALAPPDATA")
+	baseDir := filepath.Join(localAppData, "DevEnv")
 	dbPath := filepath.Join(baseDir, "data", "devenv.db")
 
-	db, err := sqlite.Open(dbPath)
+	resetOnDrift := os.Getenv("DEVENV_DB_RESET") == "1"
+	db, err := sqlite.Open(dbPath, sqlite.Options{
+		ResetOnDrift: resetOnDrift,
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	bus := events.NewPublisher()
 	probe := network.NewChecker()
-	proc := process.NewManager()
-	gitMgr := git.NewManager()
-	nginxMgr := nginx.NewManager(baseDir)
+	runner := process.NewManager()
+	gw := gateway.NewServer()
+	cat := catalog.NewClient()
+	inst := installer.NewManager()
+	hostsWriter := hosts.NewWriter()
 
-	sites := repositories.NewSiteRepository(db.DB)
-	runtimes := repositories.NewRuntimeRepository(db.DB)
-	instances := repositories.NewServiceRepository(db.DB)
-	tasks := repositories.NewTaskRepository(db.DB)
-	settings := repositories.NewSettingsRepository(db.DB)
+	softRepo := sqlite.NewSoftwareRepository(db.DB)
+	siteRepo := sqlite.NewSiteRepository(db.DB)
+	settingRepo := sqlite.NewSettingRepository(db.DB)
 
-	serviceSvc := NewServiceService(instances, runtimes, proc, probe, bus)
-	runtimeSvc := NewRuntimeService(runtimes, sites, instances, settings, serviceSvc, bus)
-	taskSvc := NewTaskService(tasks, bus)
-	settingSvc := NewSettingService(settings)
-	siteSvc := NewSiteService(sites, runtimes, instances, serviceSvc, nginxMgr, gitMgr, probe, bus)
-	gitSvc := NewGitService(sites, gitMgr, bus)
+	softSvc := NewSoftwareService(baseDir, softRepo, siteRepo, cat, inst, runner, probe, bus)
+	siteSvc := NewSiteService(baseDir, siteRepo, softRepo, settingRepo, gw, runner, hostsWriter, probe, bus)
+	settingSvc := NewSettingService(baseDir, settingRepo, siteRepo, gw, hostsWriter)
 
-	ctx := context.Background()
-	if err := runtimeSvc.Scan(ctx); err != nil {
-		return nil, err
-	}
-	if err := serviceSvc.Reconcile(ctx); err != nil {
-		return nil, err
-	}
-	_ = siteSvc.SyncRunningSites(ctx)
+	softSvc.SetOnInstalled(siteSvc.OnSoftwareInstalled)
 
 	return &Container{
-		DB:      db,
-		Bus:     bus,
-		Site:    siteSvc,
-		Git:     gitSvc,
-		Runtime: runtimeSvc,
-		Service: serviceSvc,
-		Task:    taskSvc,
-		Setting: settingSvc,
+		BaseDir:  baseDir,
+		DB:       db,
+		Bus:      bus,
+		Gateway:  gw,
+		Runner:   runner,
+		Site:     siteSvc,
+		Software: softSvc,
+		Setting:  settingSvc,
 	}, nil
+}
+
+func (c *Container) Start(ctx context.Context) {
+	if c == nil {
+		return
+	}
+	c.Setting.StartGateway(ctx)
+	c.Software.ReconcileStartup(ctx)
+	c.Site.ReconcileStartup(ctx)
+}
+
+func (c *Container) Shutdown() {
+	if c == nil {
+		return
+	}
+	if c.Site != nil {
+		c.Site.StopAll()
+	}
+	if c.Software != nil {
+		c.Software.StopAll()
+	}
+	if c.Gateway != nil {
+		_ = c.Gateway.Stop()
+	}
+	if c.DB != nil {
+		_ = c.DB.Close()
+	}
 }

@@ -1,129 +1,127 @@
-import { ref, onMounted } from 'vue'
-import { useConfirm } from 'primevue/useconfirm'
-import { getSettings, updateSettings, resetSettings, pickDir } from '@/api/settings'
-import { $t, setLocale, getLocale } from '@/i18n'
-import { useTheme, DEFAULT_THEME, type ThemeMode } from '@/composables/theme'
-import type { AppSettings } from '@/types'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { loadSettings, saveSettings, pickFolder, openFolder, loadDataFolder } from '@/api'
+import { useTheme, type ThemeMode } from '@/composables/theme'
 
-// 主题控制实例
-const { theme, setThemeMode, setThemeColor } = useTheme()
-
-// 系统设置响应式对象
-const settings = ref<AppSettings>({
-	language: 'zh-CN',
-	theme: 'light',
-	runtimeRootPath: '',
-	defaultProjectPath: '',
-	autoStartServices: false
-})
-
-// 保存按钮加载状态
-const saving = ref(false)
-
-// 选择运行环境安装根目录
-async function pickRuntimeDir() {
-	const dir = await pickDir('选择运行环境安装根目录')
-	if (dir) {
-		settings.value.runtimeRootPath = dir
-	}
-}
-
-// 选择默认项目根目录
-async function pickProjectDir() {
-	const dir = await pickDir('选择默认网站/项目根目录')
-	if (dir) {
-		settings.value.defaultProjectPath = dir
-	}
-}
-
-// 切换界面语言
-function changeLang(lang: string) {
-	settings.value.language = lang
-	setLocale(lang)
-}
-
-// 切换主题色彩模式
-function changeMode(mode: ThemeMode) {
-	settings.value.theme = mode
-	setThemeMode(mode)
-}
-
-// 加载系统设置
-async function loadSettings() {
-	try {
-		const data = await getSettings()
-		settings.value = data
-		if (data.language) {
-			setLocale(data.language)
-		}
-		if (data.theme) {
-			setThemeMode(data.theme)
-		}
-	} catch (err) {
-		console.error('加载设置失败', err)
-	}
-}
-
-// 保存系统设置
-async function saveConfig() {
-	saving.value = true
-	try {
-		settings.value.theme = theme.mode
-		settings.value.language = getLocale()
-		settings.value = await updateSettings(settings.value)
-		toast.success($t('设置已成功保存'))
-	} catch (err) {
-		toast.error(String(err))
-	} finally {
-		saving.value = false
-	}
-}
-
-// 导出设置页逻辑
 export function useSettings() {
-	// 气泡确认框实例
-	const confirm = useConfirm()
+	const toast = useToast()
+	const { theme, setThemeMode, setThemeColor, THEME_COLORS } = useTheme()
 
-	// 重置系统设置
-	function resetConfig(event: Event) {
-		confirm.require({
-			target: event.currentTarget as HTMLElement,
-			message: $t('确定要将所有设置恢复为默认值吗？'),
-			icon: 'pi pi-exclamation-triangle',
-			rejectProps: {
-				label: '取消',
-				severity: 'secondary',
-				outlined: true,
-				size: 'small'
-			},
-			acceptProps: {
-				label: $t('恢复默认'),
-				severity: 'danger',
-				size: 'small'
-			},
-			accept: async () => {
-				try {
-					settings.value = await resetSettings()
-					setLocale(settings.value.language)
-					setThemeMode(settings.value.theme as ThemeMode)
-					setThemeColor(DEFAULT_THEME.color)
-					toast.info($t('已恢复默认设置'))
-				} catch (err) {
-					toast.error(String(err))
-				}
+	const form = reactive({
+		theme: 'light',
+		root: '',
+		port: 80,
+		hosts: false,
+	})
+	const listening = ref(false)
+	const gatewayError = ref('')
+	const dataFolder = ref('')
+	const saving = ref(false)
+
+	const currentColorName = computed(() => {
+		const matched = THEME_COLORS.find((item) => item.value.toLowerCase() === theme.color.toLowerCase())
+		if (matched) {
+			return matched.name
+		}
+		return theme.color
+	})
+
+	async function fetchSettings() {
+		try {
+			const [cfg, folder] = await Promise.all([loadSettings(), loadDataFolder()])
+			form.theme = cfg.theme
+			form.root = cfg.root
+			form.port = cfg.port
+			form.hosts = cfg.hosts
+			listening.value = cfg.listening
+			gatewayError.value = cfg.error
+			dataFolder.value = folder
+			if (cfg.theme === 'dark' || cfg.theme === 'system') {
+				setThemeMode(cfg.theme)
+			} else {
+				setThemeMode('light')
 			}
-		})
+		} catch (err) {
+			toast.add({ severity: 'error', summary: '读取设置失败', detail: String(err), life: 3000 })
+		}
 	}
 
-	onMounted(loadSettings)
+	async function handleSelectTheme(mode: ThemeMode) {
+		form.theme = mode
+		setThemeMode(mode)
+		if (form.root !== '') {
+			await saveSettings({
+				theme: mode,
+				root: form.root,
+				port: Number(form.port),
+				hosts: form.hosts,
+			})
+		}
+	}
+
+	function handleSelectColor(color: string) {
+		setThemeColor(color)
+	}
+
+	async function handlePickRoot() {
+		const picked = await pickFolder('选择默认站点父目录')
+		if (picked !== '') {
+			form.root = picked
+		}
+	}
+
+	async function handleSave() {
+		saving.value = true
+		try {
+			const res = await saveSettings({
+				theme: form.theme,
+				root: form.root,
+				port: Number(form.port),
+				hosts: form.hosts,
+			})
+			if (form.theme === 'dark' || form.theme === 'system') {
+				setThemeMode(form.theme)
+			} else {
+				setThemeMode('light')
+			}
+			await fetchSettings()
+			if (!res.ok) {
+				toast.add({ severity: 'error', summary: '保存设置存在问题', detail: res.message, life: 4500 })
+				return
+			}
+			toast.add({ severity: 'success', summary: '设置已保存', detail: res.message, life: 2000 })
+		} finally {
+			saving.value = false
+		}
+	}
+
+	async function handleOpenDataFolder() {
+		if (dataFolder.value === '') {
+			return
+		}
+		const res = await openFolder(dataFolder.value)
+		if (!res.ok) {
+			toast.add({ severity: 'error', summary: '打开目录失败', detail: res.message, life: 3000 })
+		}
+	}
+
+	onMounted(() => {
+		fetchSettings()
+	})
+
 	return {
-		settings,
+		form,
+		theme,
+		THEME_COLORS,
+		currentColorName,
+		listening,
+		gatewayError,
+		dataFolder,
 		saving,
-		pickRuntimeDir,
-		pickProjectDir,
-		changeLang,
-		changeMode,
-		saveConfig,
-		resetConfig
+		handleSelectTheme,
+		handleSelectColor,
+		handlePickRoot,
+		handleSave,
+		handleOpenDataFolder,
 	}
 }

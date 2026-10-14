@@ -1,80 +1,92 @@
 import { ref, computed } from 'vue'
-import { listSites, listAllRuntimes, listServices, startService, stopService } from '@/api'
-import type { Site, RuntimeVersion, ServiceInstance } from '@/types'
+import { listSites, listSoftware, startSoftware, stopSoftware, loadSettings } from '@/api'
+import { toast } from '@/utils'
+import type { Site, Software } from '@/types'
 
-// 网站列表状态
 const sites = ref<Site[]>([])
-// 运行环境列表状态
-const runtimes = ref<RuntimeVersion[]>([])
-// 服务实例列表状态
-const services = ref<ServiceInstance[]>([])
-// 加载状态
+const installed = ref<Software[]>([])
+const listening = ref(false)
+const gatewayPort = ref(80)
 const loading = ref(false)
-// 正在操作的服务编号
-const busyId = ref<number | null>(null)
+const busyId = ref(0)
 
-// 控制台状态钩子
 export function useDashboard() {
-	// 运行中网站数量
-	const runningSites = computed(() => sites.value.filter((s) => s.status === 'running').length)
-	// 运行中服务数量
-	const runningServices = computed(() => services.value.filter((s) => s.status === 'running').length)
+	const runningSites = computed(() => {
+		return sites.value.filter((item) => item.state === 'running').length
+	})
 
-	// 加载概览数据
+	const readySoftware = computed(() => {
+		return installed.value.filter((item) => item.state === 'installed')
+	})
+
+	const daemonList = computed(() => {
+		return readySoftware.value.filter(
+			(item) => item.kind === 'mysql' || item.kind === 'redis' || item.kind === 'nginx'
+		)
+	})
+
+	const runningDaemons = computed(() => {
+		return daemonList.value.filter((item) => item.running).length
+	})
+
 	async function loadData() {
 		loading.value = true
 		try {
-			const [st, rt, srv] = await Promise.all([
+			const [siteList, softList, sysInfo] = await Promise.all([
 				listSites(),
-				listAllRuntimes(),
-				listServices(),
+				listSoftware(),
+				loadSettings(),
 			])
-			sites.value = st
-			runtimes.value = rt
-			services.value = srv
+			sites.value = siteList
+			installed.value = softList
+			listening.value = sysInfo.listening
+			gatewayPort.value = sysInfo.port
+		} catch (err) {
+			toast.error(String(err))
 		} finally {
 			loading.value = false
 		}
 	}
 
-	// 启动服务实例
-	async function startSrv(id: number) {
+	async function handleStart(id: number) {
 		busyId.value = id
 		try {
-			await startService(id)
-			toast.success('服务启动成功')
+			await startSoftware(id)
+			toast.success('服务已启动')
 			await loadData()
 		} catch (err) {
 			toast.error(String(err))
 		} finally {
-			busyId.value = null
+			busyId.value = 0
 		}
 	}
 
-	// 停止服务实例
-	async function stopSrv(id: number) {
+	async function handleStop(id: number) {
 		busyId.value = id
 		try {
-			await stopService(id)
-			toast.info('服务已成功停止')
+			await stopSoftware(id)
+			toast.info('服务已停止')
 			await loadData()
 		} catch (err) {
 			toast.error(String(err))
 		} finally {
-			busyId.value = null
+			busyId.value = 0
 		}
 	}
 
 	return {
 		sites,
-		runtimes,
-		services,
+		installed,
+		readySoftware,
+		daemonList,
+		listening,
+		gatewayPort,
 		loading,
 		busyId,
 		runningSites,
-		runningServices,
+		runningDaemons,
 		loadData,
-		startSrv,
-		stopSrv,
+		handleStart,
+		handleStop,
 	}
 }

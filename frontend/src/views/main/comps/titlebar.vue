@@ -1,6 +1,5 @@
 <template>
 	<header class="titlebar">
-		<!-- 左侧品牌与当前页面名 -->
 		<div class="left">
 			<div class="logo">
 				<i class="pi pi-box"></i>
@@ -10,14 +9,21 @@
 			<span class="page font-mono">{{ routeName }}</span>
 		</div>
 
-		<!-- 中间拖拽区与应用标题 -->
 		<div class="center" @dblclick="toggleMaxWin">
-			<span class="title">{{ $t('本地集成开发环境管理平台') }}</span>
+			<span class="title">本地集成开发环境管理平台</span>
 		</div>
 
-		<!-- 右侧环境标识与窗口控制 -->
 		<div class="right">
-			<span class="env font-mono">{{ $t('Win64 · Go & Wails') }}</span>
+			<button
+				type="button"
+				class="theme-toggle"
+				:title="theme.mode === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
+				@click="handleToggleTheme"
+			>
+				<i v-if="theme.mode === 'dark'" class="pi pi-sun toggle-icon"></i>
+				<i v-else class="pi pi-moon toggle-icon"></i>
+			</button>
+			<span class="env font-mono">Win64 · Go & Wails</span>
 			<win-btns />
 		</div>
 	</header>
@@ -26,24 +32,38 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { $t } from '@/i18n'
-import { toggleMaxWin } from '@/api'
+import { toggleMaxWin, loadSettings, saveSettings } from '@/api'
+import { useTheme } from '@/composables/theme'
 import WinBtns from './win-btns.vue'
 
-// 当前路由对象
 const route = useRoute()
+const { theme, setThemeMode } = useTheme()
 
-// 当前页面名称
 const routeName = computed(() => {
 	if (route.meta.title) {
 		return String(route.meta.title)
 	}
 	return String(route.name)
 })
+
+async function handleToggleTheme() {
+	const nextMode = theme.mode === 'dark' ? 'light' : 'dark'
+	setThemeMode(nextMode)
+	try {
+		const cfg = await loadSettings()
+		await saveSettings({
+			theme: nextMode,
+			root: cfg.root,
+			port: cfg.port,
+			hosts: cfg.hosts,
+		})
+	} catch {
+		// ignore persistence error in quick toggle
+	}
+}
 </script>
 
 <style scoped lang="scss">
-/* 顶部自定义标题栏 */
 .titlebar {
 	height: 2.375rem;
 	background: var(--bg-card);
@@ -58,7 +78,6 @@ const routeName = computed(() => {
 	z-index: 1000;
 }
 
-/* 左侧品牌区 */
 .left {
 	display: flex;
 	align-items: center;
@@ -74,7 +93,7 @@ const routeName = computed(() => {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: var(--font-xs);
+		font-size: var(--icon-xs);
 	}
 
 	.brand {
@@ -93,7 +112,6 @@ const routeName = computed(() => {
 	}
 }
 
-/* 中间拖拽标题区 */
 .center {
 	flex: 1;
 	height: 100%;
@@ -108,12 +126,34 @@ const routeName = computed(() => {
 	}
 }
 
-/* 右侧控制区 */
 .right {
 	display: flex;
 	align-items: center;
 	height: 100%;
-	gap: 0.75rem;
+	gap: 0.5rem;
+
+	.theme-toggle {
+		width: 1.625rem;
+		height: 1.625rem;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--border-color);
+		background: var(--bg-app);
+		color: var(--text-secondary);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		--wails-draggable: no-drag;
+
+		&:hover {
+			border-color: var(--border-hover);
+			color: var(--text-primary);
+		}
+
+		.toggle-icon {
+			font-size: var(--icon-xs);
+		}
+	}
 
 	.env {
 		font-size: var(--font-xs);
