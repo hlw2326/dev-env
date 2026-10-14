@@ -64,6 +64,7 @@ func Bootstrap() (*Container, error) {
 	if err := serviceSvc.Reconcile(ctx); err != nil {
 		return nil, err
 	}
+	_ = siteSvc.SyncRunningSites(ctx)
 
 	return &Container{
 		DB:      db,

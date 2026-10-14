@@ -111,21 +111,16 @@ func (s *SiteService) Create(ctx context.Context, in site.CreateInput) (*site.Si
 		if err != nil {
 			return nil, err
 		}
-		now := time.Now().UTC()
-		sid, err := s.instances.Create(ctx, service.Instance{
-			Name:        fmt.Sprintf("%s (%s %s)", in.Name, strings.ToUpper(string(rt.RuntimeType)), rt.Version),
-			ServiceType: rt.RuntimeType,
-			RuntimeID:   rt.ID,
-			Port:        upstream,
-			AutoStart:   in.AutoStart,
-			Enabled:     true,
-			CreatedAt:   now,
-			UpdatedAt:   now,
-		})
+		inst, err := s.services.EnsureForRuntime(ctx, *rt)
 		if err != nil {
 			return nil, err
 		}
-		serviceID = &sid
+		if inst != nil {
+			serviceID = &inst.ID
+			if inst.Port != nil {
+				upstream = inst.Port
+			}
+		}
 	} else if in.ServiceID != nil && *in.ServiceID > 0 {
 		serviceID = in.ServiceID
 		srv, err := s.instances.GetByID(ctx, *in.ServiceID)
@@ -220,6 +215,8 @@ func (s *SiteService) Create(ctx context.Context, in site.CreateInput) (*site.Si
 			return nil, err
 		}
 		cur = updated
+	} else {
+		s.syncVHostServers(ctx)
 	}
 
 	s.bus.Emit("site:created", cur.ID)
@@ -335,6 +332,7 @@ func (s *SiteService) Update(ctx context.Context, in site.UpdateInput) (*site.Si
 	}
 
 	_ = s.syncHosts(cur.Domains, diffRemovedDomains(oldDomains, cur.Domains))
+	s.syncVHostServers(ctx)
 
 	s.bus.Emit("site:updated", cur.ID)
 	return cur, nil
@@ -373,6 +371,9 @@ func (s *SiteService) Start(ctx context.Context, id int64) error {
 		return err
 	}
 
+	_ = s.syncHosts(cur.Domains, nil)
+	s.syncVHostServers(ctx)
+
 	s.bus.Emit("site:started", id)
 	return nil
 }
@@ -394,6 +395,8 @@ func (s *SiteService) Stop(ctx context.Context, id int64) error {
 	if err := s.nginx.Reload(ctx); err != nil {
 		return err
 	}
+
+	s.syncVHostServers(ctx)
 
 	s.bus.Emit("site:stopped", id)
 	return nil
@@ -432,6 +435,7 @@ func (s *SiteService) Delete(ctx context.Context, id int64, purge bool) error {
 	}
 
 	_ = s.syncHosts(nil, cur.Domains)
+	s.syncVHostServers(ctx)
 
 	if purge && cur.Root != "" {
 		if err := os.RemoveAll(cur.Root); err != nil {
@@ -441,6 +445,81 @@ func (s *SiteService) Delete(ctx context.Context, id int64, purge bool) error {
 
 	s.bus.Emit("site:deleted", id)
 	return nil
+}
+
+func (s *SiteService) SyncRunningSites(ctx context.Context) error {
+	allSites, err := s.sites.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	phpRuntimes, _ := s.runtimes.ListByType(ctx, runtime.TypePHP)
+	var defaultPHPRuntime *runtime.Runtime
+	for i := range phpRuntimes {
+		if defaultPHPRuntime == nil || phpRuntimes[i].IsDefault {
+			defaultPHPRuntime = &phpRuntimes[i]
+		}
+	}
+
+	phpService, _ := s.instances.GetByServiceType(ctx, service.TypePHP)
+
+	for i := range allSites {
+		st := &allSites[i]
+		changed := false
+		if st.Kind == site.PHP && defaultPHPRuntime != nil {
+			needRebind := st.RuntimeID == nil || *st.RuntimeID <= 0
+			if !needRebind {
+				rt, err := s.runtimes.GetByID(ctx, *st.RuntimeID)
+				if err != nil || rt == nil || rt.RuntimeType != runtime.TypePHP {
+					needRebind = true
+				}
+			}
+			if needRebind {
+				rtID := defaultPHPRuntime.ID
+				st.RuntimeID = &rtID
+				if phpService != nil {
+					srvID := phpService.ID
+					st.ServiceID = &srvID
+				}
+				changed = true
+			}
+		}
+		if changed {
+			_ = s.sites.Update(ctx, st)
+		}
+		if st.Status == site.Running {
+			_ = s.syncHosts(st.Domains, nil)
+			if st.ServiceID != nil && *st.ServiceID > 0 {
+				_ = s.services.Start(ctx, *st.ServiceID)
+			}
+		}
+	}
+
+	s.syncVHostServers(ctx)
+	return nil
+}
+
+func (s *SiteService) syncVHostServers(ctx context.Context) {
+	syncer, ok := s.nginx.(interface {
+		SyncSites(sites []site.Site, phpPaths map[int64]string, defaultPHPPath string)
+	})
+	if !ok {
+		return
+	}
+	allSites, err := s.sites.List(ctx)
+	if err != nil {
+		return
+	}
+	phpRuntimes, _ := s.runtimes.ListByType(ctx, runtime.TypePHP)
+	phpPaths := make(map[int64]string, len(phpRuntimes))
+	defaultPHPPath := ""
+	for _, rt := range phpRuntimes {
+		phpPaths[rt.ID] = rt.InstallPath
+		if defaultPHPPath == "" || rt.IsDefault {
+			defaultPHPPath = rt.InstallPath
+		}
+	}
+	syncer.SyncSites(allSites, phpPaths, defaultPHPPath)
 }
 
 func (s *SiteService) ReadConf(ctx context.Context, id int64) (string, error) {
