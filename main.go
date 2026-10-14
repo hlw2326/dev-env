@@ -23,10 +23,11 @@ func main() {
 		Height:    800,
 		MinWidth:  1024,
 		MinHeight: 640,
+		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 15, G: 23, B: 42, A: 255},
+		BackgroundColour: &options.RGBA{R: 248, G: 250, B: 252, A: 255},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		Bind: []interface{}{
@@ -34,9 +35,10 @@ func main() {
 			app.api,
 		},
 		Windows: &windows.Options{
-			WebviewIsTransparent: false,
-			WindowIsTranslucent:  false,
-			BackdropType:         windows.Mica,
+			WebviewIsTransparent:             false,
+			WindowIsTranslucent:              false,
+			BackdropType:                     windows.Mica,
+			DisableFramelessWindowDecorations: false,
 		},
 	})
 
