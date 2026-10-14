@@ -1,7 +1,7 @@
 <template>
   <h-page title="虚拟主机 / 域名管理" desc="配置本地域名映射、绑定 Web 网站根目录与端口分发">
     <template #extra>
-      <Button 
+      <p-button 
         label="添加虚拟主机" 
         icon="pi pi-plus" 
         @click="showCreateModal = true" 
@@ -11,8 +11,8 @@
     <!-- Table Card -->
     <h-card noPadding>
       <div class="table-header-tools">
-        <InputText v-model="searchQuery" placeholder="搜索本地域名或项目..." class="search-input" />
-        <Button 
+        <p-input-text v-model="searchQuery" placeholder="搜索本地域名或项目..." class="search-input" />
+        <p-button 
           icon="pi pi-refresh" 
           label="刷新" 
           severity="secondary" 
@@ -22,7 +22,7 @@
         />
       </div>
 
-      <DataTable 
+      <p-data-table 
         :value="filteredHosts" 
         stripedRows 
         responsiveLayout="scroll"
@@ -37,75 +37,75 @@
           </div>
         </template>
 
-        <Column field="id" header="ID" style="width: 70px">
+        <p-column field="id" header="ID" style="width: 70px">
           <template #body="{ data }">
             <span class="font-mono text-dim">#{{ data.id }}</span>
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="domain" header="本地域名" style="width: 180px">
+        <p-column field="domain" header="本地域名" style="width: 180px">
           <template #body="{ data }">
             <span class="font-mono text-blue">{{ data.domain }}</span>
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="projectId" header="关联项目" style="width: 160px">
+        <p-column field="projectId" header="关联项目" style="width: 160px">
           <template #body="{ data }">
-            <Tag severity="info" :value="getProjectName(data.projectId)" />
+            <p-tag severity="info" :value="getProjectName(data.projectId)" />
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="documentRoot" header="网站根目录">
+        <p-column field="documentRoot" header="网站根目录">
           <template #body="{ data }">
             <span class="font-mono text-sm text-path" :title="data.documentRoot">{{ data.documentRoot }}</span>
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="webServerType" header="服务器" style="width: 110px">
+        <p-column field="webServerType" header="服务器" style="width: 110px">
           <template #body="{ data }">
-            <Tag severity="secondary" :value="data.webServerType.toUpperCase()" />
+            <p-tag severity="secondary" :value="data.webServerType.toUpperCase()" />
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="port" header="端口" style="width: 90px">
+        <p-column field="port" header="端口" style="width: 90px">
           <template #body="{ data }">
             <span class="font-mono text-muted">{{ data.port }}</span>
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="enabled" header="状态" style="width: 100px">
+        <p-column field="enabled" header="状态" style="width: 100px">
           <template #body="{ data }">
-            <Tag 
+            <p-tag 
               :severity="data.enabled ? 'success' : 'secondary'"
               :value="data.enabled ? '已启用' : '已禁用'" 
             />
           </template>
-        </Column>
+        </p-column>
 
-        <Column header="操作" style="width: 140px; text-align: right">
+        <p-column header="操作" style="width: 140px; text-align: right">
           <template #body="{ data }">
-            <Button 
+            <p-button 
               :label="data.enabled ? '禁用' : '启用'" 
               severity="secondary" 
               text 
-              size="small"
+              size="small" 
               @click="toggleHostStatus(data)" 
             />
-            <Button 
+            <p-button 
               icon="pi pi-trash" 
               severity="danger" 
               text 
               rounded 
-              size="small"
+              size="small" 
               @click="handleDelete(data.id)" 
             />
           </template>
-        </Column>
-      </DataTable>
+        </p-column>
+      </p-data-table>
     </h-card>
 
     <!-- Create Dialog -->
-    <Dialog 
+    <p-dialog 
       v-model:visible="showCreateModal" 
       modal 
       header="添加虚拟主机" 
@@ -114,20 +114,20 @@
       <form @submit.prevent="submitCreate">
         <div class="form-field">
           <label>关联项目</label>
-          <Select 
+          <p-select 
             v-model="createForm.projectId" 
             :options="projectOptions" 
             optionLabel="label" 
             optionValue="value" 
-            placeholder="请选择项目"
-            required
-            @change="onProjectSelect"
+            placeholder="请选择项目" 
+            required 
+            @change="onProjectSelect" 
           />
         </div>
 
         <div class="form-field">
           <label>本地域名</label>
-          <InputText 
+          <p-input-text 
             v-model="createForm.domain" 
             class="font-mono" 
             required 
@@ -137,7 +137,7 @@
 
         <div class="form-field">
           <label>网站根目录</label>
-          <InputText 
+          <p-input-text 
             v-model="createForm.documentRoot" 
             class="font-mono" 
             required 
@@ -148,7 +148,7 @@
         <div class="form-row">
           <div class="form-field flex-1">
             <label>Web 服务器</label>
-            <Select 
+            <p-select 
               v-model="createForm.webServerType" 
               :options="serverOptions" 
               optionLabel="label" 
@@ -169,11 +169,11 @@
         </div>
 
         <div class="dialog-footer">
-          <Button label="取消" severity="secondary" text @click="showCreateModal = false" />
-          <Button label="确认创建" type="submit" :loading="submitting" />
+          <p-button label="取消" severity="secondary" text @click="showCreateModal = false" />
+          <p-button label="确认创建" type="submit" :loading="submitting" />
         </div>
       </form>
-    </Dialog>
+    </p-dialog>
   </h-page>
 </template>
 
@@ -181,14 +181,6 @@
 import { ref, computed, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
 import HCard from '@/components/h-card/h-card.vue'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
-import Tag from 'primevue/tag'
-import { useToast } from 'primevue/usetoast'
 import { listVirtualHosts, createVirtualHost, deleteVirtualHost, enableVirtualHost, disableVirtualHost } from '@/api/hosts'
 import { listProjects } from '@/api/projects'
 import type { VirtualHost, Project } from '@/types'
@@ -197,7 +189,6 @@ defineOptions({
   name: 'VirtualHosts'
 })
 
-const toast = useToast()
 const hosts = ref<VirtualHost[]>([])
 const projects = ref<Project[]>([])
 const searchQuery = ref('')
@@ -270,7 +261,7 @@ async function loadHosts() {
 
 async function submitCreate() {
   if (!createForm.value.projectId) {
-    toast.add({ severity: 'warn', summary: '提示', detail: '请选择关联的项目', life: 2500 })
+    toast.warn('请选择关联的项目')
     return
   }
   submitting.value = true
@@ -282,7 +273,7 @@ async function submitCreate() {
       webServerType: createForm.value.webServerType,
       port: createForm.value.port,
     })
-    toast.add({ severity: 'success', summary: '成功', detail: '虚拟主机已创建', life: 2500 })
+    toast.success('虚拟主机已创建')
     showCreateModal.value = false
     createForm.value = {
       projectId: 0,
@@ -293,7 +284,7 @@ async function submitCreate() {
     }
     await loadHosts()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '创建失败', life: 3500 })
+    toast.error(err?.message || '创建失败')
   } finally {
     submitting.value = false
   }
@@ -308,7 +299,7 @@ async function toggleHostStatus(host: VirtualHost) {
     }
     await loadHosts()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '切换失败', life: 3500 })
+    toast.error(err?.message || '切换失败')
   }
 }
 
@@ -316,10 +307,10 @@ async function handleDelete(id: number) {
   if (!confirm('确定要删除该虚拟主机配置吗？')) return
   try {
     await deleteVirtualHost(id)
-    toast.add({ severity: 'info', summary: '已删除', detail: '虚拟主机已删除', life: 2500 })
+    toast.info('虚拟主机已删除')
     await loadHosts()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '删除失败', life: 3500 })
+    toast.error(err?.message || '删除失败')
   }
 }
 

@@ -1,14 +1,14 @@
 <template>
   <h-page title="项目管理" desc="登记本地 PHP / Web 项目目录并关联指定运行版本">
     <template #extra>
-      <Button 
+      <p-button 
         label="导入已有项目" 
         icon="pi pi-folder-open" 
         severity="secondary" 
         outlined 
         @click="showImportModal = true" 
       />
-      <Button 
+      <p-button 
         label="新建项目" 
         icon="pi pi-plus" 
         @click="showCreateModal = true" 
@@ -19,9 +19,9 @@
     <h-card noPadding>
       <div class="table-header-tools">
         <span class="p-input-icon-left">
-          <InputText v-model="searchQuery" placeholder="搜索项目名称或路径..." class="search-input" />
+          <p-input-text v-model="searchQuery" placeholder="搜索项目名称或路径..." class="search-input" />
         </span>
-        <Button 
+        <p-button 
           icon="pi pi-refresh" 
           label="刷新" 
           severity="secondary" 
@@ -31,7 +31,7 @@
         />
       </div>
 
-      <DataTable 
+      <p-data-table 
         :value="filteredProjects" 
         stripedRows 
         responsiveLayout="scroll"
@@ -46,67 +46,67 @@
           </div>
         </template>
 
-        <Column field="id" header="ID" style="width: 70px">
+        <p-column field="id" header="ID" style="width: 70px">
           <template #body="{ data }">
             <span class="font-mono text-dim">#{{ data.id }}</span>
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="name" header="项目名称" style="width: 200px">
+        <p-column field="name" header="项目名称" style="width: 200px">
           <template #body="{ data }">
             <span class="project-title">{{ data.name }}</span>
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="path" header="物理路径">
+        <p-column field="path" header="物理路径">
           <template #body="{ data }">
             <span class="font-mono text-sm text-path" :title="data.path">{{ data.path }}</span>
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="phpVersionId" header="关联 PHP" style="width: 140px">
+        <p-column field="phpVersionId" header="关联 PHP" style="width: 140px">
           <template #body="{ data }">
-            <Tag 
+            <p-tag 
               v-if="data.phpVersionId" 
               severity="info" 
               :value="'PHP ' + getPHPVersionLabel(data.phpVersionId)" 
             />
-            <Tag v-else severity="secondary" value="默认环境" />
+            <p-tag v-else severity="secondary" value="默认环境" />
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="status" header="状态" style="width: 110px">
+        <p-column field="status" header="状态" style="width: 110px">
           <template #body="{ data }">
-            <Tag 
+            <p-tag 
               :severity="data.status === 'ready' ? 'success' : 'danger'"
               :value="data.status === 'ready' ? '就绪' : '路径缺失'" 
             />
           </template>
-        </Column>
+        </p-column>
 
-        <Column field="createdAt" header="创建时间" style="width: 140px">
+        <p-column field="createdAt" header="创建时间" style="width: 140px">
           <template #body="{ data }">
             <span class="text-sm text-muted">{{ formatDate(data.createdAt) }}</span>
           </template>
-        </Column>
+        </p-column>
 
-        <Column header="操作" style="width: 100px; text-align: right">
+        <p-column header="操作" style="width: 100px; text-align: right">
           <template #body="{ data }">
-            <Button 
+            <p-button 
               icon="pi pi-trash" 
               severity="danger" 
               text 
               rounded 
-              size="small"
+              size="small" 
               @click="handleDelete(data.id)" 
             />
           </template>
-        </Column>
-      </DataTable>
+        </p-column>
+      </p-data-table>
     </h-card>
 
     <!-- Create Dialog -->
-    <Dialog 
+    <p-dialog 
       v-model:visible="showCreateModal" 
       modal 
       header="新建项目" 
@@ -115,12 +115,12 @@
       <form @submit.prevent="submitCreate">
         <div class="form-field">
           <label>项目名称</label>
-          <InputText v-model="createForm.name" required placeholder="如 my-laravel-app" />
+          <p-input-text v-model="createForm.name" required placeholder="如 my-laravel-app" />
         </div>
 
         <div class="form-field">
           <label>物理目录路径</label>
-          <InputText 
+          <p-input-text 
             v-model="createForm.path" 
             required 
             placeholder="如 G:\www\my-laravel-app" 
@@ -133,7 +133,7 @@
 
         <div class="form-field">
           <label>绑定 PHP 版本</label>
-          <Select 
+          <p-select 
             v-model="createForm.phpVersionId" 
             :options="phpOptions" 
             optionLabel="label" 
@@ -143,14 +143,14 @@
         </div>
 
         <div class="dialog-footer">
-          <Button label="取消" severity="secondary" text @click="showCreateModal = false" />
-          <Button label="确认创建" type="submit" :loading="submitting" />
+          <p-button label="取消" severity="secondary" text @click="showCreateModal = false" />
+          <p-button label="确认创建" type="submit" :loading="submitting" />
         </div>
       </form>
-    </Dialog>
+    </p-dialog>
 
     <!-- Import Dialog -->
-    <Dialog 
+    <p-dialog 
       v-model:visible="showImportModal" 
       modal 
       header="导入已有项目" 
@@ -159,15 +159,15 @@
       <form @submit.prevent="submitImport">
         <div class="form-field">
           <label>已有目录物理绝对路径</label>
-          <InputText v-model="importPath" required placeholder="如 D:\projects\shop" />
+          <p-input-text v-model="importPath" required placeholder="如 D:\projects\shop" />
         </div>
 
         <div class="dialog-footer">
-          <Button label="取消" severity="secondary" text @click="showImportModal = false" />
-          <Button label="确认导入" type="submit" :loading="submitting" />
+          <p-button label="取消" severity="secondary" text @click="showImportModal = false" />
+          <p-button label="确认导入" type="submit" :loading="submitting" />
         </div>
       </form>
-    </Dialog>
+    </p-dialog>
   </h-page>
 </template>
 
@@ -175,14 +175,6 @@
 import { ref, computed, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
 import HCard from '@/components/h-card/h-card.vue'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
-import Tag from 'primevue/tag'
-import { useToast } from 'primevue/usetoast'
 import { listProjects, createProject, importProject, deleteProject, validateProjectPath } from '@/api/projects'
 import { listVersions } from '@/api/php'
 import type { Project, PHPVersion, ProjectPathValidation } from '@/types'
@@ -191,7 +183,6 @@ defineOptions({
   name: 'Projects'
 })
 
-const toast = useToast()
 const projects = ref<Project[]>([])
 const phpVersions = ref<PHPVersion[]>([])
 const searchQuery = ref('')
@@ -271,13 +262,13 @@ async function submitCreate() {
       path: createForm.value.path,
       phpVersionId: createForm.value.phpVersionId,
     })
-    toast.add({ severity: 'success', summary: '成功', detail: '项目已成功创建', life: 2500 })
+    toast.success('项目已成功创建')
     showCreateModal.value = false
     createForm.value = { name: '', path: '', phpVersionId: null }
     pathFeedback.value = null
     await loadProjects()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '创建项目失败', life: 3500 })
+    toast.error(err?.message || '创建项目失败')
   } finally {
     submitting.value = false
   }
@@ -287,12 +278,12 @@ async function submitImport() {
   submitting.value = true
   try {
     await importProject(importPath.value)
-    toast.add({ severity: 'success', summary: '成功', detail: '项目已成功导入', life: 2500 })
+    toast.success('项目已成功导入')
     showImportModal.value = false
     importPath.value = ''
     await loadProjects()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '导入项目失败', life: 3500 })
+    toast.error(err?.message || '导入项目失败')
   } finally {
     submitting.value = false
   }
@@ -304,10 +295,10 @@ async function handleDelete(id: number) {
   }
   try {
     await deleteProject(id)
-    toast.add({ severity: 'info', summary: '已删除', detail: '项目管理记录已删除', life: 2500 })
+    toast.info('项目管理记录已删除')
     await loadProjects()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '删除失败', life: 3500 })
+    toast.error(err?.message || '删除失败')
   }
 }
 

@@ -1,11 +1,9 @@
 import { ref, computed } from 'vue'
 import { useProjectsStore } from '@/store/projects'
-import { useToast } from 'primevue/usetoast'
 import { createProject, deleteProject } from '@/api/projects'
 
 export function useProjects() {
   const store = useProjectsStore()
-  const toast = useToast()
 
   const creating = ref(false)
   const deleting = ref(false)
@@ -22,12 +20,7 @@ export function useProjects() {
     try {
       const res = await createProject(data)
       await loadProjects()
-      toast.add({
-        severity: 'success',
-        summary: '创建成功',
-        detail: `项目 ${data.name} 已添加`,
-        life: 3000
-      })
+      toast.success(`项目 ${data.name} 已添加`)
       return res
     } finally {
       creating.value = false
@@ -39,12 +32,7 @@ export function useProjects() {
     try {
       await deleteProject(id)
       await loadProjects()
-      toast.add({
-        severity: 'info',
-        summary: '删除成功',
-        detail: '项目记录已移除',
-        life: 3000
-      })
+      toast.info('项目记录已移除')
     } finally {
       deleting.value = false
     }

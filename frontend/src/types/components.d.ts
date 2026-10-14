@@ -13,6 +13,16 @@ declare module 'vue' {
   export interface GlobalComponents {
     HCard: typeof import('./../components/h-card/h-card.vue')['default']
     HPage: typeof import('./../components/h-page/h-page.vue')['default']
+    PButton: typeof import('primevue/button')['default']
+    PColumn: typeof import('primevue/column')['default']
+    PDataTable: typeof import('primevue/datatable')['default']
+    PDialog: typeof import('primevue/dialog')['default']
+    PInputText: typeof import('primevue/inputtext')['default']
+    PProgressBar: typeof import('primevue/progressbar')['default']
+    PSelect: typeof import('primevue/select')['default']
+    PTag: typeof import('primevue/tag')['default']
+    PToast: typeof import('primevue/toast')['default']
+    PToggleSwitch: typeof import('primevue/toggleswitch')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

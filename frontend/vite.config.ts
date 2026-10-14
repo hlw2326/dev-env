@@ -14,7 +14,11 @@ export default defineConfig({
       dts: 'src/types/auto-imports.d.ts'
     }),
     Components({
-      resolvers: [PrimeVueResolver()],
+      resolvers: [
+        PrimeVueResolver(),
+        PrimeVueResolver({ components: { prefix: 'P' } }),
+        PrimeVueResolver({ components: { prefix: 'p' } })
+      ],
       dirs: ['src/components'],
       dts: 'src/types/components.d.ts'
     })

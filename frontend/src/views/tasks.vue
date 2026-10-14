@@ -1,7 +1,7 @@
 <template>
   <h-page title="任务与后台作业中心" desc="查看环境安装、备份、恢复及异步处理任务的进度与状态">
     <template #extra>
-      <Button 
+      <p-button 
         label="刷新" 
         icon="pi pi-refresh" 
         severity="secondary" 
@@ -28,11 +28,11 @@
             </div>
 
             <div class="task-right">
-              <Tag 
+              <p-tag 
                 :severity="getStatusSeverity(t.status)" 
                 :value="getStatusLabel(t.status)" 
               />
-              <Button 
+              <p-button 
                 v-if="t.status === 'running' || t.status === 'queued'" 
                 label="取消任务" 
                 severity="danger" 
@@ -43,7 +43,7 @@
             </div>
           </div>
 
-          <ProgressBar :value="t.progress" :showValue="false" style="height: 6px;" />
+          <p-progress-bar :value="t.progress" :showValue="false" style="height: 6px;" />
 
           <div class="task-meta-line">
             <span class="text-sm text-muted">创建时间: {{ formatDate(t.createdAt) }}</span>
@@ -63,10 +63,6 @@
 import { ref, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
 import HCard from '@/components/h-card/h-card.vue'
-import Button from 'primevue/button'
-import ProgressBar from 'primevue/progressbar'
-import Tag from 'primevue/tag'
-import { useToast } from 'primevue/usetoast'
 import { listTasks, cancelTask } from '@/api/tasks'
 import type { Task } from '@/types'
 
@@ -74,7 +70,6 @@ defineOptions({
   name: 'Tasks'
 })
 
-const toast = useToast()
 const tasks = ref<Task[]>([])
 const loading = ref(false)
 
@@ -118,10 +113,10 @@ async function loadTasks() {
 async function handleCancel(id: number) {
   try {
     await cancelTask(id)
-    toast.add({ severity: 'info', summary: '已取消', detail: '任务已请求取消', life: 2500 })
+    toast.info('任务已请求取消')
     await loadTasks()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '取消任务失败', life: 3500 })
+    toast.error(err?.message || '取消任务失败')
   }
 }
 

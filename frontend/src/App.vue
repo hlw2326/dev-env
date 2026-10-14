@@ -1,6 +1,6 @@
 <template>
   <div class="app-shell">
-    <Toast position="top-center" :closable="false" />
+    <p-toast position="top-center" :closable="false" />
 
     <!-- 自定义窗口头部 / 标题栏 (Custom Header) -->
     <header class="custom-titlebar">
@@ -89,7 +89,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import Toast from 'primevue/toast'
 import {
   WindowMinimise,
   WindowToggleMaximise,

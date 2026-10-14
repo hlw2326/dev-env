@@ -1,8 +1,8 @@
 <template>
   <h-page title="应用全局设置" desc="配置运行环境根目录、默认项目存储路径、启动偏好与内部数据库">
     <template #extra>
-      <Button label="恢复默认" severity="secondary" outlined @click="handleReset" />
-      <Button label="保存配置" icon="pi pi-check" :loading="saving" @click="handleSave" />
+      <p-button label="恢复默认" severity="secondary" outlined @click="handleReset" />
+      <p-button label="保存配置" icon="pi pi-check" :loading="saving" @click="handleSave" />
     </template>
 
     <!-- Settings Grid -->
@@ -12,7 +12,7 @@
 
         <div class="form-field">
           <label>界面语言</label>
-          <Select 
+          <p-select 
             v-model="settings.language" 
             :options="langOptions" 
             optionLabel="label" 
@@ -22,7 +22,7 @@
 
         <div class="form-field">
           <label>主题模式</label>
-          <Select 
+          <p-select 
             v-model="settings.theme" 
             :options="themeOptions" 
             optionLabel="label" 
@@ -35,7 +35,7 @@
       <h-card title="路径配置">
         <div class="form-field">
           <label>环境根目录</label>
-          <InputText 
+          <p-input-text 
             v-model="settings.runtimeRootPath" 
             class="font-mono" 
             placeholder="如 D:\DevEnv\runtimes" 
@@ -44,7 +44,7 @@
 
         <div class="form-field">
           <label>默认项目路径</label>
-          <InputText 
+          <p-input-text 
             v-model="settings.defaultProjectPath" 
             class="font-mono" 
             placeholder="如 G:\www 或 D:\projects" 
@@ -59,7 +59,7 @@
             <span class="toggle-title">开机自启服务</span>
             <span class="toggle-sub">应用启动时自动开启标记为自启的服务实例</span>
           </div>
-          <ToggleSwitch v-model="settings.autoStartServices" />
+          <p-toggle-switch v-model="settings.autoStartServices" />
         </div>
 
         <div class="db-spec-box font-mono">
@@ -85,11 +85,6 @@
 import { ref, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
 import HCard from '@/components/h-card/h-card.vue'
-import Button from 'primevue/button'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
-import ToggleSwitch from 'primevue/toggleswitch'
-import { useToast } from 'primevue/usetoast'
 import { getSettings, updateSettings, resetSettings } from '@/api/settings'
 import type { AppSettings } from '@/types'
 
@@ -97,7 +92,6 @@ defineOptions({
   name: 'Settings'
 })
 
-const toast = useToast()
 const settings = ref<AppSettings>({
   language: 'zh-CN',
   theme: 'light',
@@ -131,9 +125,9 @@ async function handleSave() {
   saving.value = true
   try {
     settings.value = await updateSettings(settings.value)
-    toast.add({ severity: 'success', summary: '成功', detail: '设置已成功保存', life: 2500 })
+    toast.success('设置已成功保存')
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '保存设置失败', life: 3500 })
+    toast.error(err?.message || '保存设置失败')
   } finally {
     saving.value = false
   }
@@ -143,9 +137,9 @@ async function handleReset() {
   if (!confirm('确定要恢复默认设置吗？已有项目和环境记录不受影响。')) return
   try {
     settings.value = await resetSettings()
-    toast.add({ severity: 'info', summary: '已恢复', detail: '已重置为默认配置', life: 2500 })
+    toast.info('已重置为默认配置')
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '重置失败', life: 3500 })
+    toast.error(err?.message || '重置失败')
   }
 }
 

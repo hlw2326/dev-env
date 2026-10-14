@@ -1,7 +1,7 @@
 <template>
   <h-page title="PHP 运行环境管理" desc="多版本 PHP 隔离共存、扩展模块配置与系统 CLI 默认版本控制">
     <template #extra>
-      <Button 
+      <p-button 
         label="登记本地 PHP" 
         icon="pi pi-plus" 
         @click="showRegisterModal = true" 
@@ -26,7 +26,7 @@
             <span class="php-txt">PHP</span>
             <span class="php-v">{{ ver.version }}</span>
           </div>
-          <Tag v-if="ver.isDefault" severity="success" value="默认 CLI 版本" icon="pi pi-check" />
+          <p-tag v-if="ver.isDefault" severity="success" value="默认 CLI 版本" icon="pi pi-check" />
         </div>
 
         <div class="card-details">
@@ -40,7 +40,7 @@
           </div>
           <div class="detail-row">
             <span class="detail-lbl">状态:</span>
-            <Tag 
+            <p-tag 
               :severity="ver.status === 'installed' ? 'success' : 'danger'"
               :value="ver.status === 'installed' ? '可运行' : '不可用'" 
               size="small"
@@ -49,7 +49,7 @@
         </div>
 
         <div class="card-actions">
-          <Button 
+          <p-button 
             label="扩展模块" 
             icon="pi pi-sliders-h" 
             severity="secondary" 
@@ -57,7 +57,7 @@
             size="small"
             @click="openExtensions(ver.id, ver.version)"
           />
-          <Button 
+          <p-button 
             v-if="!ver.isDefault" 
             label="设为默认" 
             size="small" 
@@ -68,7 +68,7 @@
     </div>
 
     <!-- Register Dialog -->
-    <Dialog 
+    <p-dialog 
       v-model:visible="showRegisterModal" 
       modal 
       header="登记本地 PHP 环境" 
@@ -77,7 +77,7 @@
       <form @submit.prevent="submitRegister">
         <div class="form-field">
           <label>安装目录绝对路径 (含 php.exe)</label>
-          <InputText 
+          <p-input-text 
             v-model="registerForm.installPath" 
             required 
             placeholder="如 D:\phpstudy_pro\Extensions\php\php8.2.9nts" 
@@ -86,7 +86,7 @@
 
         <div class="form-field">
           <label>CPU 架构</label>
-          <Select 
+          <p-select 
             v-model="registerForm.architecture" 
             :options="archOptions" 
             optionLabel="label" 
@@ -95,14 +95,14 @@
         </div>
 
         <div class="dialog-footer">
-          <Button label="取消" severity="secondary" text @click="showRegisterModal = false" />
-          <Button label="确认登记" type="submit" :loading="submitting" />
+          <p-button label="取消" severity="secondary" text @click="showRegisterModal = false" />
+          <p-button label="确认登记" type="submit" :loading="submitting" />
         </div>
       </form>
-    </Dialog>
+    </p-dialog>
 
     <!-- Extensions Dialog -->
-    <Dialog 
+    <p-dialog 
       v-model:visible="showExtModal" 
       modal 
       :header="'PHP ' + currentExtVersion + ' 扩展模块清单'" 
@@ -114,7 +114,7 @@
       <div v-else class="extensions-grid">
         <div v-for="ext in extensions" :key="ext.name" class="ext-badge-card">
           <span class="ext-title font-mono">{{ ext.name }}</span>
-          <Tag 
+          <p-tag 
             :severity="ext.enabled ? 'success' : 'secondary'"
             :value="ext.enabled ? '已启用' : '可用'" 
             size="small"
@@ -123,21 +123,15 @@
       </div>
 
       <div class="dialog-footer">
-        <Button label="关闭" severity="secondary" text @click="showExtModal = false" />
+        <p-button label="关闭" severity="secondary" text @click="showExtModal = false" />
       </div>
-    </Dialog>
+    </p-dialog>
   </h-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
-import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
-import Tag from 'primevue/tag'
-import { useToast } from 'primevue/usetoast'
 import { listVersions, registerVersion, setDefaultVersion, getExtensions } from '@/api/php'
 import type { PHPVersion, PHPExtension } from '@/types'
 
@@ -145,7 +139,6 @@ defineOptions({
   name: 'PHP'
 })
 
-const toast = useToast()
 const versions = ref<PHPVersion[]>([])
 const loading = ref(false)
 const submitting = ref(false)
@@ -183,12 +176,12 @@ async function submitRegister() {
       architecture: registerForm.value.architecture,
       installPath: registerForm.value.installPath,
     })
-    toast.add({ severity: 'success', summary: '成功', detail: 'PHP 版本已成功登记', life: 2500 })
+    toast.success('PHP 版本已成功登记')
     showRegisterModal.value = false
     registerForm.value.installPath = ''
     await loadVersions()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '登记失败', life: 3500 })
+    toast.error(err?.message || '登记失败')
   } finally {
     submitting.value = false
   }
@@ -197,10 +190,10 @@ async function submitRegister() {
 async function handleSetDefault(id: number) {
   try {
     await setDefaultVersion(id)
-    toast.add({ severity: 'success', summary: '已更新', detail: '已设置为默认 CLI 版本', life: 2500 })
+    toast.success('已设置为默认 CLI 版本')
     await loadVersions()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '设置默认失败', life: 3500 })
+    toast.error(err?.message || '设置默认失败')
   }
 }
 
@@ -211,7 +204,7 @@ async function openExtensions(id: number, verName: string) {
   try {
     extensions.value = await getExtensions(id)
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '获取扩展信息失败', life: 3500 })
+    toast.error(err?.message || '获取扩展信息失败')
   } finally {
     extLoading.value = false
   }

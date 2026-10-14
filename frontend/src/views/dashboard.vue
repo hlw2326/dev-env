@@ -1,8 +1,8 @@
 <template>
   <h-page title="开发环境概览" desc="Windows 本地高效 PHP / Web 开发栈一站式控制中心">
     <template #extra>
-      <Tag severity="success" value="SQLite: system_ 正常" icon="pi pi-check" />
-      <Tag severity="info" value="进程管理器: 运行中" icon="pi pi-server" />
+      <p-tag severity="success" value="SQLite: system_ 正常" icon="pi pi-check" />
+      <p-tag severity="info" value="进程管理器: 运行中" icon="pi pi-server" />
     </template>
 
     <!-- Stats Grid -->
@@ -57,7 +57,7 @@
             <i class="pi pi-bolt text-blue"></i>
             <span>核心服务状态与控制</span>
           </div>
-          <Button 
+          <p-button 
             icon="pi pi-refresh" 
             label="刷新" 
             size="small" 
@@ -77,7 +77,7 @@
             <div class="service-info">
               <div class="service-title-line">
                 <span class="service-name">{{ srv.name }}</span>
-                <Tag 
+                <p-tag 
                   :severity="srv.status === 'running' ? 'success' : 'secondary'"
                   :value="srv.status === 'running' ? '运行中' : '已停止'" 
                   size="small"
@@ -89,7 +89,7 @@
             </div>
 
             <div class="service-actions">
-              <Button 
+              <p-button 
                 v-if="srv.status !== 'running'"
                 label="启动" 
                 icon="pi pi-play" 
@@ -98,7 +98,7 @@
                 :loading="operatingId === srv.id"
                 @click="handleStart(srv.id)"
               />
-              <Button 
+              <p-button 
                 v-else
                 label="停止" 
                 icon="pi pi-stop" 
@@ -120,7 +120,7 @@
             <i class="pi pi-list text-indigo"></i>
             <span>最近项目</span>
           </div>
-          <Button 
+          <p-button 
             label="进入项目管理" 
             icon="pi pi-arrow-right" 
             iconPos="right" 
@@ -139,7 +139,7 @@
               <span class="project-name">{{ proj.name }}</span>
               <span class="project-path font-mono" :title="proj.path">{{ proj.path }}</span>
             </div>
-            <Tag 
+            <p-tag 
               :severity="proj.status === 'ready' ? 'success' : 'danger'"
               :value="proj.status === 'ready' ? '就绪' : '缺失'" 
               size="small"
@@ -154,9 +154,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
-import Button from 'primevue/button'
-import Tag from 'primevue/tag'
-import { useToast } from 'primevue/usetoast'
 import { listProjects } from '@/api/projects'
 import { listVersions } from '@/api/php'
 import { listServices, startService, stopService } from '@/api/services'
@@ -167,7 +164,6 @@ defineOptions({
   name: 'Dashboard'
 })
 
-const toast = useToast()
 const projects = ref<Project[]>([])
 const phpVersions = ref<PHPVersion[]>([])
 const services = ref<ServiceInstance[]>([])
@@ -201,10 +197,10 @@ async function handleStart(id: number) {
   operatingId.value = id
   try {
     await startService(id)
-    toast.add({ severity: 'success', summary: '成功', detail: '服务启动成功', life: 2500 })
+    toast.success('服务启动成功')
     await loadData()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '服务启动失败', life: 3500 })
+    toast.error(err?.message || '服务启动失败')
   } finally {
     operatingId.value = null
   }
@@ -214,10 +210,10 @@ async function handleStop(id: number) {
   operatingId.value = id
   try {
     await stopService(id)
-    toast.add({ severity: 'info', summary: '已停止', detail: '服务已成功停止', life: 2500 })
+    toast.info('服务已成功停止')
     await loadData()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '服务停止失败', life: 3500 })
+    toast.error(err?.message || '服务停止失败')
   } finally {
     operatingId.value = null
   }

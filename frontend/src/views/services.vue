@@ -1,7 +1,7 @@
 <template>
   <h-page title="服务实例管理" desc="监控与管理本地 Web 服务器 (Nginx)、数据库 (MySQL) 与 PHP FastCGI 进程">
     <template #extra>
-      <Button 
+      <p-button 
         label="刷新状态" 
         icon="pi pi-refresh" 
         severity="secondary" 
@@ -27,7 +27,7 @@
             <span class="srv-name">{{ srv.name }}</span>
           </div>
 
-          <Tag 
+          <p-tag 
             :severity="srv.status === 'running' ? 'success' : 'secondary'"
             :value="srv.status === 'running' ? '运行中' : '已停止'" 
             :icon="srv.status === 'running' ? 'pi pi-check-circle' : 'pi pi-minus-circle'"
@@ -50,7 +50,7 @@
         </div>
 
         <div class="srv-footer-actions">
-          <Button 
+          <p-button 
             v-if="srv.status !== 'running'"
             label="启动服务" 
             icon="pi pi-play" 
@@ -61,7 +61,7 @@
           />
 
           <template v-else>
-            <Button 
+            <p-button 
               label="停止" 
               icon="pi pi-stop" 
               severity="danger" 
@@ -70,7 +70,7 @@
               :loading="operatingId === srv.id"
               @click="handleStop(srv.id)"
             />
-            <Button 
+            <p-button 
               label="重启" 
               icon="pi pi-replay" 
               severity="secondary" 
@@ -81,7 +81,7 @@
             />
           </template>
 
-          <Button 
+          <p-button 
             icon="pi pi-terminal" 
             label="日志" 
             severity="secondary" 
@@ -100,8 +100,8 @@
           <span>{{ activeLogService.name }} - 控制台实时日志</span>
         </div>
         <div class="log-panel-actions">
-          <Button label="刷新日志" icon="pi pi-refresh" severity="secondary" text size="small" @click="fetchLogs" />
-          <Button label="关闭" severity="secondary" text size="small" @click="activeLogService = null" />
+          <p-button label="刷新日志" icon="pi pi-refresh" severity="secondary" text size="small" @click="fetchLogs" />
+          <p-button label="关闭" severity="secondary" text size="small" @click="activeLogService = null" />
         </div>
       </div>
 
@@ -119,9 +119,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
-import Button from 'primevue/button'
-import Tag from 'primevue/tag'
-import { useToast } from 'primevue/usetoast'
 import { listServices, startService, stopService, restartService, getServiceLogs } from '@/api/services'
 import type { ServiceInstance } from '@/types'
 
@@ -129,7 +126,6 @@ defineOptions({
   name: 'Services'
 })
 
-const toast = useToast()
 const services = ref<ServiceInstance[]>([])
 const loading = ref(false)
 const operatingId = ref<number | null>(null)
@@ -149,10 +145,10 @@ async function handleStart(id: number) {
   operatingId.value = id
   try {
     await startService(id)
-    toast.add({ severity: 'success', summary: '成功', detail: '服务启动成功', life: 2500 })
+    toast.success('服务启动成功')
     await loadServices()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '启动服务失败', life: 3500 })
+    toast.error(err?.message || '启动服务失败')
   } finally {
     operatingId.value = null
   }
@@ -162,10 +158,10 @@ async function handleStop(id: number) {
   operatingId.value = id
   try {
     await stopService(id)
-    toast.add({ severity: 'info', summary: '已停止', detail: '服务已停止', life: 2500 })
+    toast.info('服务已停止')
     await loadServices()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '停止服务失败', life: 3500 })
+    toast.error(err?.message || '停止服务失败')
   } finally {
     operatingId.value = null
   }
@@ -175,10 +171,10 @@ async function handleRestart(id: number) {
   operatingId.value = id
   try {
     await restartService(id)
-    toast.add({ severity: 'success', summary: '成功', detail: '服务重启成功', life: 2500 })
+    toast.success('服务重启成功')
     await loadServices()
   } catch (err: any) {
-    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '重启服务失败', life: 3500 })
+    toast.error(err?.message || '重启服务失败')
   } finally {
     operatingId.value = null
   }
