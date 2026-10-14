@@ -58,7 +58,7 @@ withDefaults(defineProps<Props>(), {
     
     .title {
       font-size: var(--font-md);
-      font-weight: 500;
+      font-weight: 400;
       color: var(--text-primary);
     }
   }

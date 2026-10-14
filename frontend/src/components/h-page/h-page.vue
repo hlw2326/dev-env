@@ -4,7 +4,7 @@
     <div v-if="title || $slots.title || $slots.extra" class="h-page-header">
       <div class="header-left">
         <slot name="title">
-          <h2 class="page-title">{{ title }}</h2>
+          <span class="page-title">{{ title }}</span>
         </slot>
         <slot name="desc">
           <p v-if="desc" class="page-desc">{{ desc }}</p>
@@ -75,7 +75,7 @@ withDefaults(defineProps<Props>(), {
 
     .page-title {
       font-size: 1.15rem;
-      font-weight: 500;
+      font-weight: 400;
       color: var(--text-primary);
       letter-spacing: -0.01em;
     }

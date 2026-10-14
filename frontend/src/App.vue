@@ -216,7 +216,7 @@ onUnmounted(() => {
 
 .brand-name {
   font-size: var(--font-base);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--text-primary);
   letter-spacing: -0.01em;
 }
