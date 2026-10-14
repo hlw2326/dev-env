@@ -232,7 +232,7 @@ onMounted(() => {
 .dashboard-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--h-padding);
 }
 
 .header-status-group {
@@ -243,18 +243,18 @@ onMounted(() => {
 .stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: var(--h-padding);
   margin-bottom: 4px;
 }
 
 .stat-box {
-  padding: 16px;
+  padding: var(--h-padding);
   display: flex;
   align-items: center;
   gap: 14px;
   cursor: pointer;
   border: 1px solid var(--border-color);
-  border-radius: 5px;
+  border-radius: var(--h-radius);
   background: var(--bg-card);
 }
 
@@ -266,7 +266,7 @@ onMounted(() => {
 .stat-icon-bg {
   width: 44px;
   height: 44px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -298,16 +298,16 @@ onMounted(() => {
 .panels-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--h-padding);
 }
 
 .panel {
-  padding: 18px 20px;
+  padding: var(--h-padding);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--h-padding);
   border: 1px solid var(--border-color);
-  border-radius: 5px;
+  border-radius: var(--h-radius);
   background: var(--bg-card);
 }
 
@@ -341,7 +341,7 @@ onMounted(() => {
   padding: 12px 14px;
   background: #f8fafc;
   border: 1px solid var(--border-color);
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
 }
 
 .service-row:hover, .project-row:hover {
@@ -386,6 +386,6 @@ onMounted(() => {
   font-size: 0.85rem;
   background: #f8fafc;
   border: 1px dashed var(--border-color);
-  border-radius: 5px;
+  border-radius: var(--h-radius);
 }
 </style>

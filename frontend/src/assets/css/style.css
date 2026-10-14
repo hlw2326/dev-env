@@ -25,30 +25,22 @@
     --text-main: #0f172a;
     --text-dim: #94a3b8;
 
-    /* 圆角与间距 - 全局统一 5px 圆角规范 */
-    --h-radius: 10px;
-    /* 全局统一圆角 5px */
-    --h-padding: 10px;
-    /* 全局统一内边距 */
+    /* 圆角与间距规范 */
+    --h-radius: 10px;            /* 主卡片与容器全局圆角 (10px) */
+    --h-padding: 15px;           /* 全局统一内边距与网格间距 (15px) */
 
     /* 字号系统 */
-    --font-xs: 0.75rem;
-    /* 12px */
-    --font-sm: 0.8125rem;
-    /* 13px */
-    --font-base: 0.875rem;
-    /* 14px - 全局基准 */
-    --font-md: 0.9375rem;
-    /* 15px */
-    --font-lg: 1rem;
-    /* 16px */
-    --font-xl: 1.125rem;
-    /* 18px */
+    --font-xs: 0.75rem;          /* 12px */
+    --font-sm: 0.8125rem;        /* 13px */
+    --font-base: 0.875rem;       /* 14px - 全局基准 */
+    --font-md: 0.9375rem;        /* 15px */
+    --font-lg: 1rem;             /* 16px */
+    --font-xl: 1.125rem;         /* 18px */
 
-    /* 圆角系统 - 统一为 5px */
-    --radius-sm: 5px;
-    --radius-md: 5px;
-    --radius-lg: 5px;
+    /* 圆角系统分级 - 与 --h-radius 协同 */
+    --radius-sm: 6px;            /* 小圆角（Tag 标签、列表内项、紧凑徽章） */
+    --radius-md: var(--h-radius);/* 中圆角 (10px，按钮、输入框、常规卡片) */
+    --radius-lg: 12px;           /* 大圆角 (12px，模态弹窗 Dialog、外层大容器) */
     --radius-full: 9999px;
 
     /* 品牌色与状态色 */
