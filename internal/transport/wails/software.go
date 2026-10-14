@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"devenv/internal/app"
+	"devenv/internal/domain/software"
 )
 
 type SoftwareAPI struct {
@@ -51,6 +52,7 @@ func (a *SoftwareAPI) List() ([]SoftwareDTO, error) {
 		res = append(res, SoftwareDTO{
 			ID:        item.ID,
 			Kind:      item.Kind,
+			Name:      software.Name(item.Kind),
 			Version:   item.Version,
 			Path:      item.Path,
 			State:     item.State,
@@ -61,6 +63,7 @@ func (a *SoftwareAPI) List() ([]SoftwareDTO, error) {
 			Autostart: item.Autostart,
 			Running:   item.Running,
 			PID:       item.PID,
+			Daemon:    software.IsDaemon(item.Kind),
 		})
 	}
 	return res, nil

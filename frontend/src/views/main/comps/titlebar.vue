@@ -17,8 +17,8 @@
 			<button
 				type="button"
 				class="theme-toggle"
-				:title="theme.mode === 'dark' ? '切换到浅色模式' : '切换到深色模式'"
-				@click="handleToggleTheme"
+				:title="modeTip"
+				@click="toggleTheme"
 			>
 				<i v-if="theme.mode === 'dark'" class="pi pi-sun toggle-icon"></i>
 				<i v-else class="pi pi-moon toggle-icon"></i>
@@ -34,6 +34,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { toggleMaxWin, loadSettings, saveSettings } from '@/api'
 import { useTheme } from '@/composables/theme'
+import type { ThemeMode } from '@/composables/theme'
 import WinBtns from './win-btns.vue'
 
 const route = useRoute()
@@ -46,19 +47,30 @@ const routeName = computed(() => {
 	return String(route.name)
 })
 
-async function handleToggleTheme() {
-	const nextMode = theme.mode === 'dark' ? 'light' : 'dark'
-	setThemeMode(nextMode)
+const modeTip = computed(() => {
+	if (theme.mode === 'dark') {
+		return '切换到浅色模式'
+	}
+	return '切换到深色模式'
+})
+
+async function toggleTheme() {
+	let next: ThemeMode = 'light'
+	if (theme.mode === 'light') {
+		next = 'dark'
+	}
+	setThemeMode(next)
 	try {
 		const cfg = await loadSettings()
 		await saveSettings({
-			theme: nextMode,
+			theme: next,
 			root: cfg.root,
 			port: cfg.port,
 			hosts: cfg.hosts,
+			autostart: cfg.autostart,
 		})
 	} catch {
-		// ignore persistence error in quick toggle
+		// ignore persistence error
 	}
 }
 </script>

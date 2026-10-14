@@ -73,7 +73,7 @@
 						option-label="label"
 						option-value="value"
 						class="flex-input"
-						@change="onRunPresetChange"
+						@change="changePreset"
 					/>
 					<p-input-text
 						v-if="runPreset === 'custom'"
@@ -241,7 +241,7 @@ async function onDetectRun() {
 	}
 }
 
-function onRunPresetChange() {
+function changePreset() {
 	if (runPreset.value !== 'custom') {
 		customRun.value = ''
 	}

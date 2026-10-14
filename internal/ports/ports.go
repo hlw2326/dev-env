@@ -73,6 +73,7 @@ type Runner interface {
 	Start(key string, options Options) (int, error)
 	Stop(key string) error
 	Status(key string) Status
+	Adopt(key string, pid int, log string)
 	Tail(key string, limit int) []string
 }
 
@@ -100,6 +101,7 @@ type HostsWriter interface {
 type PortChecker interface {
 	Available(port int) bool
 	Listening(port int) bool
+	FindProcess(port int) (int, string, error)
 }
 
 type EventPublisher interface {

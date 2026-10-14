@@ -1,12 +1,10 @@
 <template>
 	<div class="installed-row surface-card">
 		<div class="left">
-			<div class="pkg-icon" :class="item.kind">
-				<i :class="kindIcons[item.kind]"></i>
-			</div>
+			<h-logo :kind="item.kind" size="medium" />
 			<div class="info">
 				<div class="top-line">
-					<span class="item-name">{{ kindNames[item.kind] }} {{ item.version }}</span>
+					<span class="item-name">{{ item.name }} {{ item.version }}</span>
 					<span v-if="item.main" class="main-tag">默认</span>
 
 					<span v-if="item.state === 'installing'" class="status-pill installing">
@@ -17,11 +15,11 @@
 						<span class="dot"></span>
 						<span>安装失败</span>
 					</span>
-					<span v-else-if="isDaemon && item.running" class="status-pill running">
+					<span v-else-if="item.daemon && item.running" class="status-pill running">
 						<span class="dot"></span>
 						<span>运行中 (PID {{ item.pid }})</span>
 					</span>
-					<span v-else-if="isDaemon && !item.running" class="status-pill stopped">
+					<span v-else-if="item.daemon && !item.running" class="status-pill stopped">
 						<span class="dot"></span>
 						<span>已停止</span>
 					</span>
@@ -30,7 +28,7 @@
 						<span>可用</span>
 					</span>
 
-					<span v-if="isDaemon && item.port > 0" class="port-badge font-mono">
+					<span v-if="item.daemon && item.port > 0" class="port-badge font-mono">
 						端口 {{ item.port }}
 					</span>
 				</div>
@@ -79,7 +77,7 @@
 			</template>
 
 			<template v-else>
-				<template v-if="isDaemon">
+				<template v-if="item.daemon">
 					<p-button
 						v-if="item.running"
 						size="small"
@@ -132,6 +130,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useConfirm } from 'primevue/useconfirm'
+import { HLogo } from '@/components'
 import type { Software } from '@/types'
 
 const props = defineProps<{
@@ -145,7 +144,7 @@ const activeProgress = computed(() => {
 		return props.progressMap[key]
 	}
 	return {
-		progress: props.item.progress || 0,
+		progress: props.item.progress,
 		message: '正在安装...',
 	}
 })
@@ -162,30 +161,8 @@ const emit = defineEmits<{
 
 const confirm = useConfirm()
 
-const kindNames: Record<string, string> = {
-	nginx: 'Nginx',
-	apache: 'Apache',
-	php: 'PHP',
-	nodejs: 'Node.js',
-	mysql: 'MySQL',
-	redis: 'Redis',
-}
-
-const kindIcons: Record<string, string> = {
-	nginx: 'pi pi-compass',
-	apache: 'pi pi-globe',
-	php: 'pi pi-code',
-	nodejs: 'pi pi-bolt',
-	mysql: 'pi pi-database',
-	redis: 'pi pi-server',
-}
-
-const isDaemon = computed(() => {
-	return props.item.kind === 'mysql' || props.item.kind === 'redis' || props.item.kind === 'nginx' || props.item.kind === 'apache'
-})
-
 function onConfirmRemove(event: MouseEvent) {
-	let message = `确认卸载 ${kindNames[props.item.kind]} ${props.item.version} 吗？`
+	let message = `确认卸载 ${props.item.name} ${props.item.version} 吗？`
 	if (props.item.kind === 'mysql') {
 		message = `卸载只删除软件目录，数据库数据目录 dbdata\\mysql-${props.item.version} 将完整保留`
 	}
@@ -221,52 +198,6 @@ function onConfirmRemove(event: MouseEvent) {
 	flex: 1;
 }
 
-.pkg-icon {
-	width: 2.5rem;
-	height: 2.5rem;
-	border-radius: var(--radius-md);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: var(--icon-lg);
-	flex-shrink: 0;
-
-	&.nginx {
-		background: var(--warn-bg);
-		color: var(--warn);
-		border: 1px solid var(--warn-border);
-	}
-
-	&.apache {
-		background: #fff1f2;
-		color: #e11d48;
-		border: 1px solid #fecdd3;
-	}
-
-	&.php {
-		background: var(--indigo-bg);
-		color: var(--indigo);
-		border: 1px solid var(--indigo-border);
-	}
-
-	&.nodejs {
-		background: var(--ok-bg);
-		color: var(--ok);
-		border: 1px solid var(--ok-border);
-	}
-
-	&.mysql {
-		background: var(--info-bg);
-		color: var(--info);
-		border: 1px solid var(--info-border);
-	}
-
-	&.redis {
-		background: var(--err-bg);
-		color: var(--err);
-		border: 1px solid var(--err-border);
-	}
-}
 
 .info {
 	display: flex;

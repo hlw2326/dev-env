@@ -46,6 +46,8 @@ func (r *SettingRepository) Load(ctx context.Context) (setting.Settings, error) 
 			result.Port = port
 		case "hosts":
 			result.Hosts = value == "true"
+		case "autostart":
+			result.Autostart = value == "true"
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -63,10 +65,11 @@ func (r *SettingRepository) Save(ctx context.Context, settings setting.Settings)
 	defer func() { _ = tx.Rollback() }()
 
 	pairs := map[string]string{
-		"theme": settings.Theme,
-		"root":  settings.Root,
-		"port":  strconv.Itoa(settings.Port),
-		"hosts": strconv.FormatBool(settings.Hosts),
+		"theme":     settings.Theme,
+		"root":      settings.Root,
+		"port":      strconv.Itoa(settings.Port),
+		"hosts":     strconv.FormatBool(settings.Hosts),
+		"autostart": strconv.FormatBool(settings.Autostart),
 	}
 	for k, v := range pairs {
 		if _, err := tx.ExecContext(ctx, `

@@ -5,12 +5,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"devenv/internal/domain/software"
 	"devenv/internal/infra/catalog"
 	"devenv/internal/infra/events"
-	"devenv/internal/infra/gateway"
 	"devenv/internal/infra/hosts"
 	"devenv/internal/infra/installer"
 	"devenv/internal/infra/network"
+	"devenv/internal/infra/nginx"
 	"devenv/internal/infra/process"
 	"devenv/internal/infra/sqlite"
 )
@@ -19,7 +20,7 @@ type Container struct {
 	BaseDir  string
 	DB       *sqlite.DB
 	Bus      *events.Publisher
-	Gateway  *gateway.Server
+	Gateway  *nginx.Gateway
 	Runner   *process.Manager
 	Site     *SiteService
 	Software *SoftwareService
@@ -42,7 +43,7 @@ func Bootstrap() (*Container, error) {
 	bus := events.NewPublisher()
 	probe := network.NewChecker()
 	runner := process.NewManager()
-	gw := gateway.NewServer()
+	gw := nginx.NewGateway(baseDir, runner, probe)
 	cat := catalog.NewClient()
 	inst := installer.NewManager()
 	hostsWriter := hosts.NewWriter()
@@ -55,7 +56,12 @@ func Bootstrap() (*Container, error) {
 	siteSvc := NewSiteService(baseDir, siteRepo, softRepo, settingRepo, gw, runner, hostsWriter, probe, bus)
 	settingSvc := NewSettingService(baseDir, settingRepo, siteRepo, gw, hostsWriter)
 
-	softSvc.SetOnInstalled(siteSvc.OnSoftwareInstalled)
+	softSvc.SetOnInstalled(func(ctx context.Context, sw software.Software) {
+		siteSvc.OnSoftwareInstalled(ctx, sw)
+		if sw.Kind == software.KindNginx {
+			settingSvc.StartGateway(ctx)
+		}
+	})
 
 	return &Container{
 		BaseDir:  baseDir,

@@ -22,16 +22,18 @@
 
 		<div v-else class="list">
 			<div v-for="item in readySoftware" :key="item.id" class="row">
-				<div class="info">
+				<div class="row-left">
+					<h-logo :kind="item.kind" size="small" />
+					<div class="info">
 					<div class="title-line">
-						<span class="name">{{ formatKind(item.kind) }} {{ item.version }}</span>
+						<span class="name">{{ item.name }} {{ item.version }}</span>
 						<p-tag
 							v-if="item.main"
 							severity="info"
 							value="默认"
 							size="small"
 						/>
-						<template v-if="isDaemon(item.kind)">
+						<template v-if="item.daemon">
 							<p-tag
 								v-if="item.running"
 								severity="success"
@@ -53,7 +55,7 @@
 						/>
 					</div>
 					<span class="meta font-mono">
-						<template v-if="isDaemon(item.kind)">
+						<template v-if="item.daemon">
 							<span>端口: {{ item.port }}</span>
 							<span v-if="item.running"> · PID: {{ item.pid }}</span>
 							<span v-else> · 空闲</span>
@@ -61,9 +63,10 @@
 						<span v-else>{{ item.path }}</span>
 					</span>
 				</div>
+				</div>
 
 				<div class="actions">
-					<template v-if="isDaemon(item.kind)">
+					<template v-if="item.daemon">
 						<p-button
 							v-if="!item.running"
 							label="启动"
@@ -100,35 +103,10 @@
 </template>
 
 <script setup lang="ts">
+import { HLogo } from '@/components'
 import { useDashboard } from '../use-dashboard'
 
 const { readySoftware, loading, busyId, loadData, handleStart, handleStop } = useDashboard()
-
-function isDaemon(kind: string): boolean {
-	return kind === 'mysql' || kind === 'redis' || kind === 'nginx' || kind === 'apache'
-}
-
-function formatKind(kind: string): string {
-	if (kind === 'nginx') {
-		return 'Nginx'
-	}
-	if (kind === 'apache') {
-		return 'Apache'
-	}
-	if (kind === 'php') {
-		return 'PHP'
-	}
-	if (kind === 'nodejs') {
-		return 'Node.js'
-	}
-	if (kind === 'mysql') {
-		return 'MySQL'
-	}
-	if (kind === 'redis') {
-		return 'Redis'
-	}
-	return kind
-}
 </script>
 
 <style scoped lang="scss">
@@ -175,6 +153,13 @@ function formatKind(kind: string): string {
 	&:hover {
 		background: var(--bg-card);
 		border-color: var(--border-hover);
+	}
+
+	.row-left {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
 	}
 
 	.info {

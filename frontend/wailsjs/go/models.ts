@@ -172,6 +172,7 @@ export namespace wails {
 	    root: string;
 	    port: number;
 	    hosts: boolean;
+	    autostart: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new SaveSettingsInput(source);
@@ -183,6 +184,7 @@ export namespace wails {
 	        this.root = source["root"];
 	        this.port = source["port"];
 	        this.hosts = source["hosts"];
+	        this.autostart = source["autostart"];
 	    }
 	}
 	export class SettingsDTO {
@@ -190,6 +192,7 @@ export namespace wails {
 	    root: string;
 	    port: number;
 	    hosts: boolean;
+	    autostart: boolean;
 	    listening: boolean;
 	    error: string;
 	
@@ -203,6 +206,7 @@ export namespace wails {
 	        this.root = source["root"];
 	        this.port = source["port"];
 	        this.hosts = source["hosts"];
+	        this.autostart = source["autostart"];
 	        this.listening = source["listening"];
 	        this.error = source["error"];
 	    }
@@ -254,6 +258,7 @@ export namespace wails {
 	export class SoftwareDTO {
 	    id: number;
 	    kind: string;
+	    name: string;
 	    version: string;
 	    path: string;
 	    state: string;
@@ -264,6 +269,7 @@ export namespace wails {
 	    autostart: boolean;
 	    running: boolean;
 	    pid: number;
+	    daemon: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new SoftwareDTO(source);
@@ -273,6 +279,7 @@ export namespace wails {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.kind = source["kind"];
+	        this.name = source["name"];
 	        this.version = source["version"];
 	        this.path = source["path"];
 	        this.state = source["state"];
@@ -283,6 +290,7 @@ export namespace wails {
 	        this.autostart = source["autostart"];
 	        this.running = source["running"];
 	        this.pid = source["pid"];
+	        this.daemon = source["daemon"];
 	    }
 	}
 	export class UpdateSiteInput {

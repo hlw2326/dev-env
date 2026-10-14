@@ -34,6 +34,7 @@ func (a *SystemAPI) Settings() (SettingsDTO, error) {
 		Root:      v.Root,
 		Port:      v.Port,
 		Hosts:     v.Hosts,
+		Autostart: v.Autostart,
 		Listening: v.Listening,
 		Error:     v.Error,
 	}, nil
@@ -41,10 +42,11 @@ func (a *SystemAPI) Settings() (SettingsDTO, error) {
 
 func (a *SystemAPI) SaveSettings(in SaveSettingsInput) Result {
 	err := a.service.SaveSettings(a.ctx, setting.Settings{
-		Theme: in.Theme,
-		Root:  in.Root,
-		Port:  in.Port,
-		Hosts: in.Hosts,
+		Theme:     in.Theme,
+		Root:      in.Root,
+		Port:      in.Port,
+		Hosts:     in.Hosts,
+		Autostart: in.Autostart,
 	})
 	if err != nil {
 		return Result{OK: false, Message: err.Error()}

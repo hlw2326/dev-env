@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     HCard: typeof import('./src/components/h-card/h-card.vue')['default']
+    HLogo: typeof import('./src/components/h-logo/h-logo.vue')['default']
     HModal: typeof import('./src/components/h-modal/h-modal.vue')['default']
     HPage: typeof import('./src/components/h-page/h-page.vue')['default']
     PButton: typeof import('primevue/button')['default']

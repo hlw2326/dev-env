@@ -27,11 +27,23 @@ type entry struct {
 type Manager struct {
 	mu      sync.RWMutex
 	entries map[string]*entry
+	job     *jobObject
 }
 
 func NewManager() *Manager {
 	return &Manager{
 		entries: make(map[string]*entry),
+		job:     newJobObject(),
+	}
+}
+
+func (m *Manager) Adopt(key string, pid int, log string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.entries[key] = &entry{
+		pid:     pid,
+		running: true,
+		log:     log,
 	}
 }
 
@@ -91,6 +103,8 @@ func (m *Manager) Start(key string, options ports.Options) (int, error) {
 		}
 		return 0, appErrors.Wrap(err, appErrors.CodeProcessStartFailed, "进程启动失败")
 	}
+
+	m.job.assign(cmd.Process)
 
 	pid := cmd.Process.Pid
 	ent := &entry{

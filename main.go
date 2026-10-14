@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -15,13 +16,22 @@ var assets embed.FS
 func main() {
 	app := NewApp()
 
+	startHidden := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--minimized" {
+			startHidden = true
+			break
+		}
+	}
+
 	err := wails.Run(&options.App{
-		Title:     "DevEnv - 本地开发环境管理平台",
-		Width:     1280,
-		Height:    800,
-		MinWidth:  1024,
-		MinHeight: 640,
-		Frameless: true,
+		Title:       "DevEnv - 本地开发环境管理平台",
+		Width:       1280,
+		Height:      800,
+		MinWidth:    1024,
+		MinHeight:   640,
+		Frameless:   true,
+		StartHidden: startHidden,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

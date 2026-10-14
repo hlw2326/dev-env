@@ -1,7 +1,7 @@
 <template>
 	<h-page title="全局设置" desc="配置默认站点目录、本地网关端口、hosts 自动写入与界面主题">
 		<template #extra>
-			<p-button icon="pi pi-check" label="保存设置" :loading="saving" @click="handleSave" />
+			<p-button icon="pi pi-check" label="保存设置" :loading="saving" @click="save" />
 		</template>
 
 		<h-card title="网关与站点">
@@ -33,7 +33,7 @@
 							variant="outlined"
 							icon="pi pi-folder-open"
 							label="选择"
-							@click="handlePickRoot"
+							@click="pickRoot"
 						/>
 					</div>
 					<span class="field-desc">创建新网站时默认使用该目录作为父目录</span>
@@ -54,6 +54,16 @@
 					</div>
 					<p-toggle-switch v-model="form.hosts" />
 				</div>
+
+				<div class="toggle-row">
+					<div class="toggle-info">
+						<span class="sec-title">开机自动启动 DevEnv</span>
+						<span class="field-desc">
+							电脑开机登录后自动在后台启动，并自动拉起配置了“随应用启动”的软件服务和网站
+						</span>
+					</div>
+					<p-toggle-switch v-model="form.autostart" />
+				</div>
 			</div>
 		</h-card>
 
@@ -66,7 +76,7 @@
 							type="button"
 							class="theme-btn"
 							:class="{ active: theme.mode === 'light' }"
-							@click="handleSelectTheme('light')"
+							@click="selectTheme('light')"
 						>
 							<i class="pi pi-sun theme-icon"></i>
 							<span>浅色模式</span>
@@ -75,7 +85,7 @@
 							type="button"
 							class="theme-btn"
 							:class="{ active: theme.mode === 'dark' }"
-							@click="handleSelectTheme('dark')"
+							@click="selectTheme('dark')"
 						>
 							<i class="pi pi-moon theme-icon"></i>
 							<span>深色模式</span>
@@ -84,7 +94,7 @@
 							type="button"
 							class="theme-btn"
 							:class="{ active: theme.mode === 'system' }"
-							@click="handleSelectTheme('system')"
+							@click="selectTheme('system')"
 						>
 							<i class="pi pi-desktop theme-icon"></i>
 							<span>跟随系统</span>
@@ -105,7 +115,7 @@
 							class="color-wrap"
 							:class="{ active: theme.color.toLowerCase() === item.value.toLowerCase() }"
 							:title="item.name"
-							@click="handleSelectColor(item.value)"
+							@click="selectColor(item.value)"
 						>
 							<span class="color-dot" :style="{ backgroundColor: item.value }">
 								<i
@@ -119,7 +129,7 @@
 								type="color"
 								:value="theme.color"
 								class="color-input"
-								@input="(e) => handleSelectColor((e.target as HTMLInputElement).value)"
+								@input="(e) => selectColor((e.target as HTMLInputElement).value)"
 							/>
 							<i class="pi pi-plus plus-icon"></i>
 						</label>
@@ -135,7 +145,7 @@
 							variant="outlined"
 							icon="pi pi-folder-open"
 							label="打开"
-							@click="handleOpenDataFolder"
+							@click="openData"
 						/>
 					</div>
 					<span class="field-desc">存放数据库、已安装软件、MySQL 数据目录与运行日志</span>
@@ -157,11 +167,11 @@ const {
 	gatewayError,
 	dataFolder,
 	saving,
-	handleSelectTheme,
-	handleSelectColor,
-	handlePickRoot,
-	handleSave,
-	handleOpenDataFolder,
+	selectTheme,
+	selectColor,
+	pickRoot,
+	save,
+	openData,
 } = useSettings()
 </script>
 

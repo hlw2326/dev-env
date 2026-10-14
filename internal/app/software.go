@@ -92,8 +92,24 @@ func (s *SoftwareService) ReconcileStartup(ctx context.Context) {
 		return
 	}
 	for _, item := range updatedList {
-		if item.State == software.StateInstalled && software.IsDaemon(item.Kind) && item.Autostart {
-			_ = s.Start(ctx, item.ID)
+		if item.State == software.StateInstalled && software.IsDaemon(item.Kind) {
+			logPath := s.softwareLogPath(item.Kind, item.Version)
+			if s.probe.Listening(item.Port) {
+				pid, exePath, _ := s.probe.FindProcess(item.Port)
+				if pid > 0 && isPathMatch(exePath, item.Path) {
+					s.runner.Adopt(daemonKey(item.ID), pid, logPath)
+					s.bus.Emit("service:status-changed", map[string]interface{}{
+						"id":      item.ID,
+						"running": true,
+						"pid":     pid,
+						"message": "",
+					})
+					continue
+				}
+			}
+			if item.Autostart {
+				_ = s.Start(ctx, item.ID)
+			}
 		}
 	}
 }
@@ -121,7 +137,7 @@ func (s *SoftwareService) discoverDiskSoftware(ctx context.Context) {
 			}
 			mainSw, _ := s.repo.GetMain(ctx, kind)
 			port := 0
-			if software.IsDaemon(kind) {
+			if software.IsDaemon(kind) || kind == software.KindPHP {
 				port = s.allocateDaemonPort(ctx, kind)
 			}
 			sw := &software.Software{
@@ -423,7 +439,7 @@ func (s *SoftwareService) runInstall(ctx context.Context, taskKey string, record
 	if mainSw == nil {
 		record.Main = true
 	}
-	if software.IsDaemon(record.Kind) {
+	if software.IsDaemon(record.Kind) || record.Kind == software.KindPHP {
 		record.Port = s.allocateDaemonPort(bgCtx, record.Kind)
 	}
 	record.State = software.StateInstalled
@@ -566,7 +582,29 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 	}
 
 	if !s.probe.Available(item.Port) {
-		return appErrors.New(appErrors.CodePortAlreadyInUse, fmt.Sprintf("端口 %d 已被占用", item.Port))
+		pid, exePath, _ := s.probe.FindProcess(item.Port)
+		if pid > 0 && isPathMatch(exePath, item.Path) {
+			if item.Kind == software.KindNginx {
+				nginxBin := filepath.Join(item.Path, "nginx.exe")
+				_ = exec.Command(nginxBin, "-p", item.Path, "-s", "stop").Run()
+			}
+			killCmd := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(pid))
+			killCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			_ = killCmd.Run()
+
+			for i := 0; i < 8; i++ {
+				if s.probe.Available(item.Port) {
+					break
+				}
+				time.Sleep(250 * time.Millisecond)
+			}
+		}
+		if !s.probe.Available(item.Port) {
+			if pid > 0 && exePath != "" {
+				return appErrors.New(appErrors.CodePortAlreadyInUse, fmt.Sprintf("端口 %d 已被占用 (PID: %d, %s)", item.Port, pid, filepath.Base(exePath)))
+			}
+			return appErrors.New(appErrors.CodePortAlreadyInUse, fmt.Sprintf("端口 %d 已被占用", item.Port))
+		}
 	}
 
 	logPath := s.softwareLogPath(item.Kind, item.Version)
@@ -954,9 +992,11 @@ func (s *SoftwareService) allocateDaemonPort(ctx context.Context, kind string) i
 	if kind == software.KindRedis {
 		basePort = 6379
 	} else if kind == software.KindNginx {
-		basePort = 8080
+		basePort = 80
 	} else if kind == software.KindApache {
 		basePort = 8088
+	} else if kind == software.KindPHP {
+		basePort = 9000
 	}
 	existing, _ := s.repo.ListByKind(ctx, kind)
 	used := make(map[int]bool, len(existing))
@@ -1032,18 +1072,23 @@ func (s *SoftwareService) prepareNginx(item software.Software) (string, error) {
 	_ = os.MkdirAll(filepath.Join(item.Path, "temp"), 0755)
 	confDir := filepath.Join(item.Path, "conf")
 	_ = os.MkdirAll(confDir, 0755)
+	_ = os.MkdirAll(filepath.Join(confDir, "vhosts"), 0755)
 	confPath := filepath.Join(confDir, "nginx.conf")
 	port := item.Port
 	if port <= 0 {
-		port = 8080
+		port = 80
 	}
 	if raw, err := os.ReadFile(confPath); err == nil {
+		text := string(raw)
+		if !strings.Contains(text, "include vhosts/*.conf;") {
+			text = strings.Replace(text, "http {", "http {\r\n    include vhosts/*.conf;", 1)
+		}
 		re := regexp.MustCompile(`(?m)^(\s*listen\s+)\d+(\s*;.*)$`)
-		updated := re.ReplaceAllString(string(raw), fmt.Sprintf("${1}%d${2}", port))
+		updated := re.ReplaceAllString(text, fmt.Sprintf("${1}%d${2}", port))
 		_ = os.WriteFile(confPath, []byte(updated), 0644)
 		return confPath, nil
 	}
-	content := fmt.Sprintf("worker_processes 1;\r\nevents {\r\n    worker_connections 1024;\r\n}\r\nhttp {\r\n    include mime.types;\r\n    default_type application/octet-stream;\r\n    sendfile on;\r\n    keepalive_timeout 65;\r\n    client_max_body_size 50m;\r\n    server {\r\n        listen %d;\r\n        server_name localhost;\r\n        location / {\r\n            root html;\r\n            index index.html index.htm;\r\n        }\r\n    }\r\n}\r\n", port)
+	content := fmt.Sprintf("worker_processes 1;\r\nevents {\r\n    worker_connections 1024;\r\n}\r\nhttp {\r\n    include mime.types;\r\n    default_type application/octet-stream;\r\n    sendfile on;\r\n    keepalive_timeout 65;\r\n    client_max_body_size 100m;\r\n    include vhosts/*.conf;\r\n    server {\r\n        listen %d default_server;\r\n        server_name _;\r\n        return 404 \"DevEnv: No site matches this domain\\n\";\r\n    }\r\n}\r\n", port)
 	if err := os.WriteFile(confPath, []byte(content), 0644); err != nil {
 		return "", appErrors.Wrap(err, appErrors.CodeProcessStartFailed, "生成 nginx.conf 失败")
 	}
@@ -1372,4 +1417,13 @@ func togglePHPExtension(iniText, name string, on bool) string {
 		}
 	}
 	return strings.Join(lines, "\r\n")
+}
+
+func isPathMatch(exePath, softwarePath string) bool {
+	if exePath == "" || softwarePath == "" {
+		return false
+	}
+	cleanExe := strings.ToLower(filepath.Clean(exePath))
+	cleanSoft := strings.ToLower(filepath.Clean(softwarePath))
+	return strings.HasPrefix(cleanExe, cleanSoft)
 }

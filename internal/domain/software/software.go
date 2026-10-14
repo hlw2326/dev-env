@@ -72,3 +72,22 @@ func IsDaemon(kind string) bool {
 func IsValidKind(kind string) bool {
 	return kind == KindPHP || kind == KindNode || kind == KindMySQL || kind == KindRedis || kind == KindNginx || kind == KindApache
 }
+
+func Name(kind string) string {
+	switch kind {
+	case KindNginx:
+		return "Nginx"
+	case KindApache:
+		return "Apache"
+	case KindPHP:
+		return "PHP"
+	case KindNode:
+		return "Node.js"
+	case KindMySQL:
+		return "MySQL"
+	case KindRedis:
+		return "Redis"
+	default:
+		return kind
+	}
+}

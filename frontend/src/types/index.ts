@@ -60,6 +60,7 @@ export interface MarketItem {
 export interface Software {
 	id: number
 	kind: string
+	name: string
 	version: string
 	path: string
 	state: string
@@ -70,6 +71,7 @@ export interface Software {
 	autostart: boolean
 	running: boolean
 	pid: number
+	daemon: boolean
 }
 
 export interface SoftwareVersion {
@@ -111,6 +113,7 @@ export interface Settings {
 	root: string
 	port: number
 	hosts: boolean
+	autostart: boolean
 	listening: boolean
 	error: string
 }
@@ -120,6 +123,7 @@ export interface SaveSettingsInput {
 	root: string
 	port: number
 	hosts: boolean
+	autostart: boolean
 }
 
 export interface TaskProgressEvent {

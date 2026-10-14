@@ -2,56 +2,25 @@
 	<h-modal
 		v-if="item !== null"
 		v-model:visible="visible"
-		:title="`软件设置 · ${kindNames[item.kind]} ${item.version}`"
+		:title="`软件设置 · ${item.name} ${item.version}`"
 		width="40rem"
 		:footer="false"
 	>
-		<cfg-php
-			v-if="item.kind === 'php'"
+		<component
+			:is="configComponents[item.kind]"
+			v-if="configComponents[item.kind]"
 			:item="item"
+			@start="emit('start', $event)"
+			@stop="emit('stop', $event)"
 			@set-main="emit('setMain', $event)"
-			@open-folder="emit('openFolder', $event)"
-		/>
-
-		<cfg-mysql
-			v-else-if="item.kind === 'mysql'"
-			:item="item"
-			@start="emit('start', $event)"
-			@stop="emit('stop', $event)"
-			@autostart="(sw, on) => emit('autostart', sw, on)"
-			@open-folder="emit('openFolder', $event)"
-		/>
-
-		<cfg-redis
-			v-else-if="item.kind === 'redis'"
-			:item="item"
-			@start="emit('start', $event)"
-			@stop="emit('stop', $event)"
-			@autostart="(sw, on) => emit('autostart', sw, on)"
-		/>
-
-		<cfg-nginx
-			v-else-if="item.kind === 'nginx'"
-			:item="item"
-			@start="emit('start', $event)"
-			@stop="emit('stop', $event)"
-			@autostart="(sw, on) => emit('autostart', sw, on)"
-			@open-folder="emit('openFolder', $event)"
-		/>
-
-		<cfg-apache
-			v-else-if="item.kind === 'apache'"
-			:item="item"
-			@start="emit('start', $event)"
-			@stop="emit('stop', $event)"
-			@autostart="(sw, on) => emit('autostart', sw, on)"
+			@autostart="(sw: Software, on: boolean) => emit('autostart', sw, on)"
 			@open-folder="emit('openFolder', $event)"
 		/>
 
 		<div v-else class="node-overview">
 			<div class="kv-row">
 				<span class="kv-label">软件版本</span>
-				<span class="kv-val font-mono">Node.js {{ item.version }}</span>
+				<span class="kv-val font-mono">{{ item.name }} {{ item.version }}</span>
 			</div>
 			<div class="kv-row">
 				<span class="kv-label">安装路径</span>
@@ -70,7 +39,7 @@
 			<div class="kv-row">
 				<span class="kv-label">默认版本</span>
 				<div>
-					<span v-if="item.main" class="main-text">当前已设为默认 Node.js 版本</span>
+					<span v-if="item.main" class="main-text">当前已设为默认版本</span>
 					<p-button
 						v-else
 						size="small"
@@ -84,6 +53,7 @@
 </template>
 
 <script setup lang="ts">
+import type { Component } from 'vue'
 import CfgPhp from './cfg-php.vue'
 import CfgMysql from './cfg-mysql.vue'
 import CfgRedis from './cfg-redis.vue'
@@ -105,13 +75,12 @@ const emit = defineEmits<{
 	openFolder: [id: number]
 }>()
 
-const kindNames: Record<string, string> = {
-	nginx: 'Nginx',
-	apache: 'Apache',
-	php: 'PHP',
-	nodejs: 'Node.js',
-	mysql: 'MySQL',
-	redis: 'Redis',
+const configComponents: Record<string, Component> = {
+	php: CfgPhp,
+	mysql: CfgMysql,
+	redis: CfgRedis,
+	nginx: CfgNginx,
+	apache: CfgApache,
 }
 </script>
 

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"devenv/internal/domain/setting"
+	"devenv/internal/infra/autostart"
 	"devenv/internal/ports"
 	appErrors "devenv/internal/shared/errors"
 )
@@ -77,6 +78,7 @@ func (s *SettingService) Settings(ctx context.Context) (SettingsView, error) {
 	gwErr := s.gatewayError
 	s.mu.RUnlock()
 
+	cfg.Autostart = autostart.Enabled()
 	return SettingsView{
 		Settings:  cfg,
 		Listening: s.gateway.Port() > 0 && gwErr == "",
@@ -105,6 +107,10 @@ func (s *SettingService) SaveSettings(ctx context.Context, next setting.Settings
 	}
 
 	if err := s.repo.Save(ctx, next); err != nil {
+		return err
+	}
+
+	if err := autostart.Set(next.Autostart); err != nil {
 		return err
 	}
 

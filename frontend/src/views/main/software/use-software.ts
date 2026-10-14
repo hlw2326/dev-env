@@ -93,13 +93,13 @@ export function useSoftware() {
 		}
 	}
 
-	async function openInstallModal(item: MarketItem) {
+	async function openInstall(item: MarketItem) {
 		activeMarketItem.value = item
 		installModalVisible.value = true
-		await fetchVersionsFor(item.kind)
+		await loadVersions(item.kind)
 	}
 
-	async function fetchVersionsFor(kind: string) {
+	async function loadVersions(kind: string) {
 		versionsLoading.value = true
 		versionsError.value = ''
 		versionOptions.value = []
@@ -112,7 +112,7 @@ export function useSoftware() {
 		}
 	}
 
-	async function handleInstall(kind: string, version: string) {
+	async function install(kind: string, version: string) {
 		const res = await installSoftware({ kind, version })
 		if (!res.ok) {
 			toast.add({ severity: 'error', summary: '安装失败', detail: res.message, life: 3500 })
@@ -123,7 +123,7 @@ export function useSoftware() {
 		await refreshAll()
 	}
 
-	async function handleCancelInstall(kind: string, version: string) {
+	async function cancel(kind: string, version: string) {
 		const res = await cancelInstall(kind, version)
 		if (!res.ok) {
 			toast.add({ severity: 'error', summary: '取消失败', detail: res.message, life: 3000 })
@@ -134,7 +134,7 @@ export function useSoftware() {
 		await refreshAll()
 	}
 
-	async function handleRemove(item: Software) {
+	async function remove(item: Software) {
 		const res = await removeSoftware(item.id)
 		if (!res.ok) {
 			toast.add({ severity: 'error', summary: '卸载被拒绝', detail: res.message, life: 4000 })
@@ -148,7 +148,7 @@ export function useSoftware() {
 		await refreshAll()
 	}
 
-	async function handleSetMain(item: Software) {
+	async function setMain(item: Software) {
 		const res = await setMainSoftware(item.id)
 		if (!res.ok) {
 			toast.add({ severity: 'error', summary: '设置默认失败', detail: res.message, life: 3000 })
@@ -158,7 +158,7 @@ export function useSoftware() {
 		await refreshAll()
 	}
 
-	async function handleStart(item: Software) {
+	async function start(item: Software) {
 		const res = await startSoftware(item.id)
 		if (!res.ok) {
 			toast.add({ severity: 'error', summary: '启动失败', detail: res.message, life: 4000 })
@@ -168,7 +168,7 @@ export function useSoftware() {
 		await refreshAll()
 	}
 
-	async function handleStop(item: Software) {
+	async function stop(item: Software) {
 		const res = await stopSoftware(item.id)
 		if (!res.ok) {
 			toast.add({ severity: 'error', summary: '停止失败', detail: res.message, life: 3500 })
@@ -178,7 +178,7 @@ export function useSoftware() {
 		await refreshAll()
 	}
 
-	async function handleSetAutostart(item: Software, on: boolean) {
+	async function setAutostart(item: Software, on: boolean) {
 		const res = await setSoftwareAutostart(item.id, on)
 		if (!res.ok) {
 			toast.add({ severity: 'error', summary: '设置失败', detail: res.message, life: 3000 })
@@ -187,22 +187,22 @@ export function useSoftware() {
 		await refreshAll()
 	}
 
-	async function handleOpenFolder(id: number) {
+	async function openFolder(id: number) {
 		const res = await openSoftwareFolder(id)
 		if (!res.ok) {
 			toast.add({ severity: 'error', summary: '打开目录失败', detail: res.message, life: 3000 })
 		}
 	}
 
-	function openConfigDrawer(item: Software) {
+	function openConfig(item: Software) {
 		activeSoftware.value = item
 		configVisible.value = true
 	}
 
-	function openConfigByKind(kind: string) {
+	function showConfig(kind: string) {
 		const found = installedList.value.find((s) => s.kind === kind && s.state === 'installed')
 		if (found) {
-			openConfigDrawer(found)
+			openConfig(found)
 		} else {
 			tab.value = 'installed'
 		}
@@ -228,7 +228,7 @@ export function useSoftware() {
 				if (payload.ok) {
 					toast.add({ severity: 'success', summary: '安装完成', detail: `${payload.kind} ${payload.version}`, life: 3000 })
 					if (activeMarketItem.value && activeMarketItem.value.kind === payload.kind) {
-						fetchVersionsFor(payload.kind)
+						loadVersions(payload.kind)
 					}
 				} else {
 					toast.add({ severity: 'error', summary: '安装失败', detail: payload.error, life: 4500 })
@@ -271,17 +271,17 @@ export function useSoftware() {
 		configVisible,
 		activeSoftware,
 		refreshAll,
-		openInstallModal,
-		fetchVersionsFor,
-		handleInstall,
-		handleCancelInstall,
-		handleRemove,
-		handleSetMain,
-		handleStart,
-		handleStop,
-		handleSetAutostart,
-		handleOpenFolder,
-		openConfigDrawer,
-		openConfigByKind,
+		openInstall,
+		loadVersions,
+		install,
+		cancel,
+		remove,
+		setMain,
+		start,
+		stop,
+		setAutostart,
+		openFolder,
+		openConfig,
+		showConfig,
 	}
 }

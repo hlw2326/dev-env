@@ -339,6 +339,24 @@ func (s *SiteService) Start(ctx context.Context, id int64) error {
 		if info, err := os.Stat(phpCGI); err != nil || info.IsDir() {
 			return appErrors.New(appErrors.CodeRuntimeNotInstalled, "找不到 php-cgi.exe: "+phpCGI)
 		}
+		phpPort := sw.Port
+		if phpPort <= 0 {
+			phpPort = 9000
+		}
+		phpKey := fmt.Sprintf("php:%d", sw.ID)
+		if !s.runner.Status(phpKey).Running && !s.probe.Listening(phpPort) {
+			logPath := filepath.Join(s.baseDir, "logs", "services", fmt.Sprintf("php-%s.log", sw.Version))
+			_ = os.MkdirAll(filepath.Dir(logPath), 0755)
+			_, err := s.runner.Start(phpKey, ports.Options{
+				Binary:    phpCGI,
+				Args:      []string{"-b", fmt.Sprintf("127.0.0.1:%d", phpPort), "-c", filepath.Join(sw.Path, "php.ini")},
+				Directory: sw.Path,
+				Log:       logPath,
+			})
+			if err != nil {
+				return err
+			}
+		}
 		s.mu.Lock()
 		s.active[cur.ID] = true
 		delete(s.failed, cur.ID)
@@ -391,6 +409,23 @@ func (s *SiteService) Stop(ctx context.Context, id int64) error {
 
 	if cur.Kind == site.KindNode {
 		_ = s.runner.Stop(siteKey(cur.ID))
+	} else if cur.Kind == site.KindPHP && cur.Software != nil {
+		otherUsing := false
+		s.mu.RLock()
+		for activeID := range s.active {
+			if activeID != cur.ID {
+				if otherSite, err := s.sites.Get(ctx, activeID); err == nil && otherSite != nil {
+					if otherSite.Kind == site.KindPHP && otherSite.Software != nil && *otherSite.Software == *cur.Software {
+						otherUsing = true
+						break
+					}
+				}
+			}
+		}
+		s.mu.RUnlock()
+		if !otherUsing {
+			_ = s.runner.Stop(fmt.Sprintf("php:%d", *cur.Software))
+		}
 	}
 
 	s.mu.Lock()
@@ -556,9 +591,15 @@ func (s *SiteService) syncGatewayRoutes(ctx context.Context) {
 			continue
 		}
 		phpDir := ""
+		port := item.Port
 		if item.Kind == site.KindPHP && item.Software != nil {
 			if sw, ok := softMap[*item.Software]; ok && sw.State == software.StateInstalled {
 				phpDir = sw.Path
+				if sw.Port > 0 {
+					port = sw.Port
+				} else {
+					port = 9000
+				}
 			}
 		}
 		routes = append(routes, ports.Route{
@@ -567,7 +608,7 @@ func (s *SiteService) syncGatewayRoutes(ctx context.Context) {
 			Kind:  item.Kind,
 			Path:  site.ResolvePath(item.Root, item.Run),
 			PHP:   phpDir,
-			Port:  item.Port,
+			Port:  port,
 			Log:   s.siteLogPath(item.Name, "access.log"),
 		})
 	}

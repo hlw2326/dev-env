@@ -108,7 +108,7 @@ const versionOptions = computed(() => {
 		.filter((item) => item.kind === targetKind && item.state === 'installed')
 		.map((item) => ({
 			value: item.id,
-			label: `${item.kind.toUpperCase()} ${item.version}`,
+			label: `${item.name} ${item.version}`,
 		}))
 })
 

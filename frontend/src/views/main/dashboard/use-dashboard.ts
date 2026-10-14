@@ -20,9 +20,7 @@ export function useDashboard() {
 	})
 
 	const daemonList = computed(() => {
-		return readySoftware.value.filter(
-			(item) => item.kind === 'mysql' || item.kind === 'redis' || item.kind === 'nginx' || item.kind === 'apache'
-		)
+		return readySoftware.value.filter((item) => item.daemon)
 	})
 
 	const runningDaemons = computed(() => {

@@ -1,9 +1,7 @@
 <template>
 	<div class="market-card surface-card">
 		<div class="card-top">
-			<div class="pkg-badge" :class="item.kind">
-				<i :class="kindIcons[item.kind]"></i>
-			</div>
+			<h-logo :kind="item.kind" size="large" />
 			<div class="title-col">
 				<div class="name-line">
 					<span class="pkg-name">{{ item.name }}</span>
@@ -72,6 +70,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { HLogo } from '@/components'
 import type { MarketItem, Software } from '@/types'
 
 const props = defineProps<{
@@ -85,15 +84,6 @@ const emit = defineEmits<{
 	cancel: [kind: string, version: string]
 	config: [kind: string]
 }>()
-
-const kindIcons: Record<string, string> = {
-	nginx: 'pi pi-compass',
-	apache: 'pi pi-globe',
-	php: 'pi pi-code',
-	nodejs: 'pi pi-bolt',
-	mysql: 'pi pi-database',
-	redis: 'pi pi-server',
-}
 
 const activeTask = computed(() => {
 	for (const sw of props.installedList) {
@@ -129,53 +119,6 @@ const activeTask = computed(() => {
 	display: flex;
 	align-items: flex-start;
 	gap: 0.875rem;
-}
-
-.pkg-badge {
-	width: 2.75rem;
-	height: 2.75rem;
-	border-radius: var(--radius-md);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: var(--icon-lg);
-	flex-shrink: 0;
-
-	&.nginx {
-		background: var(--warn-bg);
-		color: var(--warn);
-		border: 1px solid var(--warn-border);
-	}
-
-	&.apache {
-		background: #fff1f2;
-		color: #e11d48;
-		border: 1px solid #fecdd3;
-	}
-
-	&.php {
-		background: var(--indigo-bg);
-		color: var(--indigo);
-		border: 1px solid var(--indigo-border);
-	}
-
-	&.nodejs {
-		background: var(--ok-bg);
-		color: var(--ok);
-		border: 1px solid var(--ok-border);
-	}
-
-	&.mysql {
-		background: var(--info-bg);
-		color: var(--info);
-		border: 1px solid var(--info-border);
-	}
-
-	&.redis {
-		background: var(--err-bg);
-		color: var(--err);
-		border: 1px solid var(--err-border);
-	}
 }
 
 .title-col {

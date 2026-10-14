@@ -12,6 +12,7 @@ export function useSettings() {
 		root: '',
 		port: 80,
 		hosts: false,
+		autostart: false,
 	})
 	const listening = ref(false)
 	const gatewayError = ref('')
@@ -33,6 +34,7 @@ export function useSettings() {
 			form.root = cfg.root
 			form.port = cfg.port
 			form.hosts = cfg.hosts
+			form.autostart = cfg.autostart
 			listening.value = cfg.listening
 			gatewayError.value = cfg.error
 			dataFolder.value = folder
@@ -46,7 +48,7 @@ export function useSettings() {
 		}
 	}
 
-	async function handleSelectTheme(mode: ThemeMode) {
+	async function selectTheme(mode: ThemeMode) {
 		form.theme = mode
 		setThemeMode(mode)
 		if (form.root !== '') {
@@ -55,22 +57,23 @@ export function useSettings() {
 				root: form.root,
 				port: Number(form.port),
 				hosts: form.hosts,
+				autostart: form.autostart,
 			})
 		}
 	}
 
-	function handleSelectColor(color: string) {
+	function selectColor(color: string) {
 		setThemeColor(color)
 	}
 
-	async function handlePickRoot() {
+	async function pickRoot() {
 		const picked = await pickFolder('选择默认站点父目录')
 		if (picked !== '') {
 			form.root = picked
 		}
 	}
 
-	async function handleSave() {
+	async function save() {
 		saving.value = true
 		try {
 			const res = await saveSettings({
@@ -78,6 +81,7 @@ export function useSettings() {
 				root: form.root,
 				port: Number(form.port),
 				hosts: form.hosts,
+				autostart: form.autostart,
 			})
 			if (form.theme === 'dark' || form.theme === 'system') {
 				setThemeMode(form.theme)
@@ -95,7 +99,7 @@ export function useSettings() {
 		}
 	}
 
-	async function handleOpenDataFolder() {
+	async function openData() {
 		if (dataFolder.value === '') {
 			return
 		}
@@ -118,10 +122,10 @@ export function useSettings() {
 		gatewayError,
 		dataFolder,
 		saving,
-		handleSelectTheme,
-		handleSelectColor,
-		handlePickRoot,
-		handleSave,
-		handleOpenDataFolder,
+		selectTheme,
+		selectColor,
+		pickRoot,
+		save,
+		openData,
 	}
 }

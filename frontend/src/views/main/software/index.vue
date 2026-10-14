@@ -1,5 +1,5 @@
 <template>
-	<h-page title="软件商店" desc="安装、启停、配置 Nginx、Apache、PHP、Node.js、MySQL 与 Redis">
+	<h-page title="软件商店" desc="一键安装、多版本并存、按需启停与可视化配置本地开发环境服务">
 		<div class="top-bar surface-card">
 			<div class="main-tabs">
 				<button
@@ -53,9 +53,9 @@
 				:item="item"
 				:installed-list="installedList"
 				:progress-map="progressMap"
-				@open-install="openInstallModal"
-				@cancel="handleCancelInstall"
-				@config="openConfigByKind"
+				@open-install="openInstall"
+				@cancel="cancel"
+				@config="showConfig"
 			/>
 		</div>
 
@@ -73,13 +73,13 @@
 					:key="item.id"
 					:item="item"
 					:progress-map="progressMap"
-					@start="handleStart"
-					@stop="handleStop"
-					@set-main="handleSetMain"
-					@config="openConfigDrawer"
-					@remove="handleRemove"
-					@cancel="handleCancelInstall"
-					@retry="handleInstall"
+					@start="start"
+					@stop="stop"
+					@set-main="setMain"
+					@config="openConfig"
+					@remove="remove"
+					@cancel="cancel"
+					@retry="install"
 				/>
 			</div>
 		</div>
@@ -92,19 +92,19 @@
 			:installed-list="installedList"
 			:loading="versionsLoading"
 			:error="versionsError"
-			@install="handleInstall"
-			@cancel="handleCancelInstall"
-			@retry="fetchVersionsFor"
+			@install="install"
+			@cancel="cancel"
+			@retry="loadVersions"
 		/>
 
 		<config-drawer
 			v-model:visible="configVisible"
 			:item="activeSoftware"
-			@start="handleStart"
-			@stop="handleStop"
-			@set-main="handleSetMain"
-			@autostart="handleSetAutostart"
-			@open-folder="handleOpenFolder"
+			@start="start"
+			@stop="stop"
+			@set-main="setMain"
+			@autostart="setAutostart"
+			@open-folder="openFolder"
 		/>
 	</h-page>
 </template>
@@ -136,18 +136,18 @@ const {
 	configVisible,
 	activeSoftware,
 	refreshAll,
-	openInstallModal,
-	fetchVersionsFor,
-	handleInstall,
-	handleCancelInstall,
-	handleRemove,
-	handleSetMain,
-	handleStart,
-	handleStop,
-	handleSetAutostart,
-	handleOpenFolder,
-	openConfigDrawer,
-	openConfigByKind,
+	openInstall,
+	loadVersions,
+	install,
+	cancel,
+	remove,
+	setMain,
+	start,
+	stop,
+	setAutostart,
+	openFolder,
+	openConfig,
+	showConfig,
 } = useSoftware()
 </script>
 

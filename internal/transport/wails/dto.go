@@ -62,6 +62,7 @@ type ItemDTO struct {
 type SoftwareDTO struct {
 	ID        int64  `json:"id"`
 	Kind      string `json:"kind"`
+	Name      string `json:"name"`
 	Version   string `json:"version"`
 	Path      string `json:"path"`
 	State     string `json:"state"`
@@ -72,6 +73,7 @@ type SoftwareDTO struct {
 	Autostart bool   `json:"autostart"`
 	Running   bool   `json:"running"`
 	PID       int    `json:"pid"`
+	Daemon    bool   `json:"daemon"`
 }
 
 type VersionDTO struct {
@@ -113,13 +115,15 @@ type SettingsDTO struct {
 	Root      string `json:"root"`
 	Port      int    `json:"port"`
 	Hosts     bool   `json:"hosts"`
+	Autostart bool   `json:"autostart"`
 	Listening bool   `json:"listening"`
 	Error     string `json:"error"`
 }
 
 type SaveSettingsInput struct {
-	Theme string `json:"theme"`
-	Root  string `json:"root"`
-	Port  int    `json:"port"`
-	Hosts bool   `json:"hosts"`
+	Theme     string `json:"theme"`
+	Root      string `json:"root"`
+	Port      int    `json:"port"`
+	Hosts     bool   `json:"hosts"`
+	Autostart bool   `json:"autostart"`
 }

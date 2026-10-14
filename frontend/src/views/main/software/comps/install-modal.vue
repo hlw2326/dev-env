@@ -114,7 +114,7 @@ function getActiveTask(version: string) {
 			(s) => s.kind === props.item?.kind && s.version === version && s.state === 'installing'
 		)
 		if (found) {
-			return { progress: found.progress || 1, message: '正在准备下载...' }
+			return { progress: found.progress, message: '正在准备下载...' }
 		}
 	}
 	return null
