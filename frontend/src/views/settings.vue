@@ -1,5 +1,5 @@
 <template>
-  <HPage title="应用全局设置" desc="配置运行环境根目录、默认项目存储路径、启动偏好与内部数据库">
+  <h-page title="应用全局设置" desc="配置运行环境根目录、默认项目存储路径、启动偏好与内部数据库">
     <template #extra>
       <Button label="恢复默认" severity="secondary" outlined @click="handleReset" />
       <Button label="保存配置" icon="pi pi-check" :loading="saving" @click="handleSave" />
@@ -8,7 +8,7 @@
     <!-- Settings Grid -->
     <div class="settings-grid">
       <!-- General -->
-      <HCard title="通用外观与语言">
+      <h-card title="通用外观与语言">
 
         <div class="form-field">
           <label>界面语言</label>
@@ -29,10 +29,10 @@
             optionValue="value" 
           />
         </div>
-      </HCard>
+      </h-card>
 
       <!-- Environment Paths -->
-      <HCard title="路径配置">
+      <h-card title="路径配置">
         <div class="form-field">
           <label>环境根目录</label>
           <InputText 
@@ -50,10 +50,10 @@
             placeholder="如 G:\www 或 D:\projects" 
           />
         </div>
-      </HCard>
+      </h-card>
 
       <!-- Services & DB Info -->
-      <HCard title="服务管理与内部数据持久化" class="full-col">
+      <h-card title="服务管理与内部数据持久化" class="full-col">
         <div class="toggle-row">
           <div class="toggle-info">
             <span class="toggle-title">开机自启服务</span>
@@ -76,14 +76,15 @@
             <span class="spec-val">数字自增 ID (INTEGER PRIMARY KEY AUTOINCREMENT)</span>
           </div>
         </div>
-      </HCard>
+      </h-card>
     </div>
-  </HPage>
+  </h-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { HPage, HCard } from '@/components'
+import HPage from '@/components/h-page/h-page.vue'
+import HCard from '@/components/h-card/h-card.vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'

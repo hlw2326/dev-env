@@ -1,5 +1,5 @@
 <template>
-  <HPage title="服务实例管理" desc="监控与管理本地 Web 服务器 (Nginx)、数据库 (MySQL) 与 PHP FastCGI 进程">
+  <h-page title="服务实例管理" desc="监控与管理本地 Web 服务器 (Nginx)、数据库 (MySQL) 与 PHP FastCGI 进程">
     <template #extra>
       <Button 
         label="刷新状态" 
@@ -113,12 +113,12 @@
         </div>
       </div>
     </div>
-  </HPage>
+  </h-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { HPage } from '@/components'
+import HPage from '@/components/h-page/h-page.vue'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'

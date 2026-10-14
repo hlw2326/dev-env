@@ -1,5 +1,5 @@
 <template>
-  <HPage title="PHP 运行环境管理" desc="多版本 PHP 隔离共存、扩展模块配置与系统 CLI 默认版本控制">
+  <h-page title="PHP 运行环境管理" desc="多版本 PHP 隔离共存、扩展模块配置与系统 CLI 默认版本控制">
     <template #extra>
       <Button 
         label="登记本地 PHP" 
@@ -126,12 +126,12 @@
         <Button label="关闭" severity="secondary" text @click="showExtModal = false" />
       </div>
     </Dialog>
-  </HPage>
+  </h-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { HPage } from '@/components'
+import HPage from '@/components/h-page/h-page.vue'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'

@@ -1,5 +1,5 @@
 <template>
-  <HPage title="开发环境概览" desc="Windows 本地高效 PHP / Web 开发栈一站式控制中心">
+  <h-page title="开发环境概览" desc="Windows 本地高效 PHP / Web 开发栈一站式控制中心">
     <template #extra>
       <Tag severity="success" value="SQLite: system_ 正常" icon="pi pi-check" />
       <Tag severity="info" value="进程管理器: 运行中" icon="pi pi-server" />
@@ -148,12 +148,12 @@
         </div>
       </div>
     </div>
-  </HPage>
+  </h-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { HPage } from '@/components'
+import HPage from '@/components/h-page/h-page.vue'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'

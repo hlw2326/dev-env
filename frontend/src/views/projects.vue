@@ -1,5 +1,5 @@
 <template>
-  <HPage title="项目管理" desc="登记本地 PHP / Web 项目目录并关联指定运行版本">
+  <h-page title="项目管理" desc="登记本地 PHP / Web 项目目录并关联指定运行版本">
     <template #extra>
       <Button 
         label="导入已有项目" 
@@ -16,7 +16,7 @@
     </template>
 
     <!-- Table Card -->
-    <HCard noPadding>
+    <h-card noPadding>
       <div class="table-header-tools">
         <span class="p-input-icon-left">
           <InputText v-model="searchQuery" placeholder="搜索项目名称或路径..." class="search-input" />
@@ -103,7 +103,7 @@
           </template>
         </Column>
       </DataTable>
-    </HCard>
+    </h-card>
 
     <!-- Create Dialog -->
     <Dialog 
@@ -168,12 +168,13 @@
         </div>
       </form>
     </Dialog>
-  </HPage>
+  </h-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { HPage, HCard } from '@/components'
+import HPage from '@/components/h-page/h-page.vue'
+import HCard from '@/components/h-card/h-card.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'

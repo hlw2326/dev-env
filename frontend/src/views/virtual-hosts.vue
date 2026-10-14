@@ -1,5 +1,5 @@
 <template>
-  <HPage title="虚拟主机 / 域名管理" desc="配置本地域名映射、绑定 Web 网站根目录与端口分发">
+  <h-page title="虚拟主机 / 域名管理" desc="配置本地域名映射、绑定 Web 网站根目录与端口分发">
     <template #extra>
       <Button 
         label="添加虚拟主机" 
@@ -9,7 +9,7 @@
     </template>
 
     <!-- Table Card -->
-    <HCard noPadding>
+    <h-card noPadding>
       <div class="table-header-tools">
         <InputText v-model="searchQuery" placeholder="搜索本地域名或项目..." class="search-input" />
         <Button 
@@ -102,7 +102,7 @@
           </template>
         </Column>
       </DataTable>
-    </HCard>
+    </h-card>
 
     <!-- Create Dialog -->
     <Dialog 
@@ -174,12 +174,13 @@
         </div>
       </form>
     </Dialog>
-  </HPage>
+  </h-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { HPage, HCard } from '@/components'
+import HPage from '@/components/h-page/h-page.vue'
+import HCard from '@/components/h-card/h-card.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
