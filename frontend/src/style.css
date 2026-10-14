@@ -82,7 +82,7 @@ body {
 
 .page-title {
   font-size: 1.35rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text-main);
   letter-spacing: -0.01em;
 }
@@ -103,7 +103,7 @@ body {
 
 .form-field label {
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 400;
   color: #334155;
 }
 
@@ -119,4 +119,36 @@ body {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
+}
+
+/* Global Font-Weight Reset - Ensure no bold fonts anywhere */
+body,
+h1, h2, h3, h4, h5, h6,
+b, strong, th, dt, optgroup {
+  font-weight: 400;
+}
+
+.p-component,
+.p-button,
+.p-button-label,
+.p-dialog-title,
+.p-card-title,
+.p-card-subtitle,
+.p-datatable-header,
+.p-datatable thead th,
+.p-datatable tbody td,
+.p-column-title,
+.p-tag,
+.p-tag-label,
+.p-tab,
+.p-tablist,
+.p-inputtext,
+.p-select,
+.p-select-label,
+.p-toast-message-text,
+.p-toast-summary,
+.p-toast-detail,
+.p-progressbar-label,
+.p-badge {
+  font-weight: 400 !important;
 }

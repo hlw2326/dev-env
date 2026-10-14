@@ -187,7 +187,7 @@ onMounted(() => {
 
 .card-title {
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-main);
 }
 
@@ -214,7 +214,7 @@ onMounted(() => {
 
 .toggle-title {
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-main);
 }
 

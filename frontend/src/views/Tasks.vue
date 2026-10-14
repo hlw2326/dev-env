@@ -54,7 +54,7 @@
 
           <div class="task-meta-line">
             <span class="text-sm text-muted">创建时间: {{ formatDate(t.createdAt) }}</span>
-            <span class="text-sm font-mono font-bold">{{ t.progress }}%</span>
+            <span class="text-sm font-mono">{{ t.progress }}%</span>
           </div>
 
           <div v-if="t.errorMessage" class="task-error-box font-mono">
@@ -185,7 +185,7 @@ onMounted(() => {
 
 .task-msg {
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-main);
 }
 
@@ -212,7 +212,6 @@ onMounted(() => {
 
 .text-sm { font-size: 0.8rem; }
 .text-muted { color: #64748b; }
-.font-bold { font-weight: 600; }
 
 .empty-state {
   text-align: center;

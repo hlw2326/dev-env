@@ -244,7 +244,7 @@ onMounted(() => {
   padding: 3px 8px;
   border-radius: var(--radius-sm);
   font-size: 0.725rem;
-  font-weight: 700;
+  font-weight: 400;
   background: #f1f5f9;
   color: #334155;
   border: 1px solid #cbd5e1;
@@ -255,7 +255,7 @@ onMounted(() => {
 
 .srv-name {
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-main);
 }
 
@@ -281,7 +281,7 @@ onMounted(() => {
 
 .m-val {
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-main);
   margin-top: 2px;
 }
@@ -314,7 +314,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-main);
 }
 

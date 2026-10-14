@@ -262,7 +262,7 @@ onMounted(() => {
 .php-txt {
   background: #3b82f6;
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 400;
   font-size: 0.75rem;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
@@ -270,7 +270,7 @@ onMounted(() => {
 
 .php-v {
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text-main);
 }
 
@@ -297,7 +297,7 @@ onMounted(() => {
 
 .detail-val {
   color: var(--text-main);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .path-truncate {

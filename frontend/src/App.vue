@@ -140,7 +140,7 @@ const currentRouteName = computed(() => {
 
 .brand-name {
   font-size: 1.15rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text-main);
   line-height: 1.2;
 }
@@ -167,7 +167,7 @@ const currentRouteName = computed(() => {
   color: #475569;
   text-decoration: none;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 400;
   transition: all 0.15s ease;
 }
 
@@ -179,7 +179,7 @@ const currentRouteName = computed(() => {
 .nav-item.active {
   background: #eff6ff;
   color: #2563eb;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .nav-icon {
@@ -250,7 +250,7 @@ const currentRouteName = computed(() => {
 
 .current-crumb {
   color: var(--text-main);
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .env-pill {

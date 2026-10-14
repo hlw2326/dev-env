@@ -283,7 +283,7 @@ onMounted(() => {
 
 .stat-number {
   font-size: 1.4rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text-main);
   line-height: 1.2;
 }
@@ -317,7 +317,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-main);
 }
 .text-blue { color: #2563eb; }
@@ -358,7 +358,7 @@ onMounted(() => {
 
 .service-name, .project-name {
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-main);
 }
 

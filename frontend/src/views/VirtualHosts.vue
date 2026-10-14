@@ -52,7 +52,7 @@
 
         <Column field="domain" header="本地域名" style="width: 180px">
           <template #body="{ data }">
-            <span class="font-bold font-mono text-blue">{{ data.domain }}</span>
+            <span class="font-mono text-blue">{{ data.domain }}</span>
           </template>
         </Column>
 
