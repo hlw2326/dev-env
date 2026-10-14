@@ -335,8 +335,9 @@ onUnmounted(() => {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
+  gap: 12px;
+  height: 44px;
+  padding: 0 18px;
   margin: 0;
   border-radius: 0;
   color: var(--text-secondary);
