@@ -17,13 +17,13 @@
         </div>
       </div>
 
-      <div class="stat-box surface-card" @click="$router.push('/php')">
+      <div class="stat-box surface-card" @click="$router.push('/runtimes')">
         <div class="stat-icon-bg bg-indigo">
-          <i class="pi pi-code"></i>
+          <i class="pi pi-box"></i>
         </div>
         <div class="stat-content">
-          <span class="stat-number">{{ phpVersions.length }}</span>
-          <span class="stat-label">PHP 运行环境</span>
+          <span class="stat-number">{{ runtimesCount }}</span>
+          <span class="stat-label">运行环境</span>
         </div>
       </div>
 
@@ -155,22 +155,23 @@
 import { ref, computed, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
 import { listProjects } from '@/api/projects'
-import { listVersions } from '@/api/php'
+import { listAllRuntimes } from '@/api/runtimes'
 import { listServices, startService, stopService } from '@/api/services'
 import { listVirtualHosts } from '@/api/hosts'
-import type { Project, PHPVersion, ServiceInstance, VirtualHost } from '@/types'
+import type { Project, RuntimeVersion, ServiceInstance, VirtualHost } from '@/types'
 
 defineOptions({
   name: 'Dashboard'
 })
 
 const projects = ref<Project[]>([])
-const phpVersions = ref<PHPVersion[]>([])
+const runtimes = ref<RuntimeVersion[]>([])
 const services = ref<ServiceInstance[]>([])
 const virtualHosts = ref<VirtualHost[]>([])
 const loading = ref(false)
 const operatingId = ref<number | null>(null)
 
+const runtimesCount = computed(() => runtimes.value.length)
 const runningServicesCount = computed(() => {
   return services.value.filter(s => s.status === 'running').length
 })
@@ -178,14 +179,14 @@ const runningServicesCount = computed(() => {
 async function loadData() {
   loading.value = true
   try {
-    const [p, v, s, h] = await Promise.all([
+    const [p, r, s, h] = await Promise.all([
       listProjects().catch(() => []),
-      listVersions().catch(() => []),
+      listAllRuntimes().catch(() => []),
       listServices().catch(() => []),
       listVirtualHosts().catch(() => []),
     ])
     projects.value = p
-    phpVersions.value = v
+    runtimes.value = r
     services.value = s
     virtualHosts.value = h
   } finally {

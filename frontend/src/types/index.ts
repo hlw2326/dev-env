@@ -153,3 +153,45 @@ export interface AppSettings {
   defaultProjectPath: string
   autoStartServices: boolean
 }
+
+export interface PackageInfo {
+  key: string
+  displayName: string
+  category: 'language' | 'webserver' | 'database' | 'cache'
+  description: string
+  iconClass: string
+  brandColor: string
+  isInstalled: boolean
+  installedVersions: string[]
+  recommendedVersion?: string
+  officialWebsite?: string
+}
+
+export interface PackageVersion {
+  version: string
+  variant?: string
+  architecture: string
+  downloadUrl: string
+  mirrorUrl?: string
+  fileSize: number
+  isRecommended: boolean
+  isLTS: boolean
+  releaseDate?: string
+}
+
+export interface RuntimeVersion {
+  id: number
+  runtimeType: string
+  version: string
+  variant?: string
+  architecture: string
+  installPath: string
+  status: 'available' | 'installing' | 'uninitialized' | 'error' | 'in_use' | 'installed' | 'removed'
+  metadataJson?: string
+  createdAt?: string
+  updatedAt?: string
+  isDefault?: boolean
+  refProjectsCount?: number
+  refServicesCount?: number
+}
+

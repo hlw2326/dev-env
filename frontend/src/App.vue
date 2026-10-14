@@ -106,7 +106,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: '控制台', icon: 'pi pi-th-large', to: '/' },
   { label: '项目管理', icon: 'pi pi-folder', to: '/projects' },
-  { label: 'PHP 环境', icon: 'pi pi-code', to: '/php' },
+  { label: '软件商店', icon: 'pi pi-shopping-bag', to: '/store' },
+  { label: '运行环境', icon: 'pi pi-box', to: '/runtimes' },
   { label: '服务实例', icon: 'pi pi-server', to: '/services' },
   { label: '虚拟主机', icon: 'pi pi-globe', to: '/hosts' },
   { label: '任务作业', icon: 'pi pi-list-check', to: '/tasks' },
