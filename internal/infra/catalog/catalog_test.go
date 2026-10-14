@@ -126,5 +126,12 @@ func TestCatalogMySQLAndNginxProbe(t *testing.T) {
 	if len(nginxList) == 0 {
 		t.Fatalf("expected non-empty Nginx versions")
 	}
+	apacheList, err := client.Versions(context.Background(), software.KindApache)
+	if err != nil {
+		t.Fatalf("Apache Versions failed: %v", err)
+	}
+	if len(apacheList) == 0 {
+		t.Fatalf("expected non-empty Apache versions")
+	}
 }
 

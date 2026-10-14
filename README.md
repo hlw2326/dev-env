@@ -11,7 +11,7 @@
    - **PHP 站点**：直接调用已安装 PHP 的 `php-cgi.exe` 处理请求，支持单入口框架回退（Laravel `public`、ThinkPHP `public` 等自动识别）。
    - **Node 站点**：由进程管理器拉起项目进程并注入 `PORT` 与所选 Node 版本的 `PATH`，网关自动反向代理（含 WebSocket 升级）。
 2. **软件商店与真实进程管理**：
-   - 支持在线获取并安装 **PHP (NTS x64)**、**Node.js (x64)**、**MySQL**、**Redis**。
+   - 支持在线获取并安装 **Nginx**、**Apache**、**PHP (NTS x64)**、**Node.js (x64)**、**MySQL**、**Redis**。
    - SHA-256 完整性校验、Zip-Slip 防护、真实子进程生命周期管理与结构化配置抽屉。
 3. **SQLite 严格迁移与防漂移备份**：
    - 启动时对已执行迁移做 SHA-256 漂移校验，迁移前通过 `VACUUM INTO` 自动备份（保留最近 5 份）。

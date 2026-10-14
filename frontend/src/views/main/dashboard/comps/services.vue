@@ -105,12 +105,15 @@ import { useDashboard } from '../use-dashboard'
 const { readySoftware, loading, busyId, loadData, handleStart, handleStop } = useDashboard()
 
 function isDaemon(kind: string): boolean {
-	return kind === 'mysql' || kind === 'redis' || kind === 'nginx'
+	return kind === 'mysql' || kind === 'redis' || kind === 'nginx' || kind === 'apache'
 }
 
 function formatKind(kind: string): string {
 	if (kind === 'nginx') {
 		return 'Nginx'
+	}
+	if (kind === 'apache') {
+		return 'Apache'
 	}
 	if (kind === 'php') {
 		return 'PHP'

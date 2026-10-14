@@ -11,7 +11,7 @@
 
 					<span v-if="item.state === 'installing'" class="status-pill installing">
 						<i class="pi pi-spin pi-spinner status-icon"></i>
-						<span>安装中 {{ item.progress }}%</span>
+						<span>安装中 {{ activeProgress.progress }}%</span>
 					</span>
 					<span v-else-if="item.state === 'failed'" class="status-pill failed">
 						<span class="dot"></span>
@@ -36,7 +36,14 @@
 				</div>
 
 				<div class="sub-line">
-					<span v-if="item.state === 'failed'" class="error-text">{{ item.error }}</span>
+					<div v-if="item.state === 'installing'" class="row-progress-box">
+						<div class="row-progress-info">
+							<span class="progress-msg">{{ activeProgress.message }}</span>
+							<span class="progress-pct font-mono">{{ activeProgress.progress }}%</span>
+						</div>
+						<p-progress-bar :value="activeProgress.progress" :show-value="false" class="row-progress-bar" />
+					</div>
+					<span v-else-if="item.state === 'failed'" class="error-text">{{ item.error }}</span>
 					<span v-else class="path-text font-mono">{{ item.path }}</span>
 				</div>
 			</div>
@@ -129,7 +136,19 @@ import type { Software } from '@/types'
 
 const props = defineProps<{
 	item: Software
+	progressMap?: Record<string, { progress: number; message: string }>
 }>()
+
+const activeProgress = computed(() => {
+	const key = `${props.item.kind}:${props.item.version}`
+	if (props.progressMap && props.progressMap[key]) {
+		return props.progressMap[key]
+	}
+	return {
+		progress: props.item.progress || 0,
+		message: '正在安装...',
+	}
+})
 
 const emit = defineEmits<{
 	start: [item: Software]
@@ -145,6 +164,7 @@ const confirm = useConfirm()
 
 const kindNames: Record<string, string> = {
 	nginx: 'Nginx',
+	apache: 'Apache',
 	php: 'PHP',
 	nodejs: 'Node.js',
 	mysql: 'MySQL',
@@ -153,6 +173,7 @@ const kindNames: Record<string, string> = {
 
 const kindIcons: Record<string, string> = {
 	nginx: 'pi pi-compass',
+	apache: 'pi pi-globe',
 	php: 'pi pi-code',
 	nodejs: 'pi pi-bolt',
 	mysql: 'pi pi-database',
@@ -160,7 +181,7 @@ const kindIcons: Record<string, string> = {
 }
 
 const isDaemon = computed(() => {
-	return props.item.kind === 'mysql' || props.item.kind === 'redis' || props.item.kind === 'nginx'
+	return props.item.kind === 'mysql' || props.item.kind === 'redis' || props.item.kind === 'nginx' || props.item.kind === 'apache'
 })
 
 function onConfirmRemove(event: MouseEvent) {
@@ -214,6 +235,12 @@ function onConfirmRemove(event: MouseEvent) {
 		background: var(--warn-bg);
 		color: var(--warn);
 		border: 1px solid var(--warn-border);
+	}
+
+	&.apache {
+		background: #fff1f2;
+		color: #e11d48;
+		border: 1px solid #fecdd3;
 	}
 
 	&.php {
@@ -338,6 +365,42 @@ function onConfirmRemove(event: MouseEvent) {
 .sub-line {
 	display: flex;
 	align-items: center;
+	width: 100%;
+}
+
+.row-progress-box {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	width: 100%;
+	max-width: 26rem;
+	margin-top: 0.25rem;
+}
+
+.row-progress-info {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: var(--font-xs);
+	color: var(--text-secondary);
+}
+
+.progress-msg {
+	color: var(--text-secondary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.progress-pct {
+	font-weight: 600;
+	color: var(--p-primary-color);
+	margin-left: 0.5rem;
+}
+
+.row-progress-bar {
+	height: 0.45rem;
+	border-radius: var(--radius-full);
 }
 
 .path-text {

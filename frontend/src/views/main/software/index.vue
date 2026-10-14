@@ -1,5 +1,5 @@
 <template>
-	<h-page title="软件商店" desc="安装、启停、配置 Nginx、PHP、Node.js、MySQL 与 Redis">
+	<h-page title="软件商店" desc="安装、启停、配置 Nginx、Apache、PHP、Node.js、MySQL 与 Redis">
 		<div class="top-bar surface-card">
 			<div class="main-tabs">
 				<button
@@ -72,6 +72,7 @@
 					v-for="item in filteredInstalled"
 					:key="item.id"
 					:item="item"
+					:progress-map="progressMap"
 					@start="handleStart"
 					@stop="handleStop"
 					@set-main="handleSetMain"
@@ -87,9 +88,12 @@
 			v-model:visible="installModalVisible"
 			:item="activeMarketItem"
 			:versions="versionOptions"
+			:progress-map="progressMap"
+			:installed-list="installedList"
 			:loading="versionsLoading"
 			:error="versionsError"
 			@install="handleInstall"
+			@cancel="handleCancelInstall"
 			@retry="fetchVersionsFor"
 		/>
 

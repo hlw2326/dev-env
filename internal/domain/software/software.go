@@ -4,8 +4,9 @@ const (
 	KindPHP   = "php"
 	KindNode  = "nodejs"
 	KindMySQL = "mysql"
-	KindRedis = "redis"
-	KindNginx = "nginx"
+	KindRedis  = "redis"
+	KindNginx  = "nginx"
+	KindApache = "apache"
 )
 
 const (
@@ -65,9 +66,9 @@ type Extension struct {
 }
 
 func IsDaemon(kind string) bool {
-	return kind == KindMySQL || kind == KindRedis || kind == KindNginx
+	return kind == KindMySQL || kind == KindRedis || kind == KindNginx || kind == KindApache
 }
 
 func IsValidKind(kind string) bool {
-	return kind == KindPHP || kind == KindNode || kind == KindMySQL || kind == KindRedis || kind == KindNginx
+	return kind == KindPHP || kind == KindNode || kind == KindMySQL || kind == KindRedis || kind == KindNginx || kind == KindApache
 }

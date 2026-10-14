@@ -23,6 +23,7 @@ type Endpoints struct {
 	MySQLBase   string
 	RedisAPI    string
 	NginxBase   string
+	ApacheBase  string
 }
 
 func DefaultEndpoints() Endpoints {
@@ -34,6 +35,7 @@ func DefaultEndpoints() Endpoints {
 		MySQLBase:   "https://cdn.mysql.com/Downloads",
 		RedisAPI:    "https://api.github.com/repos/redis-windows/redis-windows/releases?per_page=5",
 		NginxBase:   "https://nginx.org/download",
+		ApacheBase:  "https://www.apachelounge.com",
 	}
 }
 
@@ -88,6 +90,8 @@ func (c *Client) Versions(ctx context.Context, kind string) ([]software.Version,
 		versions, err = c.fetchRedis(ctx)
 	case software.KindNginx:
 		versions, err = c.fetchNginx(ctx)
+	case software.KindApache:
+		versions, err = c.fetchApache(ctx)
 	default:
 		return nil, appErrors.New(appErrors.CodeInvalidArgument, "不支持的软件类型: "+kind)
 	}
@@ -392,6 +396,57 @@ func (c *Client) fetchNginx(ctx context.Context) ([]software.Version, error) {
 			Note:        cand.note,
 			URL:         url,
 		})
+	}
+	return list, nil
+}
+
+func (c *Client) fetchApache(ctx context.Context) ([]software.Version, error) {
+	candidates := []struct {
+		version     string
+		path        string
+		checksum    string
+		recommended bool
+		note        string
+	}{
+		{
+			version:     "2.4.69",
+			path:        "/download/VS18/binaries/httpd-2.4.69-261002-Win64-VS18.zip",
+			checksum:    "ca272e0b75abad78b1e4029a0753b20ff2232d2d857e8eebeea5d469c5776977",
+			recommended: true,
+			note:        "2.4 VS18 最新版",
+		},
+		{
+			version:     "2.4.66",
+			path:        "/download/VS17/binaries/httpd-2.4.66-251206-Win64-VS17.zip",
+			checksum:    "2cd1f349b6705e43e784e876a233eeb1a859fa6b8abc693a91f87b35a368f7f9",
+			recommended: false,
+			note:        "2.4 VS17 稳定版",
+		},
+	}
+
+	base := strings.TrimRight(c.endpoints.ApacheBase, "/")
+	var list []software.Version
+	var lastErr error
+	for _, cand := range candidates {
+		url := fmt.Sprintf("%s%s", base, cand.path)
+		if err := c.probeRange(ctx, url); err != nil {
+			lastErr = err
+			continue
+		}
+		list = append(list, software.Version{
+			Version:     cand.version,
+			Recommended: cand.recommended,
+			Note:        cand.note,
+			URL:         url,
+			Checksum:    cand.checksum,
+		})
+	}
+
+	if len(list) == 0 {
+		if lastErr != nil {
+			return nil, lastErr
+		}
+		return nil, appErrors.New(appErrors.CodeDownloadFailed, "未找到可用的 Apache 版本")
 	}
 	return list, nil
 }

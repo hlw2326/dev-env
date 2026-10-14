@@ -120,7 +120,6 @@ export function useSoftware() {
 		}
 		const key = `${kind}:${version}`
 		progressMap[key] = { progress: 1, message: '准备下载...' }
-		installModalVisible.value = false
 		await refreshAll()
 	}
 
@@ -228,6 +227,9 @@ export function useSoftware() {
 				delete progressMap[key]
 				if (payload.ok) {
 					toast.add({ severity: 'success', summary: '安装完成', detail: `${payload.kind} ${payload.version}`, life: 3000 })
+					if (activeMarketItem.value && activeMarketItem.value.kind === payload.kind) {
+						fetchVersionsFor(payload.kind)
+					}
 				} else {
 					toast.add({ severity: 'error', summary: '安装失败', detail: payload.error, life: 4500 })
 				}

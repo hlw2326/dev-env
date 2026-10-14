@@ -21,7 +21,7 @@ export function useDashboard() {
 
 	const daemonList = computed(() => {
 		return readySoftware.value.filter(
-			(item) => item.kind === 'mysql' || item.kind === 'redis' || item.kind === 'nginx'
+			(item) => item.kind === 'mysql' || item.kind === 'redis' || item.kind === 'nginx' || item.kind === 'apache'
 		)
 	})
 

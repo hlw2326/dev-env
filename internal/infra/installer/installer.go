@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -150,16 +151,20 @@ func (m *Manager) downloadFile(ctx context.Context, url, partPath string, report
 			_, _ = hasher.Write(buf[:n])
 			downloaded += int64(n)
 
-			if time.Since(lastReport) >= 500*time.Millisecond {
+			if time.Since(lastReport) >= 200*time.Millisecond {
 				lastReport = time.Now()
 				pct := 35
+				var msg string
 				if total > 0 {
 					pct = int(float64(downloaded) / float64(total) * 70)
 					if pct > 70 {
 						pct = 70
 					}
+					msg = fmt.Sprintf("正在下载安装包 (%s / %s)...", formatBytes(downloaded), formatBytes(total))
+				} else {
+					msg = fmt.Sprintf("正在下载安装包 (%s)...", formatBytes(downloaded))
 				}
-				report(pct, "正在下载安装包...")
+				report(pct, msg)
 			}
 		}
 		if readErr == io.EOF {
@@ -174,8 +179,21 @@ func (m *Manager) downloadFile(ctx context.Context, url, partPath string, report
 	if err := out.Close(); err != nil {
 		return "", appErrors.Wrap(err, appErrors.CodeDownloadFailed, "关闭缓存文件失败")
 	}
-	report(70, "下载完成")
+	report(70, "下载完成，正在准备解压...")
 	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+func formatBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
 func extractZipSafe(ctx context.Context, zipPath, destDir string, report func(progress int, message string)) error {
@@ -305,8 +323,35 @@ func verifyEntryBinary(kind, dir string) error {
 		if !fileExists(filepath.Join(dir, "nginx.exe")) {
 			return appErrors.New(appErrors.CodeInstallFailed, "安装包中未找到 nginx.exe")
 		}
+	case software.KindApache:
+		if FindApacheBinary(dir) == "" {
+			return appErrors.New(appErrors.CodeInstallFailed, "安装包中未找到 httpd.exe")
+		}
 	}
 	return nil
+}
+
+func FindApacheBinary(dir string) string {
+	direct := filepath.Join(dir, "bin", "httpd.exe")
+	if fileExists(direct) {
+		return direct
+	}
+	nested := filepath.Join(dir, "Apache24", "bin", "httpd.exe")
+	if fileExists(nested) {
+		return nested
+	}
+	var found string
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if strings.EqualFold(d.Name(), "httpd.exe") {
+			found = path
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return found
 }
 
 func FindRedisBinary(dir string) string {
@@ -329,6 +374,35 @@ func FindRedisBinary(dir string) string {
 }
 
 func postProcess(kind, tmpDir, finalTarget string) error {
+	if kind == software.KindApache {
+		apacheSubdir := filepath.Join(tmpDir, "Apache24")
+		if info, err := os.Stat(apacheSubdir); err == nil && info.IsDir() {
+			entries, readErr := os.ReadDir(apacheSubdir)
+			if readErr == nil {
+				for _, ent := range entries {
+					src := filepath.Join(apacheSubdir, ent.Name())
+					dst := filepath.Join(tmpDir, ent.Name())
+					_ = os.RemoveAll(dst)
+					_ = os.Rename(src, dst)
+				}
+				_ = os.Remove(apacheSubdir)
+			}
+		}
+
+		confPath := filepath.Join(tmpDir, "conf", "httpd.conf")
+		if raw, err := os.ReadFile(confPath); err == nil {
+			text := string(raw)
+			targetSlash := filepath.ToSlash(finalTarget)
+			reSrvRoot := regexp.MustCompile(`(?mi)^\s*Define\s+SRVROOT\s+.*$`)
+			if reSrvRoot.MatchString(text) {
+				text = reSrvRoot.ReplaceAllString(text, fmt.Sprintf(`Define SRVROOT "%s"`, targetSlash))
+			} else {
+				text = fmt.Sprintf("Define SRVROOT \"%s\"\r\n%s", targetSlash, text)
+			}
+			_ = os.WriteFile(confPath, []byte(text), 0644)
+		}
+		return nil
+	}
 	if kind != software.KindPHP {
 		return nil
 	}

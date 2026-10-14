@@ -39,6 +39,15 @@
 			@open-folder="emit('openFolder', $event)"
 		/>
 
+		<cfg-apache
+			v-else-if="item.kind === 'apache'"
+			:item="item"
+			@start="emit('start', $event)"
+			@stop="emit('stop', $event)"
+			@autostart="(sw, on) => emit('autostart', sw, on)"
+			@open-folder="emit('openFolder', $event)"
+		/>
+
 		<div v-else class="node-overview">
 			<div class="kv-row">
 				<span class="kv-label">软件版本</span>
@@ -79,6 +88,7 @@ import CfgPhp from './cfg-php.vue'
 import CfgMysql from './cfg-mysql.vue'
 import CfgRedis from './cfg-redis.vue'
 import CfgNginx from './cfg-nginx.vue'
+import CfgApache from './cfg-apache.vue'
 import type { Software } from '@/types'
 
 defineProps<{
@@ -97,6 +107,7 @@ const emit = defineEmits<{
 
 const kindNames: Record<string, string> = {
 	nginx: 'Nginx',
+	apache: 'Apache',
 	php: 'PHP',
 	nodejs: 'Node.js',
 	mysql: 'MySQL',

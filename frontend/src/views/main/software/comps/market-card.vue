@@ -16,7 +16,10 @@
 
 		<div v-if="activeTask !== null" class="progress-area">
 			<div class="progress-info">
-				<span class="progress-msg">{{ activeTask.version }} · {{ activeTask.message }}</span>
+				<span class="progress-msg">
+					<i class="pi pi-spin pi-spinner"></i>
+					{{ activeTask.version }} · {{ activeTask.message }}
+				</span>
 				<span class="progress-num font-mono">{{ activeTask.progress }}%</span>
 			</div>
 			<p-progress-bar :value="activeTask.progress" :show-value="false" class="bar" />
@@ -85,6 +88,7 @@ const emit = defineEmits<{
 
 const kindIcons: Record<string, string> = {
 	nginx: 'pi pi-compass',
+	apache: 'pi pi-globe',
 	php: 'pi pi-code',
 	nodejs: 'pi pi-bolt',
 	mysql: 'pi pi-database',
@@ -141,6 +145,12 @@ const activeTask = computed(() => {
 		background: var(--warn-bg);
 		color: var(--warn);
 		border: 1px solid var(--warn-border);
+	}
+
+	&.apache {
+		background: #fff1f2;
+		color: #e11d48;
+		border: 1px solid #fecdd3;
 	}
 
 	&.php {
@@ -226,8 +236,25 @@ const activeTask = computed(() => {
 	color: var(--text-secondary);
 }
 
+.progress-msg {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	color: var(--text-primary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.progress-num {
+	font-weight: 600;
+	color: var(--p-primary-color);
+	margin-left: 0.5rem;
+}
+
 .bar {
 	height: 0.45rem;
+	border-radius: var(--radius-full);
 }
 
 .progress-actions {

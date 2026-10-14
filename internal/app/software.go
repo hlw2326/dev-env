@@ -100,7 +100,7 @@ func (s *SoftwareService) ReconcileStartup(ctx context.Context) {
 
 func (s *SoftwareService) discoverDiskSoftware(ctx context.Context) {
 	softRoot := filepath.Join(s.baseDir, "software")
-	for _, kind := range []string{software.KindNginx, software.KindPHP, software.KindNode, software.KindMySQL, software.KindRedis} {
+	for _, kind := range []string{software.KindNginx, software.KindApache, software.KindPHP, software.KindNode, software.KindMySQL, software.KindRedis} {
 		kindDir := filepath.Join(softRoot, kind)
 		entries, err := os.ReadDir(kindDir)
 		if err != nil {
@@ -172,6 +172,8 @@ func hasEntryBinary(kind, dir string) bool {
 	case software.KindNginx:
 		_, err := os.Stat(filepath.Join(dir, "nginx.exe"))
 		return err == nil
+	case software.KindApache:
+		return installer.FindApacheBinary(dir) != ""
 	default:
 		return false
 	}
@@ -196,6 +198,13 @@ func (s *SoftwareService) Market(ctx context.Context) ([]software.Item, error) {
 			Description: "高性能 HTTP 与反向代理 Web 服务器，占用内存少且并发能力强",
 			Category:    "Web服务",
 			Count:       counts[software.KindNginx],
+		},
+		{
+			Kind:        software.KindApache,
+			Name:        "Apache",
+			Description: "经典高效且模块丰富的开源 HTTP Web 服务器，支持多种扩展与配置",
+			Category:    "Web服务",
+			Count:       counts[software.KindApache],
 		},
 		{
 			Kind:        software.KindPHP,
@@ -600,6 +609,21 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 			Directory: item.Path,
 			Log:       logPath,
 		}
+	case software.KindApache:
+		confPath, err := s.prepareApache(*item)
+		if err != nil {
+			return err
+		}
+		httpdBin := installer.FindApacheBinary(item.Path)
+		if httpdBin == "" {
+			httpdBin = filepath.Join(item.Path, "bin", "httpd.exe")
+		}
+		opts = ports.Options{
+			Binary:    httpdBin,
+			Args:      []string{"-d", item.Path, "-f", confPath},
+			Directory: item.Path,
+			Log:       logPath,
+		}
 	}
 
 	swID := item.ID
@@ -903,7 +927,7 @@ func (s *SoftwareService) Logs(ctx context.Context, id int64, limit int) ([]stri
 	if item == nil {
 		return nil, appErrors.New(appErrors.CodeNotFound, "软件版本不存在")
 	}
-	if item.Kind == software.KindNginx {
+	if item.Kind == software.KindNginx || item.Kind == software.KindApache {
 		errLog := filepath.Join(item.Path, "logs", "error.log")
 		if lines := process.ReadLogTail(errLog, limit); len(lines) > 0 {
 			return lines, nil
@@ -931,6 +955,8 @@ func (s *SoftwareService) allocateDaemonPort(ctx context.Context, kind string) i
 		basePort = 6379
 	} else if kind == software.KindNginx {
 		basePort = 8080
+	} else if kind == software.KindApache {
+		basePort = 8088
 	}
 	existing, _ := s.repo.ListByKind(ctx, kind)
 	used := make(map[int]bool, len(existing))
@@ -1057,9 +1083,52 @@ func (s *SoftwareService) ensureConfigFile(item software.Software) (string, erro
 		return s.prepareRedis(item, binDir)
 	case software.KindNginx:
 		return s.prepareNginx(item)
+	case software.KindApache:
+		return s.prepareApache(item)
 	default:
 		return "", nil
 	}
+}
+
+func (s *SoftwareService) prepareApache(item software.Software) (string, error) {
+	_ = os.MkdirAll(filepath.Join(item.Path, "logs"), 0755)
+	confDir := filepath.Join(item.Path, "conf")
+	_ = os.MkdirAll(confDir, 0755)
+	confPath := filepath.Join(confDir, "httpd.conf")
+	port := item.Port
+	if port <= 0 {
+		port = 8088
+	}
+	targetRoot := filepath.ToSlash(item.Path)
+	if raw, err := os.ReadFile(confPath); err == nil {
+		text := string(raw)
+		reSrvRoot := regexp.MustCompile(`(?mi)^\s*Define\s+SRVROOT\s+.*$`)
+		if reSrvRoot.MatchString(text) {
+			text = reSrvRoot.ReplaceAllString(text, fmt.Sprintf(`Define SRVROOT "%s"`, targetRoot))
+		} else {
+			text = fmt.Sprintf("Define SRVROOT \"%s\"\r\n%s", targetRoot, text)
+		}
+
+		reListen := regexp.MustCompile(`(?mi)^\s*Listen\s+\d+.*$`)
+		if reListen.MatchString(text) {
+			text = reListen.ReplaceAllString(text, fmt.Sprintf("Listen %d", port))
+		} else {
+			text = fmt.Sprintf("Listen %d\r\n%s", port, text)
+		}
+
+		reServerName := regexp.MustCompile(`(?mi)^\s*#?\s*ServerName\s+.*$`)
+		if reServerName.MatchString(text) {
+			text = reServerName.ReplaceAllString(text, fmt.Sprintf("ServerName localhost:%d", port))
+		}
+
+		_ = os.WriteFile(confPath, []byte(text), 0644)
+		return confPath, nil
+	}
+	content := fmt.Sprintf("Define SRVROOT \"%s\"\r\nServerRoot \"${SRVROOT}\"\r\nListen %d\r\nServerName localhost:%d\r\nDocumentRoot \"${SRVROOT}/htdocs\"\r\n<Directory \"${SRVROOT}/htdocs\">\r\n    Options Indexes FollowSymLinks\r\n    AllowOverride None\r\n    Require all granted\r\n</Directory>\r\n", targetRoot, port, port)
+	if err := os.WriteFile(confPath, []byte(content), 0644); err != nil {
+		return "", appErrors.Wrap(err, appErrors.CodeProcessStartFailed, "生成 httpd.conf 失败")
+	}
+	return confPath, nil
 }
 
 func (s *SoftwareService) cachePath(kind, version string) string {
@@ -1107,6 +1176,15 @@ func configSchemaForKind(kind string) []software.ConfigItem {
 			{Key: "worker_connections", Label: "单进程最大连接", Description: "单个 worker 最大并发连接数，如 1024"},
 			{Key: "keepalive_timeout", Label: "长连接超时", Description: "HTTP keepalive 超时秒数，如 65"},
 		}
+	case software.KindApache:
+		return []software.ConfigItem{
+			{Key: "ServerName", Label: "服务器名称", Description: "服务器用于自我标识的主机名与端口，如 localhost:8088"},
+			{Key: "ServerAdmin", Label: "管理员邮箱", Description: "发生错误时展示的管理员联络邮箱，如 admin@localhost"},
+			{Key: "Timeout", Label: "超时时间", Description: "接收或发送请求前等待的最长秒数，如 60"},
+			{Key: "KeepAlive", Label: "保持长连接", Description: "是否开启 HTTP 持续连接支持 (On / Off)"},
+			{Key: "MaxKeepAliveRequests", Label: "最大长连接请求数", Description: "单个长连接允许的最大请求数，如 100"},
+			{Key: "KeepAliveTimeout", Label: "长连接超时", Description: "同一连接上等待后续请求的秒数，如 5"},
+		}
 	default:
 		return nil
 	}
@@ -1129,6 +1207,19 @@ func readConfigValue(kind, text, key string) string {
 	}
 	if kind == software.KindNginx {
 		re := regexp.MustCompile(`(?i)^\s*` + regexp.QuoteMeta(key) + `\s+([^;]+);`)
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+			if m := re.FindStringSubmatch(trimmed); m != nil {
+				return strings.TrimSpace(m[1])
+			}
+		}
+		return ""
+	}
+	if kind == software.KindApache {
+		re := regexp.MustCompile(`(?im)^\s*` + regexp.QuoteMeta(key) + `\s+([^\r\n#]+)`)
 		for _, line := range lines {
 			trimmed := strings.TrimSpace(line)
 			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
@@ -1193,6 +1284,35 @@ func writeConfigValue(kind, text, key, value string) string {
 				lines[i] = re.ReplaceAllString(line, fmt.Sprintf("${1}%s${2}", strings.TrimSpace(value)))
 				break
 			}
+		}
+		return strings.Join(lines, "\r\n")
+	}
+
+	if kind == software.KindApache {
+		re := regexp.MustCompile(`(?im)^(\s*` + regexp.QuoteMeta(key) + `\s+)[^\r\n#]+(.*)$`)
+		commentRe := regexp.MustCompile(`(?im)^(\s*#\s*` + regexp.QuoteMeta(key) + `\s+)[^\r\n#]+(.*)$`)
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+			if re.MatchString(line) {
+				lines[i] = fmt.Sprintf("%s %s", key, strings.TrimSpace(value))
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			for i, line := range lines {
+				if commentRe.MatchString(line) {
+					lines[i] = fmt.Sprintf("%s %s", key, strings.TrimSpace(value))
+					replaced = true
+					break
+				}
+			}
+		}
+		if !replaced && strings.TrimSpace(value) != "" {
+			lines = append(lines, fmt.Sprintf("%s %s", key, strings.TrimSpace(value)))
 		}
 		return strings.Join(lines, "\r\n")
 	}
