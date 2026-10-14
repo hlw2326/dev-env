@@ -1,158 +1,198 @@
 <template>
-  <div class="projects-page fade-in">
-    <!-- Action Bar -->
-    <div class="page-header glass-panel">
-      <div class="header-left">
-        <h2>项目管理</h2>
-        <p>登记与关联本地 PHP / Web 项目目录及运行版本</p>
+  <div class="projects-page">
+    <!-- Header -->
+    <div class="page-header-bar">
+      <div>
+        <h1 class="page-title">项目管理</h1>
+        <p class="page-subtitle">登记本地 PHP / Web 项目目录并关联指定运行版本</p>
       </div>
-
       <div class="header-actions">
-        <button class="btn btn-secondary" @click="showImportModal = true">
-          <FolderInputIcon class="btn-icon" />
-          导入已有项目
-        </button>
-        <button class="btn btn-primary" @click="showCreateModal = true">
-          <PlusIcon class="btn-icon" />
-          新建项目
-        </button>
-      </div>
-    </div>
-
-    <!-- Filter & Table -->
-    <div class="table-container glass-panel">
-      <div class="table-toolbar">
-        <input 
-          v-model="searchQuery" 
-          type="text" 
-          class="form-input search-input" 
-          placeholder="搜索项目名称或路径..." 
+        <Button 
+          label="导入已有项目" 
+          icon="pi pi-folder-open" 
+          severity="secondary" 
+          outlined 
+          @click="showImportModal = true" 
         />
-        <button class="btn btn-secondary btn-sm" @click="loadProjects">
-          <RefreshCwIcon class="btn-icon" :class="{ 'spin-icon': loading }" />
-          刷新
-        </button>
+        <Button 
+          label="新建项目" 
+          icon="pi pi-plus" 
+          @click="showCreateModal = true" 
+        />
       </div>
-
-      <div v-if="filteredProjects.length === 0" class="empty-state">
-        <span v-if="loading">加载项目中...</span>
-        <span v-else>暂无匹配的项目，点击上方按钮新建或导入项目</span>
-      </div>
-
-      <table v-else class="data-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>项目名称</th>
-            <th>物理路径</th>
-            <th>关联 PHP</th>
-            <th>状态</th>
-            <th>创建时间</th>
-            <th class="text-right">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="proj in filteredProjects" :key="proj.id">
-            <td class="font-mono text-dim">#{{ proj.id }}</td>
-            <td class="font-bold text-main">{{ proj.name }}</td>
-            <td class="font-mono text-sm text-muted cell-path" :title="proj.path">{{ proj.path }}</td>
-            <td>
-              <span v-if="proj.phpVersionId" class="badge badge-primary">
-                PHP {{ getPHPVersionLabel(proj.phpVersionId) }}
-              </span>
-              <span v-else class="badge badge-neutral">默认环境</span>
-            </td>
-            <td>
-              <span class="badge" :class="proj.status === 'ready' ? 'badge-success' : 'badge-danger'">
-                {{ proj.status === 'ready' ? '正常就绪' : '路径缺失' }}
-              </span>
-            </td>
-            <td class="text-sm text-dim">{{ formatDate(proj.createdAt) }}</td>
-            <td class="text-right">
-              <button class="btn btn-danger btn-sm" @click="handleDelete(proj.id)">
-                <Trash2Icon class="btn-icon" />
-                删除
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
     </div>
 
-    <!-- Create Modal -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
-      <div class="modal-content">
-        <h3>新建项目</h3>
-        <p class="modal-subtitle">创建新项目登记记录并建立物理目录</p>
+    <!-- Table Card -->
+    <div class="surface-card table-card">
+      <div class="table-header-tools">
+        <span class="p-input-icon-left">
+          <InputText v-model="searchQuery" placeholder="搜索项目名称或路径..." class="search-input" />
+        </span>
+        <Button 
+          icon="pi pi-refresh" 
+          label="刷新" 
+          severity="secondary" 
+          text 
+          :loading="loading" 
+          @click="loadProjects" 
+        />
+      </div>
 
-        <form @submit.prevent="submitCreate">
-          <div class="form-group">
-            <label class="form-label">项目名称</label>
-            <input v-model="createForm.name" type="text" class="form-input" required placeholder="如 my-laravel-app" />
+      <DataTable 
+        :value="filteredProjects" 
+        stripedRows 
+        responsiveLayout="scroll"
+        :paginator="filteredProjects.length > 10" 
+        :rows="10"
+        class="p-datatable-sm"
+      >
+        <template #empty>
+          <div class="empty-state">
+            <span v-if="loading">加载项目中...</span>
+            <span v-else>暂无项目，点击右上角新建或导入已有项目</span>
           </div>
+        </template>
 
-          <div class="form-group">
-            <label class="form-label">物理目录路径</label>
-            <input 
-              v-model="createForm.path" 
-              type="text" 
-              class="form-input" 
-              required 
-              placeholder="如 G:\www\my-laravel-app"
-              @input="onPathChange"
+        <Column field="id" header="ID" style="width: 70px">
+          <template #body="{ data }">
+            <span class="font-mono text-dim">#{{ data.id }}</span>
+          </template>
+        </Column>
+
+        <Column field="name" header="项目名称" style="width: 200px">
+          <template #body="{ data }">
+            <span class="project-title">{{ data.name }}</span>
+          </template>
+        </Column>
+
+        <Column field="path" header="物理路径">
+          <template #body="{ data }">
+            <span class="font-mono text-sm text-path" :title="data.path">{{ data.path }}</span>
+          </template>
+        </Column>
+
+        <Column field="phpVersionId" header="关联 PHP" style="width: 140px">
+          <template #body="{ data }">
+            <Tag 
+              v-if="data.phpVersionId" 
+              severity="info" 
+              :value="'PHP ' + getPHPVersionLabel(data.phpVersionId)" 
             />
-            <div v-if="pathFeedback" class="path-feedback" :class="pathFeedback.valid ? 'text-success' : 'text-danger'">
-              {{ pathFeedback.valid ? '✓ 路径有效' : pathFeedback.errors.join('; ') }}
-            </div>
-          </div>
+            <Tag v-else severity="secondary" value="默认环境" />
+          </template>
+        </Column>
 
-          <div class="form-group">
-            <label class="form-label">绑定 PHP 版本</label>
-            <select v-model="createForm.phpVersionId" class="form-input">
-              <option :value="null">默认运行版本</option>
-              <option v-for="php in phpVersions" :key="php.id" :value="php.id">
-                PHP {{ php.version }} ({{ php.architecture }})
-              </option>
-            </select>
-          </div>
+        <Column field="status" header="状态" style="width: 110px">
+          <template #body="{ data }">
+            <Tag 
+              :severity="data.status === 'ready' ? 'success' : 'danger'"
+              :value="data.status === 'ready' ? '就绪' : '路径缺失'" 
+            />
+          </template>
+        </Column>
 
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" @click="showCreateModal = false">取消</button>
-            <button type="submit" class="btn btn-primary" :disabled="submitting">创建</button>
-          </div>
-        </form>
-      </div>
+        <Column field="createdAt" header="创建时间" style="width: 140px">
+          <template #body="{ data }">
+            <span class="text-sm text-muted">{{ formatDate(data.createdAt) }}</span>
+          </template>
+        </Column>
+
+        <Column header="操作" style="width: 100px; text-align: right">
+          <template #body="{ data }">
+            <Button 
+              icon="pi pi-trash" 
+              severity="danger" 
+              text 
+              rounded 
+              size="small"
+              @click="handleDelete(data.id)" 
+            />
+          </template>
+        </Column>
+      </DataTable>
     </div>
 
-    <!-- Import Modal -->
-    <div v-if="showImportModal" class="modal-overlay" @click.self="showImportModal = false">
-      <div class="modal-content">
-        <h3>导入已有项目</h3>
-        <p class="modal-subtitle">将本地已有代码目录快速纳入 DevEnv 管理</p>
+    <!-- Create Dialog -->
+    <Dialog 
+      v-model:visible="showCreateModal" 
+      modal 
+      header="新建项目" 
+      :style="{ width: '480px' }"
+    >
+      <form @submit.prevent="submitCreate">
+        <div class="form-field">
+          <label>项目名称</label>
+          <InputText v-model="createForm.name" required placeholder="如 my-laravel-app" />
+        </div>
 
-        <form @submit.prevent="submitImport">
-          <div class="form-group">
-            <label class="form-label">已有目录绝对路径</label>
-            <input v-model="importPath" type="text" class="form-input" required placeholder="如 D:\projects\shop" />
+        <div class="form-field">
+          <label>物理目录路径</label>
+          <InputText 
+            v-model="createForm.path" 
+            required 
+            placeholder="如 G:\www\my-laravel-app" 
+            @input="onPathChange"
+          />
+          <div v-if="pathFeedback" class="form-feedback" :class="pathFeedback.valid ? 'valid' : 'invalid'">
+            {{ pathFeedback.valid ? '✓ 路径有效' : pathFeedback.errors.join('; ') }}
           </div>
+        </div>
 
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" @click="showImportModal = false">取消</button>
-            <button type="submit" class="btn btn-primary" :disabled="submitting">确认导入</button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div class="form-field">
+          <label>绑定 PHP 版本</label>
+          <Select 
+            v-model="createForm.phpVersionId" 
+            :options="phpOptions" 
+            optionLabel="label" 
+            optionValue="value" 
+            placeholder="选择绑定的 PHP 版本" 
+          />
+        </div>
+
+        <div class="dialog-footer">
+          <Button label="取消" severity="secondary" text @click="showCreateModal = false" />
+          <Button label="确认创建" type="submit" :loading="submitting" />
+        </div>
+      </form>
+    </Dialog>
+
+    <!-- Import Dialog -->
+    <Dialog 
+      v-model:visible="showImportModal" 
+      modal 
+      header="导入已有项目" 
+      :style="{ width: '480px' }"
+    >
+      <form @submit.prevent="submitImport">
+        <div class="form-field">
+          <label>已有目录物理绝对路径</label>
+          <InputText v-model="importPath" required placeholder="如 D:\projects\shop" />
+        </div>
+
+        <div class="dialog-footer">
+          <Button label="取消" severity="secondary" text @click="showImportModal = false" />
+          <Button label="确认导入" type="submit" :loading="submitting" />
+        </div>
+      </form>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Plus as PlusIcon, FolderInput as FolderInputIcon, Trash2 as Trash2Icon, RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
+import Tag from 'primevue/tag'
+import { useToast } from 'primevue/usetoast'
 import { listProjects, createProject, importProject, deleteProject, validateProjectPath } from '../api/projects'
 import { listVersions } from '../api/php'
 import type { Project, PHPVersion, ProjectPathValidation } from '../types'
 
+const toast = useToast()
 const projects = ref<Project[]>([])
 const phpVersions = ref<PHPVersion[]>([])
 const searchQuery = ref('')
@@ -174,6 +214,17 @@ const createForm = ref<{
 })
 
 const pathFeedback = ref<ProjectPathValidation | null>(null)
+
+const phpOptions = computed(() => {
+  const options = [{ label: '默认环境 (不指定)', value: null as number | null }]
+  for (const v of phpVersions.value) {
+    options.push({
+      label: `PHP ${v.version} (${v.architecture})`,
+      value: v.id,
+    })
+  }
+  return options
+})
 
 const filteredProjects = computed(() => {
   if (!searchQuery.value) return projects.value
@@ -221,12 +272,13 @@ async function submitCreate() {
       path: createForm.value.path,
       phpVersionId: createForm.value.phpVersionId,
     })
+    toast.add({ severity: 'success', summary: '成功', detail: '项目已成功创建', life: 2500 })
     showCreateModal.value = false
     createForm.value = { name: '', path: '', phpVersionId: null }
     pathFeedback.value = null
     await loadProjects()
   } catch (err: any) {
-    alert(err?.message || '创建项目失败')
+    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '创建项目失败', life: 3500 })
   } finally {
     submitting.value = false
   }
@@ -236,25 +288,27 @@ async function submitImport() {
   submitting.value = true
   try {
     await importProject(importPath.value)
+    toast.add({ severity: 'success', summary: '成功', detail: '项目已成功导入', life: 2500 })
     showImportModal.value = false
     importPath.value = ''
     await loadProjects()
   } catch (err: any) {
-    alert(err?.message || '导入项目失败')
+    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '导入项目失败', life: 3500 })
   } finally {
     submitting.value = false
   }
 }
 
 async function handleDelete(id: number) {
-  if (!confirm('确定要删除该项目的管理记录吗？物理项目目录将保留。')) {
+  if (!confirm('确定要删除该项目的登记记录吗？项目物理目录将完整保留。')) {
     return
   }
   try {
     await deleteProject(id)
+    toast.add({ severity: 'info', summary: '已删除', detail: '项目管理记录已删除', life: 2500 })
     await loadProjects()
   } catch (err: any) {
-    alert(err?.message || '删除失败')
+    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '删除失败', life: 3500 })
   }
 }
 
@@ -267,134 +321,43 @@ onMounted(() => {
 .projects-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
 }
 
-.page-header {
-  padding: 20px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-left h2 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #fff;
-}
-.header-left p {
-  font-size: 0.825rem;
-  color: var(--text-muted);
-  margin-top: 3px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.table-container {
+.table-card {
   padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
-.table-toolbar {
+.table-header-tools {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 12px;
 }
 
 .search-input {
-  max-width: 320px;
+  width: 280px;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.data-table th {
-  padding: 10px 12px;
-  font-size: 0.775rem;
+.project-title {
   font-weight: 600;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-main);
 }
 
-.data-table td {
-  padding: 12px;
-  font-size: 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.data-table tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.cell-path {
-  max-width: 300px;
+.text-path {
+  max-width: 380px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: block;
 }
 
-.text-right {
-  text-align: right;
-}
-
-.font-mono {
-  font-family: var(--font-mono);
-}
-.font-bold {
-  font-weight: 600;
-}
-.text-main {
-  color: var(--text-main);
-}
-.text-muted {
-  color: var(--text-muted);
-}
-.text-dim {
-  color: var(--text-dim);
-}
-.text-success {
-  color: #34d399;
-}
-.text-danger {
-  color: #fb7185;
-}
-
-.modal-subtitle {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-bottom: 18px;
-}
-
-.form-group {
-  margin-bottom: 14px;
-}
-
-.path-feedback {
-  font-size: 0.75rem;
-  margin-top: 4px;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
+.text-dim { color: #94a3b8; }
+.text-muted { color: #64748b; }
+.text-sm { font-size: 0.8rem; }
 
 .empty-state {
   text-align: center;
-  color: var(--text-dim);
   padding: 40px;
-  font-size: 0.875rem;
+  color: var(--text-muted);
 }
 </style>

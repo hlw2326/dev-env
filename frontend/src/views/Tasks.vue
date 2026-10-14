@@ -1,59 +1,60 @@
 <template>
-  <div class="tasks-page fade-in">
+  <div class="tasks-page">
     <!-- Header -->
-    <div class="page-header glass-panel">
-      <div class="header-left">
-        <h2>任务与后台作业中心</h2>
-        <p>查看环境安装、备份、恢复及异步处理任务的进度与状态</p>
+    <div class="page-header-bar">
+      <div>
+        <h1 class="page-title">任务与后台作业中心</h1>
+        <p class="page-subtitle">查看环境安装、备份、恢复及异步处理任务的进度与状态</p>
       </div>
-
       <div class="header-actions">
-        <button class="btn btn-secondary" @click="loadTasks">
-          <RefreshCwIcon class="btn-icon" :class="{ 'spin-icon': loading }" />
-          刷新
-        </button>
+        <Button 
+          label="刷新" 
+          icon="pi pi-refresh" 
+          severity="secondary" 
+          outlined 
+          :loading="loading" 
+          @click="loadTasks" 
+        />
       </div>
     </div>
 
     <!-- Tasks List -->
-    <div class="table-container glass-panel">
+    <div class="surface-card tasks-card">
       <div v-if="tasks.length === 0" class="empty-state">
         <span v-if="loading">加载任务中...</span>
         <span v-else>当前没有正在运行或历史记录的任务</span>
       </div>
 
-      <div v-else class="tasks-list">
-        <div v-for="t in tasks" :key="t.id" class="task-card">
-          <div class="task-header-row">
-            <div class="task-title-group">
-              <span class="task-type-badge font-mono">{{ t.taskType }}</span>
+      <div v-else class="task-items-list">
+        <div v-for="t in tasks" :key="t.id" class="task-box">
+          <div class="task-top">
+            <div class="task-left">
+              <span class="task-type font-mono">{{ t.taskType }}</span>
               <span class="task-id font-mono">#{{ t.id }}</span>
               <span class="task-msg">{{ t.message || '处理中...' }}</span>
             </div>
 
-            <div class="task-status-group">
-              <span class="badge" :class="getStatusBadgeClass(t.status)">
-                {{ getStatusLabel(t.status) }}
-              </span>
-
-              <button 
+            <div class="task-right">
+              <Tag 
+                :severity="getStatusSeverity(t.status)" 
+                :value="getStatusLabel(t.status)" 
+              />
+              <Button 
                 v-if="t.status === 'running' || t.status === 'queued'" 
-                class="btn btn-danger btn-sm" 
-                @click="handleCancel(t.id)"
-              >
-                取消任务
-              </button>
+                label="取消任务" 
+                severity="danger" 
+                size="small" 
+                text 
+                @click="handleCancel(t.id)" 
+              />
             </div>
           </div>
 
-          <!-- Progress Bar -->
-          <div class="progress-bar-wrap">
-            <div class="progress-bar-fill" :style="{ width: `${t.progress}%` }"></div>
-          </div>
+          <ProgressBar :value="t.progress" :showValue="false" style="height: 6px;" />
 
-          <div class="task-footer-row">
-            <span class="text-dim text-xs">创建于: {{ formatDate(t.createdAt) }}</span>
-            <span class="text-dim text-xs font-mono">{{ t.progress }}%</span>
+          <div class="task-meta-line">
+            <span class="text-sm text-muted">创建时间: {{ formatDate(t.createdAt) }}</span>
+            <span class="text-sm font-mono font-bold">{{ t.progress }}%</span>
           </div>
 
           <div v-if="t.errorMessage" class="task-error-box font-mono">
@@ -67,10 +68,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
+import Button from 'primevue/button'
+import ProgressBar from 'primevue/progressbar'
+import Tag from 'primevue/tag'
+import { useToast } from 'primevue/usetoast'
 import { listTasks, cancelTask } from '../api/tasks'
 import type { Task } from '../types'
 
+const toast = useToast()
 const tasks = ref<Task[]>([])
 const loading = ref(false)
 
@@ -86,14 +91,14 @@ function getStatusLabel(status: Task['status']) {
   }
 }
 
-function getStatusBadgeClass(status: Task['status']) {
+function getStatusSeverity(status: Task['status']) {
   switch (status) {
-    case 'succeeded': return 'badge-success'
-    case 'running': return 'badge-primary'
-    case 'failed': return 'badge-danger'
+    case 'succeeded': return 'success'
+    case 'running': return 'info'
+    case 'failed': return 'danger'
     case 'cancelling':
-    case 'cancelled': return 'badge-warning'
-    default: return 'badge-neutral'
+    case 'cancelled': return 'warn'
+    default: return 'secondary'
   }
 }
 
@@ -114,9 +119,10 @@ async function loadTasks() {
 async function handleCancel(id: number) {
   try {
     await cancelTask(id)
+    toast.add({ severity: 'info', summary: '已取消', detail: '任务已请求取消', life: 2500 })
     await loadTasks()
   } catch (err: any) {
-    alert(err?.message || '取消任务失败')
+    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '取消任务失败', life: 3500 })
   }
 }
 
@@ -129,122 +135,88 @@ onMounted(() => {
 .tasks-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
 }
 
-.page-header {
-  padding: 20px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-left h2 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #fff;
-}
-.header-left p {
-  font-size: 0.825rem;
-  color: var(--text-muted);
-  margin-top: 3px;
-}
-
-.table-container {
+.tasks-card {
   padding: 20px;
 }
 
-.tasks-list {
+.task-items-list {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.task-card {
-  padding: 16px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--border-subtle);
+.task-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: var(--radius-md);
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.task-header-row {
+.task-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.task-title-group {
+.task-left {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.task-type-badge {
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
+.task-type {
+  background: #eff6ff;
+  color: #2563eb;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
+  border: 1px solid #bfdbfe;
 }
 
 .task-id {
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: 0.8rem;
 }
 
 .task-msg {
-  font-size: 0.875rem;
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--text-main);
-  font-weight: 500;
 }
 
-.task-status-group {
+.task-right {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.progress-bar-wrap {
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #6366f1, #06b6d4);
-  border-radius: 999px;
-  transition: width 0.3s ease;
-}
-
-.task-footer-row {
+.task-meta-line {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .task-error-box {
-  background: rgba(244, 63, 94, 0.12);
-  border: 1px solid rgba(244, 63, 94, 0.25);
-  color: #fb7185;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #ef4444;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  font-size: 0.75rem;
+  font-size: 0.775rem;
 }
 
-.text-xs {
-  font-size: 0.725rem;
-}
+.text-sm { font-size: 0.8rem; }
+.text-muted { color: #64748b; }
+.font-bold { font-weight: 600; }
 
 .empty-state {
   text-align: center;
-  color: var(--text-dim);
   padding: 40px;
-  font-size: 0.875rem;
+  color: var(--text-muted);
 }
 </style>

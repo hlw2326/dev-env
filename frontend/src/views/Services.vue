@@ -1,114 +1,122 @@
 <template>
-  <div class="services-page fade-in">
+  <div class="services-page">
     <!-- Header -->
-    <div class="page-header glass-panel">
-      <div class="header-left">
-        <h2>服务实例管理</h2>
-        <p>监控与管理本地 Web 服务器 (Nginx)、数据库 (MySQL) 与 PHP FastCGI 等服务进程</p>
+    <div class="page-header-bar">
+      <div>
+        <h1 class="page-title">服务实例管理</h1>
+        <p class="page-subtitle">监控与管理本地 Web 服务器 (Nginx)、数据库 (MySQL) 与 PHP FastCGI 进程</p>
       </div>
-
       <div class="header-actions">
-        <button class="btn btn-secondary" @click="loadServices">
-          <RefreshCwIcon class="btn-icon" :class="{ 'spin-icon': loading }" />
-          刷新状态
-        </button>
+        <Button 
+          label="刷新状态" 
+          icon="pi pi-refresh" 
+          severity="secondary" 
+          outlined 
+          :loading="loading" 
+          @click="loadServices" 
+        />
       </div>
     </div>
 
     <!-- Services Grid -->
     <div class="services-grid">
-      <div v-for="srv in services" :key="srv.id" class="service-card glass-panel" :class="{ 'is-running': srv.status === 'running' }">
-        <div class="srv-top">
-          <div class="srv-title-group">
-            <span class="srv-icon-badge" :class="srv.serviceType">
+      <div 
+        v-for="srv in services" 
+        :key="srv.id" 
+        class="service-card surface-card"
+        :class="{ 'is-running': srv.status === 'running' }"
+      >
+        <div class="srv-header">
+          <div class="srv-badge-title">
+            <span class="type-pill" :class="srv.serviceType">
               {{ srv.serviceType.toUpperCase() }}
             </span>
-            <div class="srv-titles">
-              <span class="srv-card-name">{{ srv.name }}</span>
-              <span class="srv-type-tag">类型: {{ srv.serviceType }}</span>
-            </div>
+            <span class="srv-name">{{ srv.name }}</span>
           </div>
 
-          <span class="badge" :class="srv.status === 'running' ? 'badge-success' : 'badge-neutral'">
-            <span class="dot" :class="srv.status === 'running' ? 'online' : ''"></span>
-            {{ srv.status === 'running' ? '运行中 (Running)' : '已停止 (Stopped)' }}
-          </span>
+          <Tag 
+            :severity="srv.status === 'running' ? 'success' : 'secondary'"
+            :value="srv.status === 'running' ? '运行中 (Running)' : '已停止 (Stopped)'" 
+            :icon="srv.status === 'running' ? 'pi pi-check-circle' : 'pi pi-minus-circle'"
+          />
         </div>
 
-        <div class="srv-metrics">
-          <div class="metric-item">
-            <span class="metric-lbl">监听端口:</span>
-            <span class="metric-val font-mono">{{ srv.port ? srv.port : '无端口' }}</span>
+        <div class="srv-metrics-grid">
+          <div class="metric-col">
+            <span class="m-lbl">监听端口</span>
+            <span class="m-val font-mono">{{ srv.port ? srv.port : '无' }}</span>
           </div>
-          <div class="metric-item">
-            <span class="metric-lbl">进程 PID:</span>
-            <span class="metric-val font-mono">{{ srv.pid ? srv.pid : '-' }}</span>
+          <div class="metric-col">
+            <span class="m-lbl">进程 PID</span>
+            <span class="m-val font-mono">{{ srv.pid ? srv.pid : '-' }}</span>
           </div>
-          <div class="metric-item">
-            <span class="metric-lbl">开机自启:</span>
-            <span class="metric-val">{{ srv.autoStart ? '开启' : '关闭' }}</span>
+          <div class="metric-col">
+            <span class="m-lbl">开机自启</span>
+            <span class="m-val">{{ srv.autoStart ? '开启' : '关闭' }}</span>
           </div>
         </div>
 
-        <div class="srv-card-actions">
-          <button 
-            v-if="srv.status !== 'running'" 
-            class="btn btn-success btn-sm flex-1"
-            :disabled="operatingId === srv.id"
+        <div class="srv-footer-actions">
+          <Button 
+            v-if="srv.status !== 'running'"
+            label="启动服务" 
+            icon="pi pi-play" 
+            severity="success" 
+            class="flex-1"
+            :loading="operatingId === srv.id"
             @click="handleStart(srv.id)"
-          >
-            <PlayIcon class="btn-icon" />
-            启动服务
-          </button>
+          />
 
           <template v-else>
-            <button 
-              class="btn btn-danger btn-sm flex-1"
-              :disabled="operatingId === srv.id"
+            <Button 
+              label="停止" 
+              icon="pi pi-stop" 
+              severity="danger" 
+              outlined
+              class="flex-1"
+              :loading="operatingId === srv.id"
               @click="handleStop(srv.id)"
-            >
-              <SquareIcon class="btn-icon" />
-              停止
-            </button>
-            <button 
-              class="btn btn-secondary btn-sm flex-1"
-              :disabled="operatingId === srv.id"
+            />
+            <Button 
+              label="重启" 
+              icon="pi pi-replay" 
+              severity="secondary" 
+              outlined
+              class="flex-1"
+              :loading="operatingId === srv.id"
               @click="handleRestart(srv.id)"
-            >
-              <RotateCwIcon class="btn-icon" />
-              重启
-            </button>
+            />
           </template>
 
-          <button 
-            class="btn btn-secondary btn-sm"
-            @click="openLogs(srv)"
-          >
-            <TerminalIcon class="btn-icon" />
-            日志
-          </button>
+          <Button 
+            icon="pi pi-terminal" 
+            label="日志" 
+            severity="secondary" 
+            text 
+            @click="openLogs(srv)" 
+          />
         </div>
       </div>
     </div>
 
-    <!-- Live Terminal Console -->
-    <div v-if="activeLogService" class="log-console-panel glass-panel">
-      <div class="console-header">
-        <div class="console-title">
-          <TerminalIcon class="console-icon" />
-          <span>{{ activeLogService.name }} - 实时输出日志</span>
+    <!-- Log Console Panel -->
+    <div v-if="activeLogService" class="log-panel surface-card">
+      <div class="log-panel-header">
+        <div class="log-panel-title">
+          <i class="pi pi-terminal"></i>
+          <span>{{ activeLogService.name }} - 控制台实时日志</span>
         </div>
-        <div class="console-actions">
-          <button class="btn btn-secondary btn-sm" @click="fetchLogs">刷新日志</button>
-          <button class="btn btn-secondary btn-sm" @click="activeLogService = null">关闭</button>
+        <div class="log-panel-actions">
+          <Button label="刷新日志" icon="pi pi-refresh" severity="secondary" text size="small" @click="fetchLogs" />
+          <Button label="关闭" severity="secondary" text size="small" @click="activeLogService = null" />
         </div>
       </div>
 
-      <div class="console-body font-mono">
-        <div v-if="logs.length === 0" class="console-empty">暂无日志输出</div>
-        <div v-for="(line, idx) in logs" :key="idx" class="log-line">
-          <span class="line-num">{{ idx + 1 }}</span>
-          <span class="line-text">{{ line }}</span>
+      <div class="log-console font-mono">
+        <div v-if="logs.length === 0" class="log-empty">暂无输出日志</div>
+        <div v-for="(line, idx) in logs" :key="idx" class="log-row">
+          <span class="log-num">{{ idx + 1 }}</span>
+          <span class="log-content">{{ line }}</span>
         </div>
       </div>
     </div>
@@ -117,16 +125,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { 
-  RefreshCw as RefreshCwIcon, 
-  Play as PlayIcon, 
-  Square as SquareIcon, 
-  RotateCw as RotateCwIcon, 
-  Terminal as TerminalIcon 
-} from 'lucide-vue-next'
+import Button from 'primevue/button'
+import Tag from 'primevue/tag'
+import { useToast } from 'primevue/usetoast'
 import { listServices, startService, stopService, restartService, getServiceLogs } from '../api/services'
 import type { ServiceInstance } from '../types'
 
+const toast = useToast()
 const services = ref<ServiceInstance[]>([])
 const loading = ref(false)
 const operatingId = ref<number | null>(null)
@@ -146,9 +151,10 @@ async function handleStart(id: number) {
   operatingId.value = id
   try {
     await startService(id)
+    toast.add({ severity: 'success', summary: '成功', detail: '服务启动成功', life: 2500 })
     await loadServices()
   } catch (err: any) {
-    alert(err?.message || '启动服务失败')
+    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '启动服务失败', life: 3500 })
   } finally {
     operatingId.value = null
   }
@@ -158,9 +164,10 @@ async function handleStop(id: number) {
   operatingId.value = id
   try {
     await stopService(id)
+    toast.add({ severity: 'info', summary: '已停止', detail: '服务已停止', life: 2500 })
     await loadServices()
   } catch (err: any) {
-    alert(err?.message || '停止服务失败')
+    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '停止服务失败', life: 3500 })
   } finally {
     operatingId.value = null
   }
@@ -170,9 +177,10 @@ async function handleRestart(id: number) {
   operatingId.value = id
   try {
     await restartService(id)
+    toast.add({ severity: 'success', summary: '成功', detail: '服务重启成功', life: 2500 })
     await loadServices()
   } catch (err: any) {
-    alert(err?.message || '重启服务失败')
+    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '重启服务失败', life: 3500 })
   } finally {
     operatingId.value = null
   }
@@ -204,27 +212,9 @@ onMounted(() => {
   gap: 20px;
 }
 
-.page-header {
-  padding: 20px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-left h2 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #fff;
-}
-.header-left p {
-  font-size: 0.825rem;
-  color: var(--text-muted);
-  margin-top: 3px;
-}
-
 .services-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 16px;
 }
 
@@ -233,81 +223,70 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  border-radius: var(--radius-lg);
-  transition: all 0.2s;
 }
 .service-card.is-running {
-  border-color: rgba(16, 185, 129, 0.3);
-  box-shadow: 0 0 16px rgba(16, 185, 129, 0.1);
+  border-color: #86efac;
 }
 
-.srv-top {
+.srv-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-}
-
-.srv-title-group {
-  display: flex;
-  gap: 12px;
   align-items: center;
 }
 
-.srv-icon-badge {
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
-  font-size: 0.75rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
-}
-.srv-icon-badge.nginx { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-.srv-icon-badge.mysql { background: rgba(6, 182, 212, 0.15); color: #22d3ee; }
-
-.srv-titles {
+.srv-badge-title {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
-.srv-card-name {
-  font-size: 1rem;
+.type-pill {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.725rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.type-pill.php { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+.type-pill.nginx { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+.type-pill.mysql { background: #fffbeb; color: #d97706; border-color: #fde68a; }
+
+.srv-name {
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-main);
 }
 
-.srv-type-tag {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-}
-
-.srv-metrics {
+.srv-metrics-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  background: rgba(15, 23, 42, 0.4);
+  background: #f8fafc;
   padding: 10px 12px;
   border-radius: var(--radius-md);
+  border: 1px solid #e2e8f0;
 }
 
-.metric-item {
+.metric-col {
   display: flex;
   flex-direction: column;
 }
 
-.metric-lbl {
-  font-size: 0.7rem;
-  color: var(--text-dim);
+.m-lbl {
+  font-size: 0.725rem;
+  color: var(--text-muted);
 }
 
-.metric-val {
+.m-val {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-main);
   margin-top: 2px;
 }
 
-.srv-card-actions {
+.srv-footer-actions {
   display: flex;
   gap: 8px;
   margin-top: auto;
@@ -317,79 +296,59 @@ onMounted(() => {
   flex: 1;
 }
 
-.log-console-panel {
+.log-panel {
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: #0b0f19;
-  border: 1px solid var(--border-card);
 }
 
-.console-header {
+.log-panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.console-title {
+.log-panel-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--accent-cyan);
+  color: var(--text-main);
 }
 
-.console-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.console-body {
+.log-console {
+  background: #0f172a;
+  border-radius: var(--radius-md);
+  padding: 14px;
   height: 240px;
   overflow-y: auto;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: var(--radius-md);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  color: #f8fafc;
 }
 
-.log-line {
+.log-row {
   display: flex;
   gap: 12px;
-  font-size: 0.775rem;
-  line-height: 1.4;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
-.line-num {
-  color: var(--text-dim);
-  min-width: 28px;
+.log-num {
+  color: #64748b;
+  min-width: 24px;
   user-select: none;
 }
 
-.line-text {
-  color: #e2e8f0;
+.log-content {
+  color: #cbd5e1;
   word-break: break-all;
 }
 
-.console-empty {
-  color: var(--text-dim);
+.log-empty {
   text-align: center;
-  margin-top: 80px;
+  padding: 70px 0;
+  color: #64748b;
   font-size: 0.85rem;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #64748b;
-}
-.dot.online {
-  background: #10b981;
-  box-shadow: 0 0 6px #10b981;
 }
 </style>

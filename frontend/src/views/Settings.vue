@@ -1,93 +1,94 @@
 <template>
-  <div class="settings-page fade-in">
+  <div class="settings-page">
     <!-- Header -->
-    <div class="page-header glass-panel">
-      <div class="header-left">
-        <h2>应用全局设置</h2>
-        <p>配置运行环境根目录、默认项目存储路径、启动偏好与内部数据库</p>
+    <div class="page-header-bar">
+      <div>
+        <h1 class="page-title">应用全局设置</h1>
+        <p class="page-subtitle">配置运行环境根目录、默认项目存储路径、启动偏好与内部数据库</p>
       </div>
-
       <div class="header-actions">
-        <button class="btn btn-secondary" @click="handleReset">恢复默认</button>
-        <button class="btn btn-primary" :disabled="saving" @click="handleSave">保存配置</button>
+        <Button label="恢复默认" severity="secondary" outlined @click="handleReset" />
+        <Button label="保存配置" icon="pi pi-check" :loading="saving" @click="handleSave" />
       </div>
     </div>
 
-    <!-- Settings Sections -->
+    <!-- Settings Grid -->
     <div class="settings-grid">
-      <!-- General Preferences -->
-      <div class="settings-card glass-panel">
-        <h3>通用偏好</h3>
-        <p class="section-desc">界面语言与视觉外观设置</p>
+      <!-- General -->
+      <div class="surface-card setting-card">
+        <h2 class="card-title">通用外观与语言</h2>
+        <p class="card-desc">界面语言与视觉外观设置</p>
 
-        <div class="form-group">
-          <label class="form-label">界面语言</label>
-          <select v-model="settings.language" class="form-input">
-            <option value="zh-CN">简体中文 (zh-CN)</option>
-            <option value="en-US">English (en-US)</option>
-          </select>
+        <div class="form-field">
+          <label>界面语言</label>
+          <Select 
+            v-model="settings.language" 
+            :options="langOptions" 
+            optionLabel="label" 
+            optionValue="value" 
+          />
         </div>
 
-        <div class="form-group">
-          <label class="form-label">主题风格</label>
-          <select v-model="settings.theme" class="form-input">
-            <option value="system">跟随系统 (System)</option>
-            <option value="dark">深色黑金 (Dark Slate)</option>
-            <option value="light">浅色明亮 (Light)</option>
-          </select>
+        <div class="form-field">
+          <label>主题模式</label>
+          <Select 
+            v-model="settings.theme" 
+            :options="themeOptions" 
+            optionLabel="label" 
+            optionValue="value" 
+          />
         </div>
       </div>
 
       <!-- Environment Paths -->
-      <div class="settings-card glass-panel">
-        <h3>环境与项目目录</h3>
-        <p class="section-desc">运行环境下载解压根目录与默认项目路径</p>
+      <div class="surface-card setting-card">
+        <h2 class="card-title">路径配置</h2>
+        <p class="card-desc">运行环境下载解压根目录与默认项目路径</p>
 
-        <div class="form-group">
-          <label class="form-label">环境根目录 (Runtime Root)</label>
-          <input 
+        <div class="form-field">
+          <label>环境根目录 (Runtime Root Path)</label>
+          <InputText 
             v-model="settings.runtimeRootPath" 
-            type="text" 
-            class="form-input font-mono" 
+            class="font-mono" 
             placeholder="如 D:\DevEnv\runtimes" 
           />
         </div>
 
-        <div class="form-group">
-          <label class="form-label">默认项目创建路径 (Projects Default)</label>
-          <input 
+        <div class="form-field">
+          <label>默认项目路径 (Default Project Path)</label>
+          <InputText 
             v-model="settings.defaultProjectPath" 
-            type="text" 
-            class="form-input font-mono" 
+            class="font-mono" 
             placeholder="如 G:\www 或 D:\projects" 
           />
         </div>
       </div>
 
-      <!-- Service Startup & System DB Info -->
-      <div class="settings-card glass-panel full-width">
-        <h3>服务与内部数据库 (SQLite)</h3>
-        <p class="section-desc">应用底层管理数据库与外部服务生命周期策略</p>
+      <!-- Services & DB Info -->
+      <div class="surface-card setting-card full-col">
+        <h2 class="card-title">服务管理与内部数据持久化</h2>
+        <p class="card-desc">外部服务生命周期策略及应用内置 SQLite 架构信息</p>
 
-        <div class="setting-checkbox-row">
-          <label class="switch-label">
-            <input v-model="settings.autoStartServices" type="checkbox" />
-            <span>应用启动时自动开启标记为开机自启的服务实例</span>
-          </label>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-title">开机自启服务</span>
+            <span class="toggle-sub">应用启动时自动开启标记为自启的服务实例</span>
+          </div>
+          <ToggleSwitch v-model="settings.autoStartServices" />
         </div>
 
-        <div class="db-info-box font-mono">
-          <div class="db-row">
-            <span class="db-label">数据库引擎:</span>
-            <span class="db-val">SQLite 3 (WAL 模式, 纯 Go 驱动 modernc.org/sqlite)</span>
+        <div class="db-spec-box font-mono">
+          <div class="spec-row">
+            <span class="spec-lbl">数据库驱动:</span>
+            <span class="spec-val">SQLite 3 (WAL 模式, 纯 Go 驱动 modernc.org/sqlite)</span>
           </div>
-          <div class="db-row">
-            <span class="db-label">存储数据表:</span>
-            <span class="db-val">system_projects, system_runtime_versions, system_service_instances, system_virtual_hosts, system_tasks, system_app_settings</span>
+          <div class="spec-row">
+            <span class="spec-lbl">统一表名前缀:</span>
+            <span class="spec-val">system_projects, system_runtime_versions, system_service_instances, system_virtual_hosts, system_tasks, system_app_settings</span>
           </div>
-          <div class="db-row">
-            <span class="db-label">ID 设计规范:</span>
-            <span class="db-val">数字自增 ID (INTEGER PRIMARY KEY AUTOINCREMENT)</span>
+          <div class="spec-row">
+            <span class="spec-lbl">主键设计规范:</span>
+            <span class="spec-val">数字自增 ID (INTEGER PRIMARY KEY AUTOINCREMENT)</span>
           </div>
         </div>
       </div>
@@ -97,18 +98,35 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
+import ToggleSwitch from 'primevue/toggleswitch'
+import { useToast } from 'primevue/usetoast'
 import { getSettings, updateSettings, resetSettings } from '../api/settings'
 import type { AppSettings } from '../types'
 
+const toast = useToast()
 const settings = ref<AppSettings>({
   language: 'zh-CN',
-  theme: 'system',
+  theme: 'light',
   runtimeRootPath: '',
   defaultProjectPath: '',
   autoStartServices: false,
 })
 
 const saving = ref(false)
+
+const langOptions = [
+  { label: '简体中文 (zh-CN)', value: 'zh-CN' },
+  { label: 'English (en-US)', value: 'en-US' },
+]
+
+const themeOptions = [
+  { label: '明亮浅色 (Light)', value: 'light' },
+  { label: '跟随系统 (System)', value: 'system' },
+  { label: '暗黑深色 (Dark)', value: 'dark' },
+]
 
 async function loadSettings() {
   try {
@@ -122,21 +140,21 @@ async function handleSave() {
   saving.value = true
   try {
     settings.value = await updateSettings(settings.value)
-    alert('设置已成功保存！')
+    toast.add({ severity: 'success', summary: '成功', detail: '设置已成功保存', life: 2500 })
   } catch (err: any) {
-    alert(err?.message || '保存设置失败')
+    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '保存设置失败', life: 3500 })
   } finally {
     saving.value = false
   }
 }
 
 async function handleReset() {
-  if (!confirm('确定要恢复默认设置吗？已有的项目和运行环境不会被删除。')) return
+  if (!confirm('确定要恢复默认设置吗？已有项目和环境记录不受影响。')) return
   try {
     settings.value = await resetSettings()
-    alert('已恢复为默认配置')
+    toast.add({ severity: 'info', summary: '已恢复', detail: '已重置为默认配置', life: 2500 })
   } catch (err: any) {
-    alert(err?.message || '恢复设置失败')
+    toast.add({ severity: 'error', summary: '错误', detail: err?.message || '重置失败', life: 3500 })
   }
 }
 
@@ -149,30 +167,6 @@ onMounted(() => {
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.page-header {
-  padding: 20px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-left h2 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #fff;
-}
-.header-left p {
-  font-size: 0.825rem;
-  color: var(--text-muted);
-  margin-top: 3px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 10px;
 }
 
 .settings-grid {
@@ -181,57 +175,57 @@ onMounted(() => {
   gap: 16px;
 }
 
-.settings-card {
+.setting-card {
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-.settings-card.full-width {
+.setting-card.full-col {
   grid-column: span 2;
 }
 
-.settings-card h3 {
-  font-size: 1rem;
+.card-title {
+  font-size: 1.05rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-main);
 }
 
-.section-desc {
+.card-desc {
   font-size: 0.8rem;
   color: var(--text-muted);
   margin-top: -10px;
 }
 
-.form-group {
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.toggle-info {
   display: flex;
   flex-direction: column;
 }
 
-.setting-checkbox-row {
-  display: flex;
-  align-items: center;
-}
-
-.switch-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.875rem;
+.toggle-title {
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--text-main);
-  cursor: pointer;
 }
 
-.switch-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent-primary);
-  cursor: pointer;
+.toggle-sub {
+  font-size: 0.775rem;
+  color: var(--text-muted);
 }
 
-.db-info-box {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--border-subtle);
+.db-spec-box {
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 14px;
   display: flex;
@@ -240,21 +234,17 @@ onMounted(() => {
   font-size: 0.775rem;
 }
 
-.db-row {
+.spec-row {
   display: flex;
   gap: 12px;
 }
 
-.db-label {
-  color: var(--text-dim);
+.spec-lbl {
+  color: var(--text-muted);
   min-width: 120px;
 }
 
-.db-val {
-  color: var(--accent-cyan);
-}
-
-.font-mono {
-  font-family: var(--font-mono);
+.spec-val {
+  color: #2563eb;
 }
 </style>

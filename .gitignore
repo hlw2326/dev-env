@@ -7,5 +7,6 @@ data/
 *.db
 *.db-wal
 *.db-shm
+*.md5
 .DS_Store
 Thumbs.db

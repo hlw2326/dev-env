@@ -1,73 +1,75 @@
 <template>
   <div class="app-layout">
-    <!-- Sidebar -->
+    <Toast position="top-right" />
+
+    <!-- Clean Light Sidebar -->
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-icon">
-          <LayersIcon class="icon-inner" />
+        <div class="brand-logo">
+          <i class="pi pi-box brand-icon"></i>
         </div>
-        <div class="brand-info">
+        <div class="brand-text">
           <span class="brand-name">DevEnv</span>
-          <span class="brand-sub font-mono">v1.0.0</span>
+          <span class="brand-badge font-mono">v1.0.0</span>
         </div>
       </div>
 
       <nav class="nav-menu">
         <router-link to="/" class="nav-item" active-class="active">
-          <LayoutDashboardIcon class="nav-icon" />
+          <i class="pi pi-th-large nav-icon"></i>
           <span>控制台 (Dashboard)</span>
         </router-link>
 
         <router-link to="/projects" class="nav-item" active-class="active">
-          <FolderIcon class="nav-icon" />
+          <i class="pi pi-folder nav-icon"></i>
           <span>项目管理 (Projects)</span>
         </router-link>
 
         <router-link to="/php" class="nav-item" active-class="active">
-          <CodeIcon class="nav-icon" />
+          <i class="pi pi-code nav-icon"></i>
           <span>PHP 环境 (PHP)</span>
         </router-link>
 
         <router-link to="/services" class="nav-item" active-class="active">
-          <ServerIcon class="nav-icon" />
+          <i class="pi pi-server nav-icon"></i>
           <span>服务实例 (Services)</span>
         </router-link>
 
         <router-link to="/hosts" class="nav-item" active-class="active">
-          <GlobeIcon class="nav-icon" />
+          <i class="pi pi-globe nav-icon"></i>
           <span>虚拟主机 (Hosts)</span>
         </router-link>
 
         <router-link to="/tasks" class="nav-item" active-class="active">
-          <ListTodoIcon class="nav-icon" />
+          <i class="pi pi-list-check nav-icon"></i>
           <span>任务作业 (Tasks)</span>
         </router-link>
 
         <router-link to="/settings" class="nav-item" active-class="active">
-          <SettingsIcon class="nav-icon" />
+          <i class="pi pi-cog nav-icon"></i>
           <span>全局设置 (Settings)</span>
         </router-link>
       </nav>
 
       <div class="sidebar-footer">
         <div class="sys-badge font-mono">
-          <span class="status-indicator active"></span>
+          <span class="status-dot online"></span>
           <span>SQLite system_ OK</span>
         </div>
       </div>
     </aside>
 
-    <!-- Main Content Area -->
+    <!-- Main Workspace -->
     <div class="main-wrapper">
       <header class="topbar">
-        <div class="topbar-breadcrumb font-mono">
-          <span>DevEnv</span>
+        <div class="breadcrumb font-mono">
+          <span class="brand-crumb">DevEnv</span>
           <span class="separator">/</span>
-          <span class="curr-page">{{ currentRouteName }}</span>
+          <span class="current-crumb">{{ currentRouteName }}</span>
         </div>
 
         <div class="topbar-right">
-          <span class="badge badge-primary font-mono">Win64 · Go & Wails</span>
+          <span class="env-pill font-mono">Win64 · Go & Wails</span>
         </div>
       </header>
 
@@ -81,16 +83,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  Layers as LayersIcon,
-  LayoutDashboard as LayoutDashboardIcon,
-  Folder as FolderIcon,
-  Code as CodeIcon,
-  Server as ServerIcon,
-  Globe as GlobeIcon,
-  ListTodo as ListTodoIcon,
-  Settings as SettingsIcon,
-} from 'lucide-vue-next'
+import Toast from 'primevue/toast'
 
 const route = useRoute()
 const currentRouteName = computed(() => {
@@ -111,38 +104,36 @@ const currentRouteName = computed(() => {
 .sidebar {
   width: 250px;
   background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 18px 14px;
+  padding: 16px 12px;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px 22px 10px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 8px 10px 18px 10px;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.brand-icon {
+.brand-logo {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+  background: #3b82f6;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-glow);
 }
 
-.icon-inner {
-  width: 20px;
-  height: 20px;
-  color: #fff;
+.brand-icon {
+  font-size: 1.25rem;
+  color: #ffffff;
 }
 
-.brand-info {
+.brand-text {
   display: flex;
   flex-direction: column;
 }
@@ -150,20 +141,20 @@ const currentRouteName = computed(() => {
 .brand-name {
   font-size: 1.15rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--text-main);
+  line-height: 1.2;
 }
 
-.brand-sub {
+.brand-badge {
   font-size: 0.7rem;
-  color: var(--text-dim);
+  color: var(--text-muted);
 }
 
 .nav-menu {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 16px;
+  margin-top: 14px;
   flex: 1;
 }
 
@@ -171,58 +162,56 @@ const currentRouteName = computed(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border-radius: var(--radius-md);
-  color: var(--text-muted);
+  color: #475569;
   text-decoration: none;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 500;
   transition: all 0.15s ease;
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-main);
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .nav-item.active {
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
+  background: #eff6ff;
+  color: #2563eb;
   font-weight: 600;
 }
 
 .nav-icon {
-  width: 18px;
-  height: 18px;
+  font-size: 1.05rem;
 }
 
 .sidebar-footer {
   margin-top: auto;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
 }
 
 .sys-badge {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.725rem;
-  color: var(--text-dim);
-  background: rgba(15, 23, 42, 0.6);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: #f8fafc;
   padding: 6px 10px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-color);
 }
 
-.status-indicator {
+.status-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #64748b;
+  background: #94a3b8;
 }
-.status-indicator.active {
+.status-dot.online {
   background: #10b981;
-  box-shadow: 0 0 8px #10b981;
 }
 
 /* Main Area */
@@ -235,35 +224,47 @@ const currentRouteName = computed(() => {
 
 .topbar {
   height: 52px;
-  border-bottom: 1px solid var(--border-subtle);
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(12px);
 }
 
-.topbar-breadcrumb {
-  font-size: 0.825rem;
-  color: var(--text-dim);
+.breadcrumb {
+  font-size: 0.85rem;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.separator {
-  color: rgba(255, 255, 255, 0.2);
+.brand-crumb {
+  color: #64748b;
 }
 
-.curr-page {
+.separator {
+  color: #cbd5e1;
+}
+
+.current-crumb {
   color: var(--text-main);
   font-weight: 600;
+}
+
+.env-pill {
+  font-size: 0.75rem;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid #e2e8f0;
 }
 
 .content-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 20px 24px;
 }
 </style>
