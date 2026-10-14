@@ -95,13 +95,117 @@
   box-shadow: 0 0 0 2px rgba(51, 65, 85, 0.1) !important;
 }
 
-/* ===== Toast 提示 ===== */
-.p-toast .p-toast-message {
-  border-radius: var(--radius-md) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08) !important;
+/* ===== Toast 提示（参考 zbzs/ele 自适应宽度与顶部居中设计） ===== */
+.p-toast {
+  width: auto !important;
+  max-width: 80vw !important;
+  min-width: 0 !important;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 9999 !important;
 }
-.p-toast-summary, .p-toast-detail {
+
+/* 顶部居中定位：居中于标题栏下方 */
+.p-toast.p-toast-top-center {
+  top: 48px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+}
+
+.p-toast .p-toast-message {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+  border-radius: var(--h-radius) !important;
+  pointer-events: auto;
+  margin: 0 !important;
+  border: 1px solid var(--border-color) !important;
+  background-color: var(--bg-card) !important;
+}
+
+.p-toast .p-toast-message-content {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 20px !important;
+  width: auto !important;
+}
+
+.p-toast .p-toast-message-text {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex: 0 1 auto !important;
+}
+
+.p-toast .p-toast-summary {
+  font-size: var(--font-base) !important;
   font-weight: 400 !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+  white-space: nowrap !important;
+  color: var(--text-primary) !important;
+}
+
+.p-toast .p-toast-detail {
+  font-size: var(--font-sm) !important;
+  font-weight: 400 !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+  color: var(--text-secondary) !important;
+}
+
+.p-toast .p-toast-message-icon {
+  font-size: 1.2rem !important;
+  flex-shrink: 0 !important;
+}
+
+.p-toast .p-toast-close-button {
+  display: none !important;
+}
+
+/* 仅显示最新的单条消息，隐藏所有历史消息及正在退出的消息，彻底杜绝多个堆叠 */
+.p-toast .p-toast-message:not(:last-child),
+.p-toast .p-toast-message.p-toast-message-leave-active {
+  display: none !important;
+}
+
+/* 各状态色精细化匹配 */
+.p-toast .p-toast-message-info {
+  background-color: #f0f7ff !important;
+  border-color: #bfdbfe !important;
+}
+.p-toast .p-toast-message-info .p-toast-message-icon {
+  color: #2563eb !important;
+}
+
+.p-toast .p-toast-message-success {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+.p-toast .p-toast-message-success .p-toast-message-icon {
+  color: #16a34a !important;
+}
+
+.p-toast .p-toast-message-warn {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+.p-toast .p-toast-message-warn .p-toast-message-icon {
+  color: #d97706 !important;
+}
+
+.p-toast .p-toast-message-error {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+.p-toast .p-toast-message-error .p-toast-message-icon {
+  color: #dc2626 !important;
 }
 
 /* ===== ProgressBar ===== */

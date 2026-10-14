@@ -74,7 +74,7 @@ withDefaults(defineProps<Props>(), {
     gap: 3px;
 
     .page-title {
-      font-size: 1.15rem;
+      font-size: 1rem;
       font-weight: 400;
       color: var(--text-primary);
       letter-spacing: -0.01em;

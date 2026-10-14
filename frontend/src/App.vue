@@ -1,6 +1,6 @@
 <template>
   <div class="app-shell">
-    <Toast position="top-right" />
+    <Toast position="top-center" :closable="false" />
 
     <!-- 自定义窗口头部 / 标题栏 (Custom Header) -->
     <header class="custom-titlebar">
