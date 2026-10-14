@@ -46,6 +46,7 @@ export function bootstrap(app: App) {
   app.use(pinia)
   app.use(router)
   app.use(PrimeVue, {
+    ripple: false, // 彻底禁用 PrimeVue 点击水波纹动效
     theme: {
       preset: DevEnvPreset,
       options: {

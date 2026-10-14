@@ -4,6 +4,17 @@
   box-shadow: none !important;
   border-radius: var(--radius-md) !important;
   font-size: var(--font-sm) !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+.p-button:hover,
+.p-button:focus,
+.p-button:active {
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
 }
 
 .p-button .p-button-label {
@@ -98,3 +109,15 @@
   border-radius: 9999px !important;
   background: var(--border-color) !important;
 }
+
+/* ===== 彻底禁用弹窗与浮层淡入淡出动画 ===== */
+.p-dialog-enter-active,
+.p-dialog-leave-active,
+.p-dialog-mask-enter-active,
+.p-dialog-mask-leave-active,
+.p-overlay-enter-active,
+.p-overlay-leave-active {
+  transition: none !important;
+  animation: none !important;
+}
+

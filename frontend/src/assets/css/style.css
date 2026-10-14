@@ -49,12 +49,36 @@
   --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
 }
 
-/* 重置 */
+/* 重置与无动画规范 */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   outline: none !important;
+}
+
+/* 彻底禁用除 loading 旋转外的所有点击动效、过渡与变形 */
+*:not(.pi-spin) {
+  transition: none !important;
+  animation: none !important;
+}
+
+*:active,
+*:focus,
+*:hover {
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+/* 禁用 PrimeVue 水波纹点击动效 */
+.p-ink,
+.p-ripple,
+.p-ripple-active {
+  display: none !important;
+  animation: none !important;
+  transition: none !important;
+  opacity: 0 !important;
 }
 
 html {

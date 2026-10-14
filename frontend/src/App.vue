@@ -184,7 +184,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0 0 14px;
+  padding: 0 0 0 10px;
   user-select: none;
   --wails-draggable: drag;
   flex-shrink: 0;
@@ -281,23 +281,26 @@ onUnmounted(() => {
   justify-content: center;
   cursor: pointer;
   outline: none;
-  transition: background-color 0.15s, color 0.15s;
+  transition: none !important;
   font-size: var(--font-xs);
 }
 
 .win-btn:hover {
   background-color: var(--bg-app);
   color: var(--text-primary);
+  transition: none !important;
 }
 
 .win-btn-close:hover {
   background-color: var(--danger-color) !important;
   color: #ffffff !important;
+  transition: none !important;
 }
 
 .win-btn-close:active {
   background-color: #dc2626 !important;
   color: #ffffff !important;
+  transition: none !important;
 }
 
 /* 主体区域 */
@@ -305,49 +308,62 @@ onUnmounted(() => {
   display: flex;
   flex: 1;
   overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
-/* 侧边导航栏 */
+/* 侧边导航栏 - 严格去除左侧所有边距 */
 .sidebar {
-  width: 210px;
+  width: 190px;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 12px 8px;
+  padding: 0;
+  margin: 0;
 }
 
 .nav-menu {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
   flex: 1;
+  padding: 6px 0;
+  margin: 0;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  margin: 0;
+  border-radius: 0;
   color: var(--text-secondary);
   text-decoration: none;
   font-size: var(--font-sm);
   font-weight: 400;
-  transition: all 0.15s ease;
+  border-left: 3px solid transparent;
+  transition: none !important;
 }
 
 .nav-item:hover {
   background: var(--bg-app);
   color: var(--text-primary);
+  transition: none !important;
 }
 
 .nav-item.active {
   background: var(--bg-app);
   color: var(--text-primary);
   border-left: 3px solid var(--p-primary-color);
-  border-top-left-radius: 2px;
-  border-bottom-left-radius: 2px;
+  border-radius: 0;
+  transition: none !important;
+}
+
+.nav-item:active {
+  background: #e2e8f0;
+  transition: none !important;
 }
 
 .nav-icon {
@@ -356,7 +372,7 @@ onUnmounted(() => {
 
 .sidebar-footer {
   margin-top: auto;
-  padding-top: 10px;
+  padding: 10px;
   border-top: 1px solid var(--border-color);
 }
 

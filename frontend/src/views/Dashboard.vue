@@ -252,12 +252,9 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 .stat-box:hover {
-  transform: translateY(-2px);
   border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .stat-icon-bg {
@@ -335,7 +332,6 @@ onMounted(() => {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: var(--radius-md);
-  transition: all 0.15s;
 }
 .service-row:hover, .project-row:hover {
   background: #ffffff;
