@@ -1,0 +1,74 @@
+{
+  "files.associations": {
+    "*.html": "smarty"
+  },
+  "html.validate.scripts": false,
+  "[smarty]": {
+    "editor.formatOnSave": false
+  },
+  "[html]": {
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": "vscode.html-language-features",
+    "php.validate.enable": false,
+    "php.suggest.basic": false,
+    "php.proposeExtensionWorkarounds": true
+  },
+  "workbench.tree.indent": 26,
+  "workbench.tree.renderIndentGuides": "always",
+  "window.zoomLevel": 1.4,
+  "editor.fontFamily": "JetBrains Mono, Consolas, 'Courier New', monospace",
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+  "editor.wordWrap": "on",
+  "editor.renderLineHighlight": "all",
+  "editor.smoothScrolling": true,
+  "editor.cursorSurroundingLines": 8,
+  "editor.lineHeight": 24,
+  "editor.rulers": [80, 120],
+  "editor.guides.indentation": true,
+  "editor.guides.highlightActiveIndentation": true,
+  "editor.guides.bracketPairs": "active",
+  "workbench.colorCustomizations": {
+    "editorIndentGuide.background1": "#2A2A2A",
+    "editorIndentGuide.activeBackground1": "#dedede"
+  },
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "name": "ThinkPHP HTML Inlined Tags",
+        "scope": [
+          "invalid",
+          "invalid.illegal",
+          "invalid.illegal.bad-attribute-char.html",
+          "invalid.illegal.bad-angle-bracket.html",
+          "invalid.illegal.unrecognized-tag.html",
+          "text.html.basic invalid",
+          "text.html.basic invalid.illegal",
+          "entity.other.attribute-name.html invalid"
+        ],
+        "settings": {
+          "foreground": "#D4D4D4",
+          "fontStyle": ""
+        }
+      },
+      {
+        "name": "HTML Inlined String Colors",
+        "scope": [
+          "string.quoted.single.html",
+          "meta.attribute.html string.quoted.single"
+        ],
+        "settings": {
+          "foreground": "#98C379"
+        }
+      }
+    ]
+  },
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.enablePreviewFromQuickOpen": false,
+  "vue.server.hybridMode": "auto",
+  "git.ignoreLimitWarning": true,
+  "htmlhint.enable": false,
+  "kiroAgent.configureMCP": "Disabled",
+  "php.version": "8.2"
+}

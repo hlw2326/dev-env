@@ -1,0 +1,11 @@
+build/bin
+node_modules
+frontend/node_modules
+frontend/dist
+*.exe
+data/
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+Thumbs.db

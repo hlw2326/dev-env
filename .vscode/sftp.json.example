@@ -1,0 +1,23 @@
+{
+  "name": "QSY",
+  "host": "your_server_ip",
+  "protocol": "sftp",
+  "port": 22,
+  "username": "root",
+  "password": "your_password",
+  "remotePath": "/your/remote/path",
+  "context": "./php",
+  "uploadOnSave": true,
+  "useTempFile": false,
+  "openSsh": false,
+  "ignore": [
+    ".env",
+    ".env.*",
+    ".git/**",
+    ".vscode/**",
+    "node_modules/**",
+    "runtime/**",
+    "storage/logs/**",
+    "*.log"
+  ]
+}
