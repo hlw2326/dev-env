@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"devenv/internal/domain/software"
+	"devenv/internal/infra/autostart"
 	"devenv/internal/infra/installer"
 	"devenv/internal/infra/process"
 	"devenv/internal/ports"
@@ -521,6 +522,8 @@ func (s *SoftwareService) Remove(ctx context.Context, id int64) error {
 		}
 	}
 
+	_ = s.syncServiceAutostart(ctx, *item, false)
+
 	wasMain := item.Main
 	kind := item.Kind
 	if err := s.repo.Delete(ctx, item.ID); err != nil {
@@ -607,61 +610,9 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 		}
 	}
 
-	logPath := s.softwareLogPath(item.Kind, item.Version)
-	var opts ports.Options
-
-	switch item.Kind {
-	case software.KindMySQL:
-		if err := s.prepareMySQL(ctx, *item, logPath); err != nil {
-			return err
-		}
-		iniPath := filepath.Join(item.Path, "my.ini")
-		opts = ports.Options{
-			Binary:    filepath.Join(item.Path, "bin", "mysqld.exe"),
-			Args:      []string{"--defaults-file=" + iniPath, "--console"},
-			Directory: item.Path,
-			Log:       logPath,
-		}
-	case software.KindRedis:
-		redisBin := installer.FindRedisBinary(item.Path)
-		if redisBin == "" {
-			return appErrors.New(appErrors.CodeProcessStartFailed, "未找到 redis-server.exe")
-		}
-		confPath, err := s.prepareRedis(*item, filepath.Dir(redisBin))
-		if err != nil {
-			return err
-		}
-		opts = ports.Options{
-			Binary:    redisBin,
-			Args:      []string{filepath.Base(confPath)},
-			Directory: filepath.Dir(redisBin),
-			Log:       logPath,
-		}
-	case software.KindNginx:
-		if _, err := s.prepareNginx(*item); err != nil {
-			return err
-		}
-		opts = ports.Options{
-			Binary:    filepath.Join(item.Path, "nginx.exe"),
-			Args:      []string{"-p", item.Path, "-c", "conf/nginx.conf"},
-			Directory: item.Path,
-			Log:       logPath,
-		}
-	case software.KindApache:
-		confPath, err := s.prepareApache(*item)
-		if err != nil {
-			return err
-		}
-		httpdBin := installer.FindApacheBinary(item.Path)
-		if httpdBin == "" {
-			httpdBin = filepath.Join(item.Path, "bin", "httpd.exe")
-		}
-		opts = ports.Options{
-			Binary:    httpdBin,
-			Args:      []string{"-d", item.Path, "-f", confPath},
-			Directory: item.Path,
-			Log:       logPath,
-		}
+	opts, err := s.resolveServiceOptions(ctx, *item)
+	if err != nil {
+		return err
 	}
 
 	swID := item.ID
@@ -698,7 +649,7 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 	}
 
 	_ = s.runner.Stop(key)
-	tail := process.ReadLogTail(logPath, 20)
+	tail := process.ReadLogTail(opts.Log, 20)
 	detail := strings.Join(tail, "\n")
 	return appErrors.New(appErrors.CodeProcessStartFailed, "服务启动超时或退出:\n"+detail)
 }
@@ -724,6 +675,88 @@ func (s *SoftwareService) Stop(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (s *SoftwareService) resolveServiceOptions(ctx context.Context, item software.Software) (ports.Options, error) {
+	logPath := s.softwareLogPath(item.Kind, item.Version)
+	switch item.Kind {
+	case software.KindMySQL:
+		if err := s.prepareMySQL(ctx, item, logPath); err != nil {
+			return ports.Options{}, err
+		}
+		iniPath := filepath.Join(item.Path, "my.ini")
+		return ports.Options{
+			Binary:    filepath.Join(item.Path, "bin", "mysqld.exe"),
+			Args:      []string{"--defaults-file=" + iniPath, "--console"},
+			Directory: item.Path,
+			Log:       logPath,
+		}, nil
+	case software.KindRedis:
+		redisBin := installer.FindRedisBinary(item.Path)
+		if redisBin == "" {
+			return ports.Options{}, appErrors.New(appErrors.CodeProcessStartFailed, "未找到 redis-server.exe")
+		}
+		confPath, err := s.prepareRedis(item, filepath.Dir(redisBin))
+		if err != nil {
+			return ports.Options{}, err
+		}
+		return ports.Options{
+			Binary:    redisBin,
+			Args:      []string{filepath.Base(confPath)},
+			Directory: filepath.Dir(redisBin),
+			Log:       logPath,
+		}, nil
+	case software.KindNginx:
+		if _, err := s.prepareNginx(item); err != nil {
+			return ports.Options{}, err
+		}
+		return ports.Options{
+			Binary:    filepath.Join(item.Path, "nginx.exe"),
+			Args:      []string{"-p", item.Path, "-c", "conf/nginx.conf"},
+			Directory: item.Path,
+			Log:       logPath,
+		}, nil
+	case software.KindApache:
+		confPath, err := s.prepareApache(item)
+		if err != nil {
+			return ports.Options{}, err
+		}
+		httpdBin := installer.FindApacheBinary(item.Path)
+		if httpdBin == "" {
+			httpdBin = filepath.Join(item.Path, "bin", "httpd.exe")
+		}
+		return ports.Options{
+			Binary:    httpdBin,
+			Args:      []string{"-d", item.Path, "-f", confPath},
+			Directory: item.Path,
+			Log:       logPath,
+		}, nil
+	case software.KindPHP:
+		phpCGI := filepath.Join(item.Path, "php-cgi.exe")
+		port := item.Port
+		if port <= 0 {
+			port = 9000
+		}
+		return ports.Options{
+			Binary:    phpCGI,
+			Args:      []string{"-b", fmt.Sprintf("127.0.0.1:%d", port), "-c", filepath.Join(item.Path, "php.ini")},
+			Directory: item.Path,
+			Log:       logPath,
+		}, nil
+	}
+	return ports.Options{}, appErrors.New(appErrors.CodeInvalidArgument, "不支持的服务类型")
+}
+
+func (s *SoftwareService) syncServiceAutostart(ctx context.Context, item software.Software, on bool) error {
+	svcName := fmt.Sprintf("%s-%d", item.Kind, item.ID)
+	if !on {
+		return autostart.SetService(svcName, false, "", nil, "")
+	}
+	opts, err := s.resolveServiceOptions(ctx, item)
+	if err != nil {
+		return err
+	}
+	return autostart.SetService(svcName, true, opts.Binary, opts.Args, opts.Directory)
+}
+
 func (s *SoftwareService) SetAutostart(ctx context.Context, id int64, on bool) error {
 	item, err := s.repo.Get(ctx, id)
 	if err != nil {
@@ -731,6 +764,9 @@ func (s *SoftwareService) SetAutostart(ctx context.Context, id int64, on bool) e
 	}
 	if item == nil {
 		return appErrors.New(appErrors.CodeNotFound, "软件版本不存在")
+	}
+	if err := s.syncServiceAutostart(ctx, *item, on); err != nil {
+		return err
 	}
 	item.Autostart = on
 	return s.repo.Update(ctx, item)

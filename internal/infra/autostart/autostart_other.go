@@ -9,3 +9,11 @@ func Set(_ bool) error {
 func Enabled() bool {
 	return false
 }
+
+func SetService(_ string, _ bool, _ string, _ []string, _ string) error {
+	return nil
+}
+
+func ServiceEnabled(_ string) bool {
+	return false
+}
