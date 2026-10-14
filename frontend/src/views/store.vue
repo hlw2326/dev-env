@@ -1,13 +1,24 @@
 <template>
-  <h-page title="软件商店" desc="发现并安装 PHP、Nginx、MySQL 等主流本地开发环境">
+  <h-page title="软件商店" desc="发现并在线获取 PHP、Nginx、MySQL、Redis 等主流开发环境最新版本">
     <template #extra>
-      <div class="search-box">
-        <i class="pi pi-search search-icon"></i>
-        <p-input-text 
-          v-model="searchQuery" 
-          placeholder="搜索软件包名称或描述..." 
-          class="search-input"
+      <div class="header-extra-row">
+        <p-button 
+          icon="pi pi-refresh" 
+          label="检查与同步版本" 
+          size="small" 
+          severity="secondary" 
+          outlined 
+          :loading="syncing" 
+          @click="handleSyncAllVersions" 
         />
+        <div class="search-box">
+          <i class="pi pi-search search-icon"></i>
+          <p-input-text 
+            v-model="searchQuery" 
+            placeholder="搜索软件包名称或描述..." 
+            class="search-input"
+          />
+        </div>
       </div>
     </template>
 
@@ -53,7 +64,7 @@
                 class="installed-tag"
               />
             </div>
-            <span class="pkg-ver font-mono">推荐: v{{ pkg.recommendedVersion }}</span>
+            <span class="pkg-ver font-mono">最新/推荐: v{{ pkg.recommendedVersion }}</span>
           </div>
         </div>
 
@@ -62,6 +73,9 @@
         <div class="pkg-footer">
           <div class="pkg-meta">
             <span class="category-badge">{{ getCategoryLabel(pkg.category) }}</span>
+            <span class="online-sync-dot" title="支持在线动态拉取最新版本">
+              <span class="dot-inner"></span> 在线同步
+            </span>
           </div>
           <div class="pkg-actions" @click.stop>
             <p-button 
@@ -75,7 +89,7 @@
             />
             <p-button 
               v-else 
-              label="安装" 
+              label="获取版本" 
               icon="pi pi-download" 
               size="small" 
               @click="openPackageDetail(pkg)" 
@@ -90,7 +104,7 @@
       v-model:visible="detailDialogVisible" 
       modal 
       :header="selectedPkg ? `${selectedPkg.displayName} - 版本选择与安装` : '软件安装'"
-      :style="{ width: '600px' }"
+      :style="{ width: '640px' }"
     >
       <div v-if="selectedPkg" class="detail-container">
         <!-- 基础简介 -->
@@ -112,9 +126,32 @@
           </div>
         </div>
 
-        <!-- 版本选择 -->
-        <div class="section-title">可用版本</div>
-        <div class="version-list">
+        <!-- 版本选择头部与在线刷新 -->
+        <div class="version-header-row">
+          <div class="section-title">
+            <span>在线版本列表</span>
+            <span v-if="availableVersions.length > 0" class="version-count-badge font-mono">
+              实时可用 {{ availableVersions.length }} 个版本
+            </span>
+          </div>
+          <p-button 
+            icon="pi pi-refresh" 
+            label="在线刷新版本" 
+            size="small" 
+            severity="secondary" 
+            text
+            :loading="loadingVersions" 
+            @click="refreshPackageVersions" 
+          />
+        </div>
+
+        <!-- 加载中状态 -->
+        <div v-if="loadingVersions" class="versions-loading">
+          <i class="pi pi-spin pi-spinner"></i>
+          <span>正在从官方源与镜像动态检测最新发布版本...</span>
+        </div>
+
+        <div v-else class="version-list">
           <div 
             v-for="ver in availableVersions" 
             :key="ver.version"
@@ -137,7 +174,7 @@
                 </div>
                 <div class="version-sub font-mono">
                   大小: {{ formatFileSize(ver.fileSize) }}
-                  <span v-if="ver.releaseDate"> · 发布于: {{ ver.releaseDate }}</span>
+                  <span v-if="ver.releaseDate"> · 发布: {{ ver.releaseDate }}</span>
                 </div>
               </div>
             </div>
@@ -174,7 +211,7 @@
         </div>
 
         <!-- 安装路径预览 -->
-        <div class="section-title">安装目标路径</div>
+        <div class="section-title">安装目标路径（集中存储在 DevEnv 下）</div>
         <div class="path-preview font-mono">
           <i class="pi pi-folder"></i>
           <span>{{ targetInstallPath }}</span>
@@ -203,6 +240,7 @@
           label="开始安装" 
           icon="pi pi-check" 
           :loading="installing" 
+          :disabled="loadingVersions || !selectedVersion"
           @click="handleStartInstall" 
         />
         <p-button 
@@ -232,11 +270,15 @@ const router = useRouter()
 const searchQuery = ref('')
 const activeCategory = ref('all')
 const packages = ref<PackageInfo[]>([])
+const syncing = ref(false)
+
+// 详情与版本弹窗
 const detailDialogVisible = ref(false)
 const selectedPkg = ref<PackageInfo | null>(null)
 const availableVersions = ref<PackageVersion[]>([])
 const selectedVersion = ref<PackageVersion | null>(null)
 const selectedMirror = ref('aliyun')
+const loadingVersions = ref(false)
 const installing = ref(false)
 const installProgress = ref(0)
 
@@ -249,7 +291,7 @@ const categories = [
 ]
 
 const mirrors = [
-  { key: 'aliyun', label: '阿里云镜像 (国内高速)' },
+  { key: 'aliyun', label: '阿里云镜像 (国内加速)' },
   { key: 'official', label: '官方源' },
   { key: 'tencent', label: '腾讯云镜像' },
 ]
@@ -294,11 +336,23 @@ function isVersionInstalled(version: string): boolean {
   return selectedPkg.value.installedVersions.includes(version)
 }
 
-async function loadPackages() {
+async function loadPackages(forceRefresh: boolean = false) {
   try {
-    packages.value = await listPackages()
+    packages.value = await listPackages(forceRefresh)
   } catch (err: any) {
     toast.error('加载软件包失败: ' + (err?.message || '未知错误'))
+  }
+}
+
+async function handleSyncAllVersions() {
+  syncing.value = true
+  try {
+    await loadPackages(true)
+    toast.success('已同步所有环境的最新远程版本列表')
+  } catch (err: any) {
+    toast.error('同步版本失败: ' + (err?.message || '未知错误'))
+  } finally {
+    syncing.value = false
   }
 }
 
@@ -306,10 +360,33 @@ async function openPackageDetail(pkg: PackageInfo) {
   selectedPkg.value = pkg
   installing.value = false
   installProgress.value = 0
-  const versions = await getPackageVersions(pkg.key)
-  availableVersions.value = versions
-  selectedVersion.value = versions.find(v => v.isRecommended) || versions[0] || null
   detailDialogVisible.value = true
+  loadingVersions.value = true
+
+  try {
+    const versions = await getPackageVersions(pkg.key, false)
+    availableVersions.value = versions
+    selectedVersion.value = versions.find(v => v.isRecommended) || versions[0] || null
+  } catch (err: any) {
+    toast.warn('获取版本列表提示: ' + (err?.message || '已载入基础版本'))
+  } finally {
+    loadingVersions.value = false
+  }
+}
+
+async function refreshPackageVersions() {
+  if (!selectedPkg.value) return
+  loadingVersions.value = true
+  try {
+    const versions = await getPackageVersions(selectedPkg.value.key, true)
+    availableVersions.value = versions
+    selectedVersion.value = versions.find(v => v.isRecommended) || versions[0] || null
+    toast.success(`已在线更新 ${selectedPkg.value.displayName} 最新版本列表`)
+  } catch (err: any) {
+    toast.error('在线获取失败: ' + (err?.message || '未知错误'))
+  } finally {
+    loadingVersions.value = false
+  }
 }
 
 async function handleStartInstall() {
@@ -342,7 +419,7 @@ async function handleStartInstall() {
       toast.success(`${selectedPkg.value?.displayName} v${selectedVersion.value?.version} 安装成功！`)
       installing.value = false
       detailDialogVisible.value = false
-      await loadPackages()
+      await loadPackages(false)
     }, 400)
   } catch (err: any) {
     clearInterval(timer)
@@ -357,16 +434,22 @@ function goToRuntimes() {
 }
 
 onMounted(() => {
-  loadPackages()
+  loadPackages(false)
 })
 </script>
 
 <style scoped>
+.header-extra-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .search-box {
   position: relative;
   display: flex;
   align-items: center;
-  width: 260px;
+  width: 240px;
 }
 
 .search-icon {
@@ -500,6 +583,12 @@ onMounted(() => {
   border-top: 1px solid var(--border-color);
 }
 
+.pkg-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .category-badge {
   font-size: 0.725rem;
   color: var(--text-muted);
@@ -507,6 +596,21 @@ onMounted(() => {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
+}
+
+.online-sync-dot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.725rem;
+  color: #10b981;
+}
+
+.dot-inner {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10b981;
 }
 
 .pkg-actions {
@@ -571,17 +675,47 @@ onMounted(() => {
   text-decoration: underline;
 }
 
+.version-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.version-count-badge {
+  font-size: 0.75rem;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  margin-left: 8px;
+}
+
 .section-title {
+  display: flex;
+  align-items: center;
   font-size: 0.825rem;
   color: var(--text-muted);
-  margin-top: 4px;
+}
+
+.versions-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 36px 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  background: var(--bg-app);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
 }
 
 .version-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 220px;
+  max-height: 240px;
   overflow-y: auto;
 }
 
