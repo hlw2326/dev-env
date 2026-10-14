@@ -1,22 +1,15 @@
 <template>
-  <div class="hosts-page">
-    <!-- Header -->
-    <div class="page-header-bar">
-      <div>
-        <h1 class="page-title">虚拟主机 / 域名管理</h1>
-        <p class="page-subtitle">配置本地域名映射、绑定 Web 网站根目录与端口分发</p>
-      </div>
-      <div class="header-actions">
-        <Button 
-          label="添加虚拟主机" 
-          icon="pi pi-plus" 
-          @click="showCreateModal = true" 
-        />
-      </div>
-    </div>
+  <HPage title="虚拟主机 / 域名管理" desc="配置本地域名映射、绑定 Web 网站根目录与端口分发">
+    <template #extra>
+      <Button 
+        label="添加虚拟主机" 
+        icon="pi pi-plus" 
+        @click="showCreateModal = true" 
+      />
+    </template>
 
     <!-- Table Card -->
-    <div class="surface-card table-card">
+    <HCard noPadding>
       <div class="table-header-tools">
         <InputText v-model="searchQuery" placeholder="搜索本地域名或项目..." class="search-input" />
         <Button 
@@ -109,7 +102,7 @@
           </template>
         </Column>
       </DataTable>
-    </div>
+    </HCard>
 
     <!-- Create Dialog -->
     <Dialog 
@@ -181,11 +174,12 @@
         </div>
       </form>
     </Dialog>
-  </div>
+  </HPage>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { HPage, HCard } from '@/components'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
@@ -194,9 +188,13 @@ import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
-import { listVirtualHosts, createVirtualHost, deleteVirtualHost, enableVirtualHost, disableVirtualHost } from '../api/hosts'
-import { listProjects } from '../api/projects'
-import type { VirtualHost, Project } from '../types'
+import { listVirtualHosts, createVirtualHost, deleteVirtualHost, enableVirtualHost, disableVirtualHost } from '@/api/hosts'
+import { listProjects } from '@/api/projects'
+import type { VirtualHost, Project } from '@/types'
+
+defineOptions({
+  name: 'VirtualHosts'
+})
 
 const toast = useToast()
 const hosts = ref<VirtualHost[]>([])

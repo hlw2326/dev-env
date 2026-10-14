@@ -1,19 +1,12 @@
 <template>
-  <div class="php-page">
-    <!-- Header -->
-    <div class="page-header-bar">
-      <div>
-        <h1 class="page-title">PHP 运行环境管理</h1>
-        <p class="page-subtitle">多版本 PHP 隔离共存、扩展模块配置与系统 CLI 默认版本控制</p>
-      </div>
-      <div class="header-actions">
-        <Button 
-          label="登记本地 PHP" 
-          icon="pi pi-plus" 
-          @click="showRegisterModal = true" 
-        />
-      </div>
-    </div>
+  <HPage title="PHP 运行环境管理" desc="多版本 PHP 隔离共存、扩展模块配置与系统 CLI 默认版本控制">
+    <template #extra>
+      <Button 
+        label="登记本地 PHP" 
+        icon="pi pi-plus" 
+        @click="showRegisterModal = true" 
+      />
+    </template>
 
     <!-- Versions Grid -->
     <div v-if="versions.length === 0" class="surface-card empty-card">
@@ -133,19 +126,24 @@
         <Button label="关闭" severity="secondary" text @click="showExtModal = false" />
       </div>
     </Dialog>
-  </div>
+  </HPage>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { HPage } from '@/components'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
-import { listVersions, registerVersion, setDefaultVersion, getExtensions } from '../api/php'
-import type { PHPVersion, PHPExtension } from '../types'
+import { listVersions, registerVersion, setDefaultVersion, getExtensions } from '@/api/php'
+import type { PHPVersion, PHPExtension } from '@/types'
+
+defineOptions({
+  name: 'PHP'
+})
 
 const toast = useToast()
 const versions = ref<PHPVersion[]>([])

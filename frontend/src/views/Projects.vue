@@ -1,29 +1,22 @@
 <template>
-  <div class="projects-page">
-    <!-- Header -->
-    <div class="page-header-bar">
-      <div>
-        <h1 class="page-title">项目管理</h1>
-        <p class="page-subtitle">登记本地 PHP / Web 项目目录并关联指定运行版本</p>
-      </div>
-      <div class="header-actions">
-        <Button 
-          label="导入已有项目" 
-          icon="pi pi-folder-open" 
-          severity="secondary" 
-          outlined 
-          @click="showImportModal = true" 
-        />
-        <Button 
-          label="新建项目" 
-          icon="pi pi-plus" 
-          @click="showCreateModal = true" 
-        />
-      </div>
-    </div>
+  <HPage title="项目管理" desc="登记本地 PHP / Web 项目目录并关联指定运行版本">
+    <template #extra>
+      <Button 
+        label="导入已有项目" 
+        icon="pi pi-folder-open" 
+        severity="secondary" 
+        outlined 
+        @click="showImportModal = true" 
+      />
+      <Button 
+        label="新建项目" 
+        icon="pi pi-plus" 
+        @click="showCreateModal = true" 
+      />
+    </template>
 
     <!-- Table Card -->
-    <div class="surface-card table-card">
+    <HCard noPadding>
       <div class="table-header-tools">
         <span class="p-input-icon-left">
           <InputText v-model="searchQuery" placeholder="搜索项目名称或路径..." class="search-input" />
@@ -110,7 +103,7 @@
           </template>
         </Column>
       </DataTable>
-    </div>
+    </HCard>
 
     <!-- Create Dialog -->
     <Dialog 
@@ -175,11 +168,12 @@
         </div>
       </form>
     </Dialog>
-  </div>
+  </HPage>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { HPage, HCard } from '@/components'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
@@ -188,9 +182,13 @@ import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
-import { listProjects, createProject, importProject, deleteProject, validateProjectPath } from '../api/projects'
-import { listVersions } from '../api/php'
-import type { Project, PHPVersion, ProjectPathValidation } from '../types'
+import { listProjects, createProject, importProject, deleteProject, validateProjectPath } from '@/api/projects'
+import { listVersions } from '@/api/php'
+import type { Project, PHPVersion, ProjectPathValidation } from '@/types'
+
+defineOptions({
+  name: 'Projects'
+})
 
 const toast = useToast()
 const projects = ref<Project[]>([])

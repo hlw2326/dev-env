@@ -1,22 +1,15 @@
 <template>
-  <div class="services-page">
-    <!-- Header -->
-    <div class="page-header-bar">
-      <div>
-        <h1 class="page-title">服务实例管理</h1>
-        <p class="page-subtitle">监控与管理本地 Web 服务器 (Nginx)、数据库 (MySQL) 与 PHP FastCGI 进程</p>
-      </div>
-      <div class="header-actions">
-        <Button 
-          label="刷新状态" 
-          icon="pi pi-refresh" 
-          severity="secondary" 
-          outlined 
-          :loading="loading" 
-          @click="loadServices" 
-        />
-      </div>
-    </div>
+  <HPage title="服务实例管理" desc="监控与管理本地 Web 服务器 (Nginx)、数据库 (MySQL) 与 PHP FastCGI 进程">
+    <template #extra>
+      <Button 
+        label="刷新状态" 
+        icon="pi pi-refresh" 
+        severity="secondary" 
+        outlined 
+        :loading="loading" 
+        @click="loadServices" 
+      />
+    </template>
 
     <!-- Services Grid -->
     <div class="services-grid">
@@ -120,16 +113,21 @@
         </div>
       </div>
     </div>
-  </div>
+  </HPage>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { HPage } from '@/components'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
-import { listServices, startService, stopService, restartService, getServiceLogs } from '../api/services'
-import type { ServiceInstance } from '../types'
+import { listServices, startService, stopService, restartService, getServiceLogs } from '@/api/services'
+import type { ServiceInstance } from '@/types'
+
+defineOptions({
+  name: 'Services'
+})
 
 const toast = useToast()
 const services = ref<ServiceInstance[]>([])

@@ -1,0 +1,100 @@
+/* ===== 扁平化 Button ===== */
+.p-button {
+  font-weight: 400 !important;
+  box-shadow: none !important;
+  border-radius: var(--radius-md) !important;
+  font-size: var(--font-sm) !important;
+}
+
+.p-button .p-button-label {
+  font-weight: 400 !important;
+  letter-spacing: 0.5px;
+}
+
+/* ===== 扁平化 Tag 徽章 ===== */
+.p-tag {
+  box-shadow: none !important;
+  font-weight: 400 !important;
+  border: 1px solid var(--border-color) !important;
+  background: var(--bg-app) !important;
+  color: var(--text-secondary) !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: var(--font-xs) !important;
+}
+
+/* ===== 精简 DataTable ===== */
+.p-datatable .p-datatable-thead > tr > th {
+  background: var(--bg-card) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  font-size: var(--font-sm) !important;
+  font-weight: 400 !important;
+  color: var(--text-secondary) !important;
+  padding: 0.75rem 1rem !important;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  padding: 0.75rem 1rem !important;
+  font-size: var(--font-sm) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  font-weight: 400 !important;
+}
+
+/* ===== 精简 Dialog ===== */
+.p-dialog {
+  border-radius: var(--h-radius) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.p-dialog .p-dialog-header {
+  padding: 1.25rem 1.5rem !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.p-dialog .p-dialog-title {
+  font-size: var(--font-md) !important;
+  font-weight: 400 !important;
+  color: var(--text-primary) !important;
+}
+
+.p-dialog .p-dialog-content {
+  padding: 1.5rem !important;
+}
+
+/* ===== 扁平化 Card ===== */
+.p-card {
+  box-shadow: none !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--h-radius) !important;
+  background-color: var(--bg-card) !important;
+}
+
+/* ===== InputText & Select ===== */
+.p-inputtext, .p-select {
+  border-radius: var(--radius-md) !important;
+  border-color: var(--border-color) !important;
+  font-size: var(--font-sm) !important;
+  font-weight: 400 !important;
+}
+.p-inputtext:hover, .p-select:hover {
+  border-color: var(--text-secondary) !important;
+}
+.p-inputtext:focus, .p-select:focus {
+  border-color: var(--p-primary-color) !important;
+  box-shadow: 0 0 0 2px rgba(51, 65, 85, 0.1) !important;
+}
+
+/* ===== Toast 提示 ===== */
+.p-toast .p-toast-message {
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08) !important;
+}
+.p-toast-summary, .p-toast-detail {
+  font-weight: 400 !important;
+}
+
+/* ===== ProgressBar ===== */
+.p-progressbar {
+  border-radius: 9999px !important;
+  background: var(--border-color) !important;
+}

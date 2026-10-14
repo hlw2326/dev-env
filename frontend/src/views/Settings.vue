@@ -1,23 +1,14 @@
 <template>
-  <div class="settings-page">
-    <!-- Header -->
-    <div class="page-header-bar">
-      <div>
-        <h1 class="page-title">应用全局设置</h1>
-        <p class="page-subtitle">配置运行环境根目录、默认项目存储路径、启动偏好与内部数据库</p>
-      </div>
-      <div class="header-actions">
-        <Button label="恢复默认" severity="secondary" outlined @click="handleReset" />
-        <Button label="保存配置" icon="pi pi-check" :loading="saving" @click="handleSave" />
-      </div>
-    </div>
+  <HPage title="应用全局设置" desc="配置运行环境根目录、默认项目存储路径、启动偏好与内部数据库">
+    <template #extra>
+      <Button label="恢复默认" severity="secondary" outlined @click="handleReset" />
+      <Button label="保存配置" icon="pi pi-check" :loading="saving" @click="handleSave" />
+    </template>
 
     <!-- Settings Grid -->
     <div class="settings-grid">
       <!-- General -->
-      <div class="surface-card setting-card">
-        <h2 class="card-title">通用外观与语言</h2>
-        <p class="card-desc">界面语言与视觉外观设置</p>
+      <HCard title="通用外观与语言">
 
         <div class="form-field">
           <label>界面语言</label>
@@ -38,13 +29,10 @@
             optionValue="value" 
           />
         </div>
-      </div>
+      </HCard>
 
       <!-- Environment Paths -->
-      <div class="surface-card setting-card">
-        <h2 class="card-title">路径配置</h2>
-        <p class="card-desc">运行环境下载解压根目录与默认项目路径</p>
-
+      <HCard title="路径配置">
         <div class="form-field">
           <label>环境根目录</label>
           <InputText 
@@ -62,13 +50,10 @@
             placeholder="如 G:\www 或 D:\projects" 
           />
         </div>
-      </div>
+      </HCard>
 
       <!-- Services & DB Info -->
-      <div class="surface-card setting-card full-col">
-        <h2 class="card-title">服务管理与内部数据持久化</h2>
-        <p class="card-desc">外部服务生命周期策略及应用内置 SQLite 架构信息</p>
-
+      <HCard title="服务管理与内部数据持久化" class="full-col">
         <div class="toggle-row">
           <div class="toggle-info">
             <span class="toggle-title">开机自启服务</span>
@@ -91,20 +76,25 @@
             <span class="spec-val">数字自增 ID (INTEGER PRIMARY KEY AUTOINCREMENT)</span>
           </div>
         </div>
-      </div>
+      </HCard>
     </div>
-  </div>
+  </HPage>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { HPage, HCard } from '@/components'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import ToggleSwitch from 'primevue/toggleswitch'
 import { useToast } from 'primevue/usetoast'
-import { getSettings, updateSettings, resetSettings } from '../api/settings'
-import type { AppSettings } from '../types'
+import { getSettings, updateSettings, resetSettings } from '@/api/settings'
+import type { AppSettings } from '@/types'
+
+defineOptions({
+  name: 'Settings'
+})
 
 const toast = useToast()
 const settings = ref<AppSettings>({

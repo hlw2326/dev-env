@@ -1,16 +1,9 @@
 <template>
-  <div class="dashboard-page">
-    <!-- Header Banner -->
-    <div class="page-header-bar">
-      <div>
-        <h1 class="page-title">开发环境概览</h1>
-        <p class="page-subtitle">Windows 本地高效 PHP / Web 开发栈一站式控制中心</p>
-      </div>
-      <div class="header-status-group">
-        <Tag severity="success" value="SQLite: system_ 正常" icon="pi pi-check" />
-        <Tag severity="info" value="进程管理器: 运行中" icon="pi pi-server" />
-      </div>
-    </div>
+  <HPage title="开发环境概览" desc="Windows 本地高效 PHP / Web 开发栈一站式控制中心">
+    <template #extra>
+      <Tag severity="success" value="SQLite: system_ 正常" icon="pi pi-check" />
+      <Tag severity="info" value="进程管理器: 运行中" icon="pi pi-server" />
+    </template>
 
     <!-- Stats Grid -->
     <div class="stats-row">
@@ -155,19 +148,24 @@
         </div>
       </div>
     </div>
-  </div>
+  </HPage>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { HPage } from '@/components'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
-import { listProjects } from '../api/projects'
-import { listVersions } from '../api/php'
-import { listServices, startService, stopService } from '../api/services'
-import { listVirtualHosts } from '../api/hosts'
-import type { Project, PHPVersion, ServiceInstance, VirtualHost } from '../types'
+import { listProjects } from '@/api/projects'
+import { listVersions } from '@/api/php'
+import { listServices, startService, stopService } from '@/api/services'
+import { listVirtualHosts } from '@/api/hosts'
+import type { Project, PHPVersion, ServiceInstance, VirtualHost } from '@/types'
+
+defineOptions({
+  name: 'Dashboard'
+})
 
 const toast = useToast()
 const projects = ref<Project[]>([])

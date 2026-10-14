@@ -1,25 +1,18 @@
 <template>
-  <div class="tasks-page">
-    <!-- Header -->
-    <div class="page-header-bar">
-      <div>
-        <h1 class="page-title">任务与后台作业中心</h1>
-        <p class="page-subtitle">查看环境安装、备份、恢复及异步处理任务的进度与状态</p>
-      </div>
-      <div class="header-actions">
-        <Button 
-          label="刷新" 
-          icon="pi pi-refresh" 
-          severity="secondary" 
-          outlined 
-          :loading="loading" 
-          @click="loadTasks" 
-        />
-      </div>
-    </div>
+  <HPage title="任务与后台作业中心" desc="查看环境安装、备份、恢复及异步处理任务的进度与状态">
+    <template #extra>
+      <Button 
+        label="刷新" 
+        icon="pi pi-refresh" 
+        severity="secondary" 
+        outlined 
+        :loading="loading" 
+        @click="loadTasks" 
+      />
+    </template>
 
     <!-- Tasks List -->
-    <div class="surface-card tasks-card">
+    <HCard>
       <div v-if="tasks.length === 0" class="empty-state">
         <span v-if="loading">加载任务中...</span>
         <span v-else>当前没有正在运行或历史记录的任务</span>
@@ -62,18 +55,23 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
+    </HCard>
+  </HPage>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { HPage, HCard } from '@/components'
 import Button from 'primevue/button'
 import ProgressBar from 'primevue/progressbar'
 import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
-import { listTasks, cancelTask } from '../api/tasks'
-import type { Task } from '../types'
+import { listTasks, cancelTask } from '@/api/tasks'
+import type { Task } from '@/types'
+
+defineOptions({
+  name: 'Tasks'
+})
 
 const toast = useToast()
 const tasks = ref<Task[]>([])
