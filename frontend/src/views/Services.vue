@@ -36,7 +36,7 @@
 
           <Tag 
             :severity="srv.status === 'running' ? 'success' : 'secondary'"
-            :value="srv.status === 'running' ? '运行中 (Running)' : '已停止 (Stopped)'" 
+            :value="srv.status === 'running' ? '运行中' : '已停止'" 
             :icon="srv.status === 'running' ? 'pi pi-check-circle' : 'pi pi-minus-circle'"
           />
         </div>

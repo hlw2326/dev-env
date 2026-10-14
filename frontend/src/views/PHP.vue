@@ -57,7 +57,7 @@
 
         <div class="card-actions">
           <Button 
-            label="扩展模块 (Extensions)" 
+            label="扩展模块" 
             icon="pi pi-sliders-h" 
             severity="secondary" 
             outlined 

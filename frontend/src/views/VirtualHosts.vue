@@ -62,7 +62,7 @@
           </template>
         </Column>
 
-        <Column field="documentRoot" header="网站根目录 (Document Root)">
+        <Column field="documentRoot" header="网站根目录">
           <template #body="{ data }">
             <span class="font-mono text-sm text-path" :title="data.documentRoot">{{ data.documentRoot }}</span>
           </template>
@@ -143,7 +143,7 @@
         </div>
 
         <div class="form-field">
-          <label>网站根目录 (Document Root)</label>
+          <label>网站根目录</label>
           <InputText 
             v-model="createForm.documentRoot" 
             class="font-mono" 

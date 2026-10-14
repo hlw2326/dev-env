@@ -17,37 +17,37 @@
       <nav class="nav-menu">
         <router-link to="/" class="nav-item" active-class="active">
           <i class="pi pi-th-large nav-icon"></i>
-          <span>控制台 (Dashboard)</span>
+          <span>控制台</span>
         </router-link>
 
         <router-link to="/projects" class="nav-item" active-class="active">
           <i class="pi pi-folder nav-icon"></i>
-          <span>项目管理 (Projects)</span>
+          <span>项目管理</span>
         </router-link>
 
         <router-link to="/php" class="nav-item" active-class="active">
           <i class="pi pi-code nav-icon"></i>
-          <span>PHP 环境 (PHP)</span>
+          <span>PHP 环境</span>
         </router-link>
 
         <router-link to="/services" class="nav-item" active-class="active">
           <i class="pi pi-server nav-icon"></i>
-          <span>服务实例 (Services)</span>
+          <span>服务实例</span>
         </router-link>
 
         <router-link to="/hosts" class="nav-item" active-class="active">
           <i class="pi pi-globe nav-icon"></i>
-          <span>虚拟主机 (Hosts)</span>
+          <span>虚拟主机</span>
         </router-link>
 
         <router-link to="/tasks" class="nav-item" active-class="active">
           <i class="pi pi-list-check nav-icon"></i>
-          <span>任务作业 (Tasks)</span>
+          <span>任务作业</span>
         </router-link>
 
         <router-link to="/settings" class="nav-item" active-class="active">
           <i class="pi pi-cog nav-icon"></i>
-          <span>全局设置 (Settings)</span>
+          <span>全局设置</span>
         </router-link>
       </nav>
 

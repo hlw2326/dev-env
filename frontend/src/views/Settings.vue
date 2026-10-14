@@ -46,7 +46,7 @@
         <p class="card-desc">运行环境下载解压根目录与默认项目路径</p>
 
         <div class="form-field">
-          <label>环境根目录 (Runtime Root Path)</label>
+          <label>环境根目录</label>
           <InputText 
             v-model="settings.runtimeRootPath" 
             class="font-mono" 
@@ -55,7 +55,7 @@
         </div>
 
         <div class="form-field">
-          <label>默认项目路径 (Default Project Path)</label>
+          <label>默认项目路径</label>
           <InputText 
             v-model="settings.defaultProjectPath" 
             class="font-mono" 
@@ -118,14 +118,14 @@ const settings = ref<AppSettings>({
 const saving = ref(false)
 
 const langOptions = [
-  { label: '简体中文 (zh-CN)', value: 'zh-CN' },
-  { label: 'English (en-US)', value: 'en-US' },
+  { label: '简体中文', value: 'zh-CN' },
+  { label: 'English', value: 'en-US' },
 ]
 
 const themeOptions = [
-  { label: '明亮浅色 (Light)', value: 'light' },
-  { label: '跟随系统 (System)', value: 'system' },
-  { label: '暗黑深色 (Dark)', value: 'dark' },
+  { label: '明亮浅色', value: 'light' },
+  { label: '跟随系统', value: 'system' },
+  { label: '暗黑深色', value: 'dark' },
 ]
 
 async function loadSettings() {
