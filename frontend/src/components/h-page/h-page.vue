@@ -37,7 +37,7 @@ interface Props {
 withDefaults(defineProps<Props>(), {
   title: '',
   desc: '',
-  padding: false,
+  padding: true,
   scroll: true
 })
 </script>
@@ -61,11 +61,12 @@ withDefaults(defineProps<Props>(), {
   align-items: center;
   padding: 14px var(--h-padding);
   background: #ffffff;
-  border: 1px solid var(--border-color);
-  border-radius: var(--h-radius);
-  margin-bottom: var(--h-padding);
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  margin: 0;
   flex-shrink: 0;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  box-shadow: none;
 
   .header-left {
     display: flex;
@@ -99,6 +100,7 @@ withDefaults(defineProps<Props>(), {
 
   &.with-padding {
     padding: var(--h-padding);
+    gap: var(--h-padding);
   }
 }
 </style>

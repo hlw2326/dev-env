@@ -232,7 +232,7 @@ onMounted(() => {
 .dashboard-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .header-status-group {
@@ -244,27 +244,34 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
+  margin-bottom: 4px;
 }
 
 .stat-box {
-  padding: 18px;
+  padding: 16px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   cursor: pointer;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--bg-card);
 }
+
 .stat-box:hover {
-  border-color: #cbd5e1;
+  background: #f8fafc;
+  border-color: var(--border-hover);
 }
 
 .stat-icon-bg {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
+  width: 44px;
+  height: 44px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
+  flex-shrink: 0;
 }
 .bg-blue { background: #eff6ff; color: #2563eb; }
 .bg-indigo { background: #eef2ff; color: #4f46e5; }
@@ -295,10 +302,13 @@ onMounted(() => {
 }
 
 .panel {
-  padding: 20px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--bg-card);
 }
 
 .panel-header {
@@ -321,7 +331,7 @@ onMounted(() => {
 .services-list, .projects-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .service-row, .project-row {
@@ -330,12 +340,13 @@ onMounted(() => {
   align-items: center;
   padding: 12px 14px;
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
 }
+
 .service-row:hover, .project-row:hover {
   background: #ffffff;
-  border-color: #cbd5e1;
+  border-color: var(--border-hover);
 }
 
 .service-info, .project-info {
@@ -370,8 +381,11 @@ onMounted(() => {
 
 .empty-block {
   text-align: center;
-  padding: 30px;
+  padding: 32px;
   color: var(--text-dim);
   font-size: 0.85rem;
+  background: #f8fafc;
+  border: 1px dashed var(--border-color);
+  border-radius: 5px;
 }
 </style>

@@ -408,6 +408,6 @@ onUnmounted(() => {
 .content-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: var(--h-padding) 20px;
+  padding: 0;
 }
 </style>
