@@ -22,6 +22,7 @@ const (
 	CodeDownloadFailed      = "DOWNLOAD_FAILED"
 	CodeInstallFailed       = "INSTALL_FAILED"
 	CodeTaskNotCancellable  = "TASK_NOT_CANCELLABLE"
+	CodeServiceRunning      = "SERVICE_RUNNING"
 	CodeDatabaseError       = "DATABASE_ERROR"
 	CodeInternalError       = "INTERNAL_ERROR"
 )

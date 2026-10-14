@@ -1,61 +1,67 @@
 import { reactive } from 'vue'
 import type { App } from 'vue'
-import { zhCN } from './locales/zh-CN'
 import { enUS } from './locales/en-US'
 
-export { zhCN, enUS }
+export { enUS }
 
+// 语言存储键
 const STORAGE_KEY = 'devenv_locale'
-const initialLocale = localStorage.getItem(STORAGE_KEY) || 'zh-CN'
 
-// 响应式语言状态树
+// 读取本地语言
+const stored = localStorage.getItem(STORAGE_KEY)
+let initLang = 'zh-CN'
+if (stored) {
+	initLang = stored
+}
+
+// 响应式语言状态
 const state = reactive({
-  locale: initialLocale
+	locale: initLang,
 })
 
-/**
- * 切换并持久化界面语言
- */
+// 切换语言
 export function setLocale(lang: string): void {
-  state.locale = lang
-  localStorage.setItem(STORAGE_KEY, lang)
+	state.locale = lang
+	localStorage.setItem(STORAGE_KEY, lang)
 }
 
-/**
- * 获取当前界面语言
- */
+// 获取当前语言
 export function getLocale(): string {
-  return state.locale
+	return state.locale
 }
 
-/**
- * 响应式国际化文本翻译
- */
+// 翻译文本（中文原文作为键）
 export function $t(key: string, params?: Record<string, unknown>): string {
-  const current = state.locale === 'en-US' ? enUS : zhCN
-  let text = current[key] || key
-  if (params) {
-    for (const name of Object.keys(params)) {
-      text = text.replaceAll(`{${name}}`, String(params[name]))
-    }
-  }
-  return text
+	let text = key
+	if (state.locale === 'en-US') {
+		const mapped = enUS[key]
+		if (mapped) {
+			text = mapped
+		}
+	}
+	if (params) {
+		for (const name of Object.keys(params)) {
+			text = text.replaceAll(`{${name}}`, String(params[name]))
+		}
+	}
+	return text
 }
 
+// 语言组合式函数
 export function useI18n() {
-  return {
-    locale: state,
-    setLocale,
-    getLocale,
-    $t
-  }
+	return {
+		locale: state,
+		setLocale,
+		getLocale,
+		$t,
+	}
 }
 
-// Vue 插件
+// Vue 插件安装
 export const i18n = {
-  install(app: App) {
-    app.config.globalProperties.$t = $t
-  }
+	install(app: App) {
+		app.config.globalProperties.$t = $t
+	},
 }
 
 export default i18n

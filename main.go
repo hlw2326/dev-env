@@ -13,10 +13,8 @@ import (
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
 	app := NewApp()
 
-	// Create application with options
 	err := wails.Run(&options.App{
 		Title:     "DevEnv - 本地开发环境管理平台",
 		Width:     1280,
@@ -30,14 +28,19 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 248, G: 250, B: 252, A: 255},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
-		Bind: []interface{}{
+		Bind: []any{
 			app,
-			app.api,
+			app.Site,
+			app.Git,
+			app.Runtime,
+			app.Service,
+			app.Task,
+			app.Setting,
 		},
 		Windows: &windows.Options{
-			WebviewIsTransparent:             false,
-			WindowIsTranslucent:              false,
-			BackdropType:                     windows.Mica,
+			WebviewIsTransparent:              false,
+			WindowIsTranslucent:               false,
+			BackdropType:                      windows.Mica,
 			DisableFramelessWindowDecorations: false,
 		},
 	})

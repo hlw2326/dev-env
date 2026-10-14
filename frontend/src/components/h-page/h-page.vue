@@ -1,106 +1,106 @@
 <template>
-  <div class="h-page" :class="{ 'no-scroll': !scroll }">
-    <!-- 统一页面头部 -->
-    <div v-if="title || $slots.title || $slots.extra" class="h-page-header">
-      <div class="header-left">
-        <slot name="title">
-          <span class="page-title">{{ title }}</span>
-        </slot>
-        <slot name="desc">
-          <p v-if="desc" class="page-desc">{{ desc }}</p>
-        </slot>
-      </div>
-      <div v-if="$slots.extra" class="header-extra">
-        <slot name="extra"></slot>
-      </div>
-    </div>
+	<div class="h-page" :class="{ 'no-scroll': scroll === false }">
+		<!-- 页面头部 -->
+		<slot name="header">
+			<div v-if="title || $slots.title || $slots.extra" class="header">
+				<div class="header-left">
+					<slot name="title">
+						<span class="title">{{ title }}</span>
+					</slot>
+					<slot name="desc">
+						<p v-if="desc" class="desc">{{ desc }}</p>
+					</slot>
+				</div>
+				<div v-if="$slots.extra" class="header-extra">
+					<slot name="extra"></slot>
+				</div>
+			</div>
+		</slot>
 
-    <!-- 页面主体内容区 -->
-    <div class="h-page-body" :class="{ 'with-padding': padding }">
-      <slot></slot>
-    </div>
-  </div>
+		<!-- 页面主体 -->
+		<div class="body" :class="{ 'with-padding': padding !== false }">
+			<slot></slot>
+		</div>
+	</div>
 </template>
 
 <script setup lang="ts">
+// 全局页面组件名称
 defineOptions({
-  name: 'HPage'
+	name: 'HPage',
 })
 
-interface Props {
-  title?: string
-  desc?: string
-  padding?: boolean
-  scroll?: boolean
-}
-
-withDefaults(defineProps<Props>(), {
-  title: '',
-  desc: '',
-  padding: true,
-  scroll: true
-})
+// 组件接收属性与默认值
+withDefaults(
+	defineProps<{
+		title?: string
+		desc?: string
+		padding?: boolean
+		scroll?: boolean
+	}>(),
+	{
+		padding: true,
+		scroll: true,
+	}
+)
 </script>
 
 <style scoped lang="scss">
+/* 页面外层容器 */
 .h-page {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  width: 100%;
+	display: flex;
+	flex-direction: column;
+	min-height: 100%;
+	width: 100%;
 
-  &.no-scroll {
-    height: 100%;
-    overflow: hidden;
-  }
+	&.no-scroll {
+		height: 100%;
+		overflow: hidden;
+	}
 }
 
-.h-page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px var(--h-padding);
-  background: var(--bg-card);
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  border-radius: 0;
-  margin: 0;
-  flex-shrink: 0;
-  box-shadow: none;
+/* 页面顶部栏 */
+.header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0.875rem var(--h-padding);
+	background: var(--bg-card);
+	border-bottom: 1px solid var(--border-color);
+	flex-shrink: 0;
 
-  .header-left {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+	.header-left {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
 
-    .page-title {
-      font-size: 1rem;
-      font-weight: 400;
-      color: var(--text-primary);
-      letter-spacing: -0.01em;
-    }
+		.title {
+			font-size: 1rem;
+			color: var(--text-primary);
+		}
 
-    .page-desc {
-      font-size: var(--font-xs);
-      color: var(--text-secondary);
-    }
-  }
+		.desc {
+			font-size: var(--font-xs);
+			color: var(--text-secondary);
+		}
+	}
 
-  .header-extra {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+	.header-extra {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+	}
 }
 
-.h-page-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+/* 页面内容区 */
+.body {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
 
-  &.with-padding {
-    padding: var(--h-padding);
-    gap: var(--h-padding);
-  }
+	&.with-padding {
+		padding: var(--h-padding);
+		gap: var(--h-padding);
+	}
 }
 </style>

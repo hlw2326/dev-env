@@ -5,276 +5,458 @@ import (
 	"time"
 
 	"devenv/internal/app"
-	"devenv/internal/domain/host"
-	"devenv/internal/domain/project"
+	"devenv/internal/domain/runtime"
 	"devenv/internal/domain/settings"
+	"devenv/internal/domain/site"
 	"devenv/internal/transport/wails/dto"
+
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-type AppAPI struct {
-	ctx          context.Context
-	projectSvc   *app.ProjectService
-	phpSvc       *app.PHPService
-	serviceSvc   *app.ServiceAppService
-	hostSvc      *app.HostService
-	taskSvc      *app.TaskService
-	settingsSvc  *app.SettingsService
+type baseAPI struct {
+	ctx context.Context
 }
 
-func NewAppAPI(
-	projectSvc *app.ProjectService,
-	phpSvc *app.PHPService,
-	serviceSvc *app.ServiceAppService,
-	hostSvc *app.HostService,
-	taskSvc *app.TaskService,
-	settingsSvc *app.SettingsService,
-) *AppAPI {
-	return &AppAPI{
-		projectSvc:  projectSvc,
-		phpSvc:      phpSvc,
-		serviceSvc:  serviceSvc,
-		hostSvc:     hostSvc,
-		taskSvc:     taskSvc,
-		settingsSvc: settingsSvc,
-	}
+func (b *baseAPI) SetContext(ctx context.Context) {
+	b.ctx = ctx
 }
 
-func (a *AppAPI) SetContext(ctx context.Context) {
-	a.ctx = ctx
-}
-
-func (a *AppAPI) getCtx() context.Context {
-	if a.ctx != nil {
-		return a.ctx
+func (b *baseAPI) getCtx() context.Context {
+	if b.ctx != nil {
+		return b.ctx
 	}
 	return context.Background()
 }
 
-// ----------------- Projects API -----------------
+// ----------------- SiteAPI -----------------
 
-func (a *AppAPI) ListProjects() ([]dto.ProjectDTO, error) {
-	list, err := a.projectSvc.ListProjects(a.getCtx())
+type SiteAPI struct {
+	baseAPI
+	svc *app.SiteService
+}
+
+func NewSiteAPI(svc *app.SiteService) *SiteAPI {
+	return &SiteAPI{svc: svc}
+}
+
+func toSiteDTO(cur site.Site) dto.SiteDTO {
+	domains := cur.Domains
+	if domains == nil {
+		domains = make([]string, 0)
+	}
+	meta := cur.Meta
+	if meta.History == nil {
+		meta.History = make([]site.Snapshot, 0)
+	}
+	if meta.Env == nil {
+		meta.Env = make(map[string]string)
+	}
+	return dto.SiteDTO{
+		ID:        cur.ID,
+		Name:      cur.Name,
+		Kind:      string(cur.Kind),
+		Domains:   domains,
+		Root:      cur.Root,
+		RuntimeID: cur.RuntimeID,
+		ServiceID: cur.ServiceID,
+		Git:       cur.Git,
+		Remote:    cur.Remote,
+		Branch:    cur.Branch,
+		Commit:    cur.Commit,
+		PulledAt:  cur.PulledAt,
+		Conf:      cur.Conf,
+		Port:      cur.Port,
+		TLS:       cur.TLS,
+		Cert:      cur.Cert,
+		Key:       cur.Key,
+		Issuer:    cur.Issuer,
+		Proxy:     cur.Proxy,
+		Upstream:  cur.Upstream,
+		Meta:      meta,
+		Status:    string(cur.Status),
+		CreatedAt: cur.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: cur.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func (a *SiteAPI) List() ([]dto.SiteDTO, error) {
+	list, err := a.svc.List(a.getCtx())
 	if err != nil {
 		return nil, err
 	}
-	result := make([]dto.ProjectDTO, len(list))
-	for i, p := range list {
-		result[i] = dto.ProjectDTO{
-			ID:           p.ID,
-			Name:         p.Name,
-			Path:         p.Path,
-			PHPVersionID: p.PHPVersionID,
-			Status:       string(p.Status),
-			CreatedAt:    p.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:    p.UpdatedAt.Format(time.RFC3339),
-		}
+	res := make([]dto.SiteDTO, 0, len(list))
+	for _, cur := range list {
+		res = append(res, toSiteDTO(cur))
 	}
-	return result, nil
+	return res, nil
 }
 
-func (a *AppAPI) GetProject(id int64) (*dto.ProjectDTO, error) {
-	p, err := a.projectSvc.GetProject(a.getCtx(), id)
+func (a *SiteAPI) Get(id int64) (*dto.SiteDTO, error) {
+	cur, err := a.svc.Get(a.getCtx(), id)
 	if err != nil {
 		return nil, err
 	}
-	return &dto.ProjectDTO{
-		ID:           p.ID,
-		Name:         p.Name,
-		Path:         p.Path,
-		PHPVersionID: p.PHPVersionID,
-		Status:       string(p.Status),
-		CreatedAt:    p.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    p.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	res := toSiteDTO(*cur)
+	return &res, nil
 }
 
-func (a *AppAPI) CreateProject(in dto.CreateProjectInput) (*dto.ProjectDTO, error) {
-	p, err := a.projectSvc.CreateProject(a.getCtx(), project.CreateInput{
-		Name:         in.Name,
-		Path:         in.Path,
-		PHPVersionID: in.PHPVersionID,
+func (a *SiteAPI) Create(in dto.CreateSiteInput) (*dto.SiteDTO, error) {
+	cur, err := a.svc.Create(a.getCtx(), site.CreateInput{
+		Name:        in.Name,
+		Kind:        site.Kind(in.Kind),
+		Domains:     in.Domains,
+		Root:        in.Root,
+		RuntimeID:   in.RuntimeID,
+		ServiceID:   in.ServiceID,
+		AutoService: in.AutoService,
+		Git:         in.Git,
+		Remote:      in.Remote,
+		Branch:      in.Branch,
+		Port:        in.Port,
+		TLS:         in.TLS,
+		Issuer:      in.Issuer,
+		Cert:        in.Cert,
+		Key:         in.Key,
+		Upstream:    in.Upstream,
+		Entry:       in.Entry,
+		Cmd:         in.Cmd,
+		AutoStart:   in.AutoStart,
+		StartNow:    in.StartNow,
+		Custom:      in.Custom,
+		Env:         in.Env,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &dto.ProjectDTO{
-		ID:           p.ID,
-		Name:         p.Name,
-		Path:         p.Path,
-		PHPVersionID: p.PHPVersionID,
-		Status:       string(p.Status),
-		CreatedAt:    p.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    p.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	res := toSiteDTO(*cur)
+	return &res, nil
 }
 
-func (a *AppAPI) ImportProject(path string) (*dto.ProjectDTO, error) {
-	p, err := a.projectSvc.ImportProject(a.getCtx(), path)
-	if err != nil {
-		return nil, err
-	}
-	return &dto.ProjectDTO{
-		ID:           p.ID,
-		Name:         p.Name,
-		Path:         p.Path,
-		PHPVersionID: p.PHPVersionID,
-		Status:       string(p.Status),
-		CreatedAt:    p.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    p.UpdatedAt.Format(time.RFC3339),
-	}, nil
-}
-
-func (a *AppAPI) UpdateProject(in dto.UpdateProjectInput) (*dto.ProjectDTO, error) {
-	p, err := a.projectSvc.UpdateProject(a.getCtx(), project.UpdateInput{
-		ID:           in.ID,
-		Name:         in.Name,
-		PHPVersionID: in.PHPVersionID,
+func (a *SiteAPI) Update(in dto.UpdateSiteInput) (*dto.SiteDTO, error) {
+	cur, err := a.svc.Update(a.getCtx(), site.UpdateInput{
+		ID:        in.ID,
+		Name:      in.Name,
+		Domains:   in.Domains,
+		Root:      in.Root,
+		RuntimeID: in.RuntimeID,
+		ServiceID: in.ServiceID,
+		Port:      in.Port,
+		TLS:       in.TLS,
+		Issuer:    in.Issuer,
+		Cert:      in.Cert,
+		Key:       in.Key,
+		Upstream:  in.Upstream,
+		Entry:     in.Entry,
+		Cmd:       in.Cmd,
+		Custom:    in.Custom,
+		AutoStart: in.AutoStart,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &dto.ProjectDTO{
-		ID:           p.ID,
-		Name:         p.Name,
-		Path:         p.Path,
-		PHPVersionID: p.PHPVersionID,
-		Status:       string(p.Status),
-		CreatedAt:    p.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    p.UpdatedAt.Format(time.RFC3339),
-	}, nil
+	res := toSiteDTO(*cur)
+	return &res, nil
 }
 
-func (a *AppAPI) DeleteProject(id int64) (dto.OperationResultDTO, error) {
-	err := a.projectSvc.DeleteProject(a.getCtx(), id)
-	if err != nil {
+func (a *SiteAPI) Start(id int64) (dto.OperationResultDTO, error) {
+	if err := a.svc.Start(a.getCtx(), id); err != nil {
 		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
 	}
 	return dto.OperationResultDTO{Success: true}, nil
 }
 
-func (a *AppAPI) ValidateProjectPath(path string) dto.ProjectPathValidationDTO {
-	val := a.projectSvc.ValidateProjectPath(a.getCtx(), path)
-	return dto.ProjectPathValidationDTO{
-		Valid:          val.Valid,
-		NormalizedPath: val.NormalizedPath,
-		Exists:         val.Exists,
-		Writable:       val.Writable,
-		Errors:         val.Errors,
+func (a *SiteAPI) Stop(id int64) (dto.OperationResultDTO, error) {
+	if err := a.svc.Stop(a.getCtx(), id); err != nil {
+		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
+	}
+	return dto.OperationResultDTO{Success: true}, nil
+}
+
+func (a *SiteAPI) Restart(id int64) (dto.OperationResultDTO, error) {
+	if err := a.svc.Restart(a.getCtx(), id); err != nil {
+		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
+	}
+	return dto.OperationResultDTO{Success: true}, nil
+}
+
+func (a *SiteAPI) Delete(in dto.DeleteSiteInput) (dto.OperationResultDTO, error) {
+	if err := a.svc.Delete(a.getCtx(), in.ID, in.Purge); err != nil {
+		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
+	}
+	return dto.OperationResultDTO{Success: true}, nil
+}
+
+func (a *SiteAPI) Conf(id int64) (string, error) {
+	return a.svc.ReadConf(a.getCtx(), id)
+}
+
+func (a *SiteAPI) RenderConf(id int64) (string, error) {
+	return a.svc.RenderConf(a.getCtx(), id)
+}
+
+func (a *SiteAPI) SaveConf(in dto.SaveConfInput) (dto.OperationResultDTO, error) {
+	if err := a.svc.WriteConf(a.getCtx(), in.SiteID, in.Content, in.Summary); err != nil {
+		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
+	}
+	return dto.OperationResultDTO{Success: true}, nil
+}
+
+func (a *SiteAPI) CheckConf(content string) dto.ConfCheckDTO {
+	ok, msg := a.svc.CheckConf(a.getCtx(), content)
+	return dto.ConfCheckDTO{
+		Valid:   ok,
+		Message: msg,
 	}
 }
 
-// ----------------- PHP API -----------------
+func (a *SiteAPI) Logs(in dto.SiteLogInput) (dto.LogResultDTO, error) {
+	lines, err := a.svc.Logs(a.getCtx(), in.SiteID, in.Kind, in.Limit)
+	if err != nil {
+		return dto.LogResultDTO{Lines: make([]string, 0)}, err
+	}
+	return dto.LogResultDTO{Lines: lines}, nil
+}
 
-func (a *AppAPI) ListVersions() ([]dto.PHPVersionDTO, error) {
-	list, err := a.phpSvc.ListVersions(a.getCtx())
+// ----------------- GitAPI -----------------
+
+type GitAPI struct {
+	baseAPI
+	svc *app.GitService
+}
+
+func NewGitAPI(svc *app.GitService) *GitAPI {
+	return &GitAPI{svc: svc}
+}
+
+func (a *GitAPI) Status(siteID int64) (*dto.GitStatusDTO, error) {
+	st, err := a.svc.Status(a.getCtx(), siteID)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]dto.PHPVersionDTO, len(list))
-	for i, v := range list {
-		result[i] = dto.PHPVersionDTO{
+	modified := st.Modified
+	if modified == nil {
+		modified = make([]string, 0)
+	}
+	untracked := st.Untracked
+	if untracked == nil {
+		untracked = make([]string, 0)
+	}
+	return &dto.GitStatusDTO{
+		Branch:    st.Branch,
+		Commit:    st.Commit,
+		Message:   st.Message,
+		Clean:     st.Clean,
+		Ahead:     st.Ahead,
+		Behind:    st.Behind,
+		Modified:  modified,
+		Untracked: untracked,
+		CheckedAt: st.CheckedAt,
+	}, nil
+}
+
+func (a *GitAPI) Pull(siteID int64) (dto.OperationResultDTO, error) {
+	if err := a.svc.Pull(a.getCtx(), siteID); err != nil {
+		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
+	}
+	return dto.OperationResultDTO{Success: true}, nil
+}
+
+func (a *GitAPI) Commit(in dto.GitCommitInput) (dto.OperationResultDTO, error) {
+	if err := a.svc.Commit(a.getCtx(), in.SiteID, in.Message, in.Files); err != nil {
+		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
+	}
+	return dto.OperationResultDTO{Success: true}, nil
+}
+
+func (a *GitAPI) Push(siteID int64) (dto.OperationResultDTO, error) {
+	if err := a.svc.Push(a.getCtx(), siteID); err != nil {
+		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
+	}
+	return dto.OperationResultDTO{Success: true}, nil
+}
+
+// ----------------- RuntimeAPI -----------------
+
+type RuntimeAPI struct {
+	baseAPI
+	svc *app.RuntimeService
+}
+
+func NewRuntimeAPI(svc *app.RuntimeService) *RuntimeAPI {
+	return &RuntimeAPI{svc: svc}
+}
+
+func (a *RuntimeAPI) List() ([]dto.RuntimeDTO, error) {
+	list, err := a.svc.List(a.getCtx())
+	if err != nil {
+		return nil, err
+	}
+	res := make([]dto.RuntimeDTO, 0, len(list))
+	for _, v := range list {
+		res = append(res, dto.RuntimeDTO{
 			ID:           v.ID,
+			RuntimeType:  string(v.RuntimeType),
 			Version:      v.Version,
+			Variant:      v.Variant,
 			Architecture: v.Architecture,
 			InstallPath:  v.InstallPath,
 			Status:       string(v.Status),
 			IsDefault:    v.IsDefault,
-		}
+			SiteCount:    v.SiteCount,
+			ServiceCount: v.ServiceCount,
+		})
 	}
-	return result, nil
+	return res, nil
 }
 
-func (a *AppAPI) RegisterVersion(in dto.RegisterPHPVersionInput) (*dto.PHPVersionDTO, error) {
-	v, err := a.phpSvc.RegisterVersion(a.getCtx(), in.Version, in.Architecture, in.InstallPath)
+func (a *RuntimeAPI) Register(in dto.RegisterRuntimeInput) (*dto.RuntimeDTO, error) {
+	v, err := a.svc.Register(a.getCtx(), in.RuntimeType, in.Version, in.Variant, in.Architecture, in.InstallPath)
 	if err != nil {
 		return nil, err
 	}
-	return &dto.PHPVersionDTO{
+	return &dto.RuntimeDTO{
 		ID:           v.ID,
+		RuntimeType:  string(v.RuntimeType),
 		Version:      v.Version,
+		Variant:      v.Variant,
 		Architecture: v.Architecture,
 		InstallPath:  v.InstallPath,
 		Status:       string(v.Status),
-		IsDefault:    false,
+		IsDefault:    v.IsDefault,
+		SiteCount:    v.SiteCount,
+		ServiceCount: v.ServiceCount,
 	}, nil
 }
 
-func (a *AppAPI) SetDefaultVersion(versionID int64) (dto.OperationResultDTO, error) {
-	err := a.phpSvc.SetDefaultVersion(a.getCtx(), versionID)
+func (a *RuntimeAPI) Install(in dto.InstallRuntimeInput) (dto.InstallResultDTO, error) {
+	res, err := a.svc.Install(a.getCtx(), runtime.InstallInput{
+		RuntimeType:  runtime.RuntimeType(in.RuntimeType),
+		Version:      in.Version,
+		Variant:      in.Variant,
+		Architecture: in.Architecture,
+		DownloadURL:  in.DownloadURL,
+		InstallPath:  in.InstallPath,
+		Mirror:       in.Mirror,
+	})
 	if err != nil {
+		return dto.InstallResultDTO{}, err
+	}
+	return dto.InstallResultDTO{
+		RuntimeID:      res.RuntimeID,
+		ServiceID:      res.ServiceID,
+		ServiceCreated: res.ServiceCreated,
+	}, nil
+}
+
+func (a *RuntimeAPI) SetDefault(id int64) (dto.OperationResultDTO, error) {
+	if err := a.svc.SetDefault(a.getCtx(), id); err != nil {
 		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
 	}
 	return dto.OperationResultDTO{Success: true}, nil
 }
 
-func (a *AppAPI) GetExtensions(versionID int64) ([]dto.PHPExtensionDTO, error) {
-	list, err := a.phpSvc.GetExtensions(a.getCtx(), versionID)
+func (a *RuntimeAPI) Extensions(id int64) ([]dto.PHPExtensionDTO, error) {
+	list, err := a.svc.Extensions(a.getCtx(), id)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]dto.PHPExtensionDTO, len(list))
-	for i, e := range list {
-		result[i] = dto.PHPExtensionDTO{
+	res := make([]dto.PHPExtensionDTO, 0, len(list))
+	for _, e := range list {
+		res = append(res, dto.PHPExtensionDTO{
 			Name:      e.Name,
 			Enabled:   e.Enabled,
 			Available: e.Available,
-		}
+		})
 	}
-	return result, nil
+	return res, nil
 }
 
-// ----------------- Services API -----------------
+func (a *RuntimeAPI) Delete(id int64, purge bool) (dto.OperationResultDTO, error) {
+	if err := a.svc.Delete(a.getCtx(), id, purge); err != nil {
+		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
+	}
+	return dto.OperationResultDTO{Success: true, Message: "运行环境已成功卸载"}, nil
+}
 
-func (a *AppAPI) ListServices() ([]dto.ServiceInstanceDTO, error) {
-	list, err := a.serviceSvc.ListServices(a.getCtx())
+// ----------------- ServiceAPI -----------------
+
+type ServiceAPI struct {
+	baseAPI
+	svc *app.ServiceService
+}
+
+func NewServiceAPI(svc *app.ServiceService) *ServiceAPI {
+	return &ServiceAPI{svc: svc}
+}
+
+func (a *ServiceAPI) List() ([]dto.ServiceInstanceDTO, error) {
+	list, err := a.svc.List(a.getCtx())
 	if err != nil {
 		return nil, err
 	}
-	result := make([]dto.ServiceInstanceDTO, len(list))
-	for i, s := range list {
-		status := a.serviceSvc.GetServiceLogs(a.getCtx(), s.ID, 0)
-		_ = status
-		stInfo, _ := a.serviceSvc.GetServiceStatus(a.getCtx(), s.ID)
-		result[i] = dto.ServiceInstanceDTO{
-			ID:               s.ID,
-			Name:             s.Name,
-			ServiceType:      string(s.ServiceType),
-			RuntimeVersionID: s.RuntimeVersionID,
-			Port:             s.Port,
-			ConfigPath:       s.ConfigPath,
-			DataPath:         s.DataPath,
-			Enabled:          s.Enabled,
-			AutoStart:        s.AutoStart,
-			Status:           string(stInfo.Status),
-			PID:              stInfo.PID,
+	res := make([]dto.ServiceInstanceDTO, 0, len(list))
+	for _, cur := range list {
+		st, err := a.svc.Status(a.getCtx(), cur.ID)
+		if err != nil {
+			return nil, err
 		}
+		var rtVer, rtPath string
+		if rt, err := a.svc.GetRuntime(a.getCtx(), cur.RuntimeID); err == nil && rt != nil {
+			rtVer = rt.Version
+			rtPath = rt.InstallPath
+		}
+		res = append(res, dto.ServiceInstanceDTO{
+			ID:             cur.ID,
+			Name:           cur.Name,
+			ServiceType:    string(cur.ServiceType),
+			RuntimeID:      cur.RuntimeID,
+			RuntimeVersion: rtVer,
+			RuntimePath:    rtPath,
+			Port:           cur.Port,
+			ConfigPath:     cur.ConfigPath,
+			DataPath:       cur.DataPath,
+			Enabled:        cur.Enabled,
+			AutoStart:      cur.AutoStart,
+			Status:         string(st.Status),
+			PID:            st.PID,
+		})
 	}
-	return result, nil
+	return res, nil
 }
 
-func (a *AppAPI) GetService(serviceID int64) (*dto.ServiceInstanceDTO, error) {
-	s, err := a.serviceSvc.GetService(a.getCtx(), serviceID)
+func (a *ServiceAPI) Get(id int64) (*dto.ServiceInstanceDTO, error) {
+	cur, err := a.svc.Get(a.getCtx(), id)
 	if err != nil {
 		return nil, err
 	}
-	stInfo, _ := a.serviceSvc.GetServiceStatus(a.getCtx(), s.ID)
+	st, err := a.svc.Status(a.getCtx(), cur.ID)
+	if err != nil {
+		return nil, err
+	}
+	var rtVer, rtPath string
+	if rt, err := a.svc.GetRuntime(a.getCtx(), cur.RuntimeID); err == nil && rt != nil {
+		rtVer = rt.Version
+		rtPath = rt.InstallPath
+	}
 	return &dto.ServiceInstanceDTO{
-		ID:               s.ID,
-		Name:             s.Name,
-		ServiceType:      string(s.ServiceType),
-		RuntimeVersionID: s.RuntimeVersionID,
-		Port:             s.Port,
-		ConfigPath:       s.ConfigPath,
-		DataPath:         s.DataPath,
-		Enabled:          s.Enabled,
-		AutoStart:        s.AutoStart,
-		Status:           string(stInfo.Status),
-		PID:              stInfo.PID,
+		ID:             cur.ID,
+		Name:           cur.Name,
+		ServiceType:    string(cur.ServiceType),
+		RuntimeID:      cur.RuntimeID,
+		RuntimeVersion: rtVer,
+		RuntimePath:    rtPath,
+		Port:           cur.Port,
+		ConfigPath:     cur.ConfigPath,
+		DataPath:       cur.DataPath,
+		Enabled:        cur.Enabled,
+		AutoStart:      cur.AutoStart,
+		Status:         string(st.Status),
+		PID:            st.PID,
 	}, nil
 }
 
-func (a *AppAPI) GetServiceStatus(serviceID int64) (dto.ServiceStatusInfoDTO, error) {
-	st, err := a.serviceSvc.GetServiceStatus(a.getCtx(), serviceID)
+func (a *ServiceAPI) Status(id int64) (dto.ServiceStatusInfoDTO, error) {
+	st, err := a.svc.Status(a.getCtx(), id)
 	if err != nil {
 		return dto.ServiceStatusInfoDTO{}, err
 	}
@@ -284,186 +466,98 @@ func (a *AppAPI) GetServiceStatus(serviceID int64) (dto.ServiceStatusInfoDTO, er
 		startedStr = &s
 	}
 	return dto.ServiceStatusInfoDTO{
-		ServiceID:     st.ServiceID,
-		Status:        string(st.Status),
-		PID:           st.PID,
-		StartedAt:     startedStr,
-		LastErrorCode: st.LastErrorCode,
+		ServiceID: st.ServiceID,
+		Status:    string(st.Status),
+		PID:       st.PID,
+		StartedAt: startedStr,
+		ErrorCode: st.ErrorCode,
 	}, nil
 }
 
-func (a *AppAPI) StartService(in dto.ServiceActionInput) (dto.OperationResultDTO, error) {
-	err := a.serviceSvc.StartService(a.getCtx(), in.ServiceID)
-	if err != nil {
+func (a *ServiceAPI) Start(in dto.ServiceActionInput) (dto.OperationResultDTO, error) {
+	if err := a.svc.Start(a.getCtx(), in.ServiceID); err != nil {
 		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
 	}
 	return dto.OperationResultDTO{Success: true}, nil
 }
 
-func (a *AppAPI) StopService(in dto.ServiceActionInput) (dto.OperationResultDTO, error) {
-	err := a.serviceSvc.StopService(a.getCtx(), in.ServiceID)
-	if err != nil {
+func (a *ServiceAPI) Stop(in dto.ServiceActionInput) (dto.OperationResultDTO, error) {
+	if err := a.svc.Stop(a.getCtx(), in.ServiceID); err != nil {
 		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
 	}
 	return dto.OperationResultDTO{Success: true}, nil
 }
 
-func (a *AppAPI) RestartService(in dto.ServiceActionInput) (dto.OperationResultDTO, error) {
-	err := a.serviceSvc.RestartService(a.getCtx(), in.ServiceID)
-	if err != nil {
+func (a *ServiceAPI) Restart(in dto.ServiceActionInput) (dto.OperationResultDTO, error) {
+	if err := a.svc.Restart(a.getCtx(), in.ServiceID); err != nil {
 		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
 	}
 	return dto.OperationResultDTO{Success: true}, nil
 }
 
-func (a *AppAPI) GetServiceLogs(in dto.ServiceLogInput) (dto.ServiceLogResultDTO, error) {
-	lines := a.serviceSvc.GetServiceLogs(a.getCtx(), in.ServiceID, in.Limit)
-	return dto.ServiceLogResultDTO{Lines: lines}, nil
+func (a *ServiceAPI) SwitchRuntime(in dto.SwitchRuntimeInput) (dto.OperationResultDTO, error) {
+	if err := a.svc.SwitchRuntime(a.getCtx(), in.ServiceID, in.RuntimeID); err != nil {
+		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
+	}
+	return dto.OperationResultDTO{Success: true, Message: "服务运行版本已切换"}, nil
 }
 
-// ----------------- Virtual Hosts API -----------------
-
-func (a *AppAPI) ListVirtualHosts() ([]dto.VirtualHostDTO, error) {
-	list, err := a.hostSvc.ListVirtualHosts(a.getCtx())
+func (a *ServiceAPI) RuntimeOptions(id int64) ([]dto.RuntimeOptionDTO, error) {
+	list, err := a.svc.RuntimeOptions(a.getCtx(), id)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]dto.VirtualHostDTO, len(list))
-	for i, h := range list {
-		result[i] = dto.VirtualHostDTO{
-			ID:            h.ID,
-			ProjectID:     h.ProjectID,
-			Domain:        h.Domain,
-			DocumentRoot:  h.DocumentRoot,
-			WebServerType: h.WebServerType,
-			Port:          h.Port,
-			Enabled:       h.Enabled,
-			ConfigPath:    h.ConfigPath,
-		}
+	res := make([]dto.RuntimeOptionDTO, 0, len(list))
+	for _, r := range list {
+		res = append(res, dto.RuntimeOptionDTO{
+			ID:           r.ID,
+			Version:      r.Version,
+			Architecture: r.Architecture,
+			InstallPath:  r.InstallPath,
+		})
 	}
-	return result, nil
+	return res, nil
 }
 
-func (a *AppAPI) GetVirtualHost(id int64) (*dto.VirtualHostDTO, error) {
-	h, err := a.hostSvc.GetVirtualHost(a.getCtx(), id)
-	if err != nil {
-		return nil, err
+func (a *ServiceAPI) Logs(in dto.ServiceLogInput) (dto.LogResultDTO, error) {
+	lines := a.svc.Logs(a.getCtx(), in.ServiceID, in.Limit)
+	if lines == nil {
+		lines = make([]string, 0)
 	}
-	return &dto.VirtualHostDTO{
-		ID:            h.ID,
-		ProjectID:     h.ProjectID,
-		Domain:        h.Domain,
-		DocumentRoot:  h.DocumentRoot,
-		WebServerType: h.WebServerType,
-		Port:          h.Port,
-		Enabled:       h.Enabled,
-		ConfigPath:    h.ConfigPath,
-	}, nil
+	return dto.LogResultDTO{Lines: lines}, nil
 }
 
-func (a *AppAPI) CreateVirtualHost(in dto.CreateVirtualHostInput) (*dto.VirtualHostDTO, error) {
-	h, err := a.hostSvc.CreateVirtualHost(a.getCtx(), host.CreateInput{
-		ProjectID:     in.ProjectID,
-		Domain:        in.Domain,
-		DocumentRoot:  in.DocumentRoot,
-		WebServerType: in.WebServerType,
-		Port:          in.Port,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &dto.VirtualHostDTO{
-		ID:            h.ID,
-		ProjectID:     h.ProjectID,
-		Domain:        h.Domain,
-		DocumentRoot:  h.DocumentRoot,
-		WebServerType: h.WebServerType,
-		Port:          h.Port,
-		Enabled:       h.Enabled,
-		ConfigPath:    h.ConfigPath,
-	}, nil
-}
-
-func (a *AppAPI) UpdateVirtualHost(in dto.VirtualHostDTO) (*dto.VirtualHostDTO, error) {
-	h, err := a.hostSvc.UpdateVirtualHost(a.getCtx(), host.VirtualHost{
-		ID:            in.ID,
-		ProjectID:     in.ProjectID,
-		Domain:        in.Domain,
-		DocumentRoot:  in.DocumentRoot,
-		WebServerType: in.WebServerType,
-		Port:          in.Port,
-		Enabled:       in.Enabled,
-		ConfigPath:    in.ConfigPath,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &dto.VirtualHostDTO{
-		ID:            h.ID,
-		ProjectID:     h.ProjectID,
-		Domain:        h.Domain,
-		DocumentRoot:  h.DocumentRoot,
-		WebServerType: h.WebServerType,
-		Port:          h.Port,
-		Enabled:       h.Enabled,
-		ConfigPath:    h.ConfigPath,
-	}, nil
-}
-
-func (a *AppAPI) DeleteVirtualHost(id int64) (dto.OperationResultDTO, error) {
-	err := a.hostSvc.DeleteVirtualHost(a.getCtx(), id)
-	if err != nil {
+func (a *ServiceAPI) Delete(id int64) (dto.OperationResultDTO, error) {
+	if err := a.svc.Delete(a.getCtx(), id); err != nil {
 		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
 	}
-	return dto.OperationResultDTO{Success: true}, nil
+	return dto.OperationResultDTO{Success: true, Message: "服务实例已删除"}, nil
 }
 
-func (a *AppAPI) ValidateVirtualHost(in dto.CreateVirtualHostInput) dto.ValidationResultDTO {
-	res := a.hostSvc.ValidateVirtualHost(a.getCtx(), host.CreateInput{
-		ProjectID:     in.ProjectID,
-		Domain:        in.Domain,
-		DocumentRoot:  in.DocumentRoot,
-		WebServerType: in.WebServerType,
-		Port:          in.Port,
-	})
-	return dto.ValidationResultDTO{
-		Valid:    res.Valid,
-		Errors:   res.Errors,
-		Warnings: res.Warnings,
-	}
+// ----------------- TaskAPI -----------------
+
+type TaskAPI struct {
+	baseAPI
+	svc *app.TaskService
 }
 
-func (a *AppAPI) EnableVirtualHost(id int64) (dto.OperationResultDTO, error) {
-	err := a.hostSvc.EnableVirtualHost(a.getCtx(), id)
-	if err != nil {
-		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
-	}
-	return dto.OperationResultDTO{Success: true}, nil
+func NewTaskAPI(svc *app.TaskService) *TaskAPI {
+	return &TaskAPI{svc: svc}
 }
 
-func (a *AppAPI) DisableVirtualHost(id int64) (dto.OperationResultDTO, error) {
-	err := a.hostSvc.DisableVirtualHost(a.getCtx(), id)
-	if err != nil {
-		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
-	}
-	return dto.OperationResultDTO{Success: true}, nil
-}
-
-// ----------------- Tasks API -----------------
-
-func (a *AppAPI) ListTasks() ([]dto.TaskDTO, error) {
-	list, err := a.taskSvc.ListTasks(a.getCtx())
+func (a *TaskAPI) List() ([]dto.TaskDTO, error) {
+	list, err := a.svc.List(a.getCtx())
 	if err != nil {
 		return nil, err
 	}
-	result := make([]dto.TaskDTO, len(list))
-	for i, t := range list {
+	res := make([]dto.TaskDTO, 0, len(list))
+	for _, t := range list {
 		var finStr *string
 		if t.FinishedAt != nil {
 			s := t.FinishedAt.Format(time.RFC3339)
 			finStr = &s
 		}
-		result[i] = dto.TaskDTO{
+		res = append(res, dto.TaskDTO{
 			ID:           t.ID,
 			TaskType:     t.TaskType,
 			Status:       string(t.Status),
@@ -474,13 +568,13 @@ func (a *AppAPI) ListTasks() ([]dto.TaskDTO, error) {
 			CreatedAt:    t.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:    t.UpdatedAt.Format(time.RFC3339),
 			FinishedAt:   finStr,
-		}
+		})
 	}
-	return result, nil
+	return res, nil
 }
 
-func (a *AppAPI) GetTask(taskId int64) (*dto.TaskDTO, error) {
-	t, err := a.taskSvc.GetTask(a.getCtx(), taskId)
+func (a *TaskAPI) Get(id int64) (*dto.TaskDTO, error) {
+	t, err := a.svc.Get(a.getCtx(), id)
 	if err != nil {
 		return nil, err
 	}
@@ -503,18 +597,26 @@ func (a *AppAPI) GetTask(taskId int64) (*dto.TaskDTO, error) {
 	}, nil
 }
 
-func (a *AppAPI) CancelTask(taskId int64) (dto.OperationResultDTO, error) {
-	err := a.taskSvc.CancelTask(a.getCtx(), taskId)
-	if err != nil {
+func (a *TaskAPI) Cancel(id int64) (dto.OperationResultDTO, error) {
+	if err := a.svc.Cancel(a.getCtx(), id); err != nil {
 		return dto.OperationResultDTO{Success: false, Message: err.Error()}, err
 	}
 	return dto.OperationResultDTO{Success: true}, nil
 }
 
-// ----------------- Settings API -----------------
+// ----------------- SettingAPI -----------------
 
-func (a *AppAPI) GetSettings() (dto.AppSettingsDTO, error) {
-	s, err := a.settingsSvc.GetSettings(a.getCtx())
+type SettingAPI struct {
+	baseAPI
+	svc *app.SettingService
+}
+
+func NewSettingAPI(svc *app.SettingService) *SettingAPI {
+	return &SettingAPI{svc: svc}
+}
+
+func (a *SettingAPI) Get() (dto.AppSettingsDTO, error) {
+	s, err := a.svc.Get(a.getCtx())
 	if err != nil {
 		return dto.AppSettingsDTO{}, err
 	}
@@ -527,8 +629,8 @@ func (a *AppAPI) GetSettings() (dto.AppSettingsDTO, error) {
 	}, nil
 }
 
-func (a *AppAPI) UpdateSettings(in dto.AppSettingsDTO) (dto.AppSettingsDTO, error) {
-	s, err := a.settingsSvc.UpdateSettings(a.getCtx(), settings.AppSettings{
+func (a *SettingAPI) Update(in dto.AppSettingsDTO) (dto.AppSettingsDTO, error) {
+	s, err := a.svc.Update(a.getCtx(), settings.AppSettings{
 		Language:           in.Language,
 		Theme:              in.Theme,
 		RuntimeRootPath:    in.RuntimeRootPath,
@@ -547,8 +649,8 @@ func (a *AppAPI) UpdateSettings(in dto.AppSettingsDTO) (dto.AppSettingsDTO, erro
 	}, nil
 }
 
-func (a *AppAPI) ResetSettings() (dto.AppSettingsDTO, error) {
-	s, err := a.settingsSvc.ResetSettings(a.getCtx())
+func (a *SettingAPI) Reset() (dto.AppSettingsDTO, error) {
+	s, err := a.svc.Reset(a.getCtx())
 	if err != nil {
 		return dto.AppSettingsDTO{}, err
 	}
@@ -559,4 +661,22 @@ func (a *AppAPI) ResetSettings() (dto.AppSettingsDTO, error) {
 		DefaultProjectPath: s.DefaultProjectPath,
 		AutoStartServices:  s.AutoStartServices,
 	}, nil
+}
+
+func (a *SettingAPI) SelectDir(title string) (string, error) {
+	if title == "" {
+		title = "选择目录"
+	}
+	return wailsRuntime.OpenDirectoryDialog(a.getCtx(), wailsRuntime.OpenDialogOptions{
+		Title: title,
+	})
+}
+
+func (a *SettingAPI) SelectFile(title string) (string, error) {
+	if title == "" {
+		title = "选择文件"
+	}
+	return wailsRuntime.OpenFileDialog(a.getCtx(), wailsRuntime.OpenDialogOptions{
+		Title: title,
+	})
 }

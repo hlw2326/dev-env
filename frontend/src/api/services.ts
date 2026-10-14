@@ -1,64 +1,100 @@
-import * as AppAPI from '../../wailsjs/go/wails/AppAPI'
-import type { ServiceInstance, ServiceStatusInfo, OperationResult, RuntimeType, ServiceStatus } from '../types'
+import * as ServiceAPI from '../../wailsjs/go/wails/ServiceAPI'
+import type {
+  ServiceInstance,
+  ServiceStatusInfo,
+  OperationResult,
+  RuntimeType,
+  ServiceStatus,
+  RuntimeOption,
+} from '../types'
 
 export async function listServices(): Promise<ServiceInstance[]> {
-  const items = await AppAPI.ListServices()
-  return (items || []).map((s) => ({
+  const items = await ServiceAPI.List()
+  return items.map((s) => ({
     id: s.id,
     name: s.name,
     serviceType: s.serviceType as RuntimeType,
-    runtimeVersionId: s.runtimeVersionId,
-    port: s.port ?? null,
-    configPath: s.configPath ?? null,
-    dataPath: s.dataPath ?? null,
+    runtimeId: s.runtimeId,
+    runtimeVersion: s.runtimeVersion,
+    runtimePath: s.runtimePath,
+    port: s.port,
+    configPath: s.configPath,
+    dataPath: s.dataPath,
     enabled: s.enabled,
     autoStart: s.autoStart,
     status: s.status as ServiceStatus,
-    pid: s.pid ?? null,
+    pid: s.pid,
   }))
 }
 
 export async function getService(id: number): Promise<ServiceInstance> {
-  const s = await AppAPI.GetService(id)
+  const s = await ServiceAPI.Get(id)
   return {
     id: s.id,
     name: s.name,
     serviceType: s.serviceType as RuntimeType,
-    runtimeVersionId: s.runtimeVersionId,
-    port: s.port ?? null,
-    configPath: s.configPath ?? null,
-    dataPath: s.dataPath ?? null,
+    runtimeId: s.runtimeId,
+    runtimeVersion: s.runtimeVersion,
+    runtimePath: s.runtimePath,
+    port: s.port,
+    configPath: s.configPath,
+    dataPath: s.dataPath,
     enabled: s.enabled,
     autoStart: s.autoStart,
     status: s.status as ServiceStatus,
-    pid: s.pid ?? null,
+    pid: s.pid,
   }
 }
 
 export async function getServiceStatus(id: number): Promise<ServiceStatusInfo> {
-  const st = await AppAPI.GetServiceStatus(id)
+  const st = await ServiceAPI.Status(id)
   return {
     serviceId: st.serviceId,
     status: st.status as ServiceStatus,
-    pid: st.pid ?? null,
-    startedAt: st.startedAt ?? null,
-    lastErrorCode: st.lastErrorCode ?? null,
+    pid: st.pid,
+    startedAt: st.startedAt,
+    errorCode: st.errorCode,
   }
 }
 
 export async function startService(serviceId: number): Promise<OperationResult> {
-  return await AppAPI.StartService({ serviceId })
+  return await ServiceAPI.Start({ serviceId })
 }
 
 export async function stopService(serviceId: number): Promise<OperationResult> {
-  return await AppAPI.StopService({ serviceId })
+  return await ServiceAPI.Stop({ serviceId })
 }
 
 export async function restartService(serviceId: number): Promise<OperationResult> {
-  return await AppAPI.RestartService({ serviceId })
+  return await ServiceAPI.Restart({ serviceId })
 }
 
 export async function getServiceLogs(serviceId: number, limit = 100): Promise<string[]> {
-  const res = await AppAPI.GetServiceLogs({ serviceId, limit })
-  return res.lines || []
+  const res = await ServiceAPI.Logs({ serviceId, limit })
+  return res.lines
 }
+
+export async function deleteService(serviceId: number): Promise<OperationResult> {
+  return await ServiceAPI.Delete(serviceId)
+}
+
+export async function switchServiceRuntime(
+  serviceId: number,
+  runtimeId: number
+): Promise<OperationResult> {
+  return await ServiceAPI.SwitchRuntime({ serviceId, runtimeId })
+}
+
+export async function getServiceRuntimeOptions(serviceId: number): Promise<RuntimeOption[]> {
+  const items = await ServiceAPI.RuntimeOptions(serviceId)
+  return items.map((opt) => ({
+    runtimeId: opt.id,
+    version: opt.version,
+    architecture: opt.architecture,
+    installPath: opt.installPath,
+    status: 'installed',
+    isCurrent: false,
+  }))
+}
+
+

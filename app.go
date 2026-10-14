@@ -7,46 +7,49 @@ import (
 	transport "devenv/internal/transport/wails"
 )
 
-// App struct manages desktop lifecycle
 type App struct {
 	ctx       context.Context
 	container *app.Container
-	api       *transport.AppAPI
+	Site      *transport.SiteAPI
+	Git       *transport.GitAPI
+	Runtime   *transport.RuntimeAPI
+	Service   *transport.ServiceAPI
+	Task      *transport.TaskAPI
+	Setting   *transport.SettingAPI
 }
 
-// NewApp creates a new App application struct
 func NewApp() *App {
 	container, err := app.Bootstrap()
 	if err != nil {
 		panic(err)
 	}
 
-	api := transport.NewAppAPI(
-		container.ProjectSvc,
-		container.PHPSvc,
-		container.ServiceSvc,
-		container.HostSvc,
-		container.TaskSvc,
-		container.SettingsSvc,
-	)
-
 	return &App{
 		container: container,
-		api:       api,
+		Site:      transport.NewSiteAPI(container.Site),
+		Git:       transport.NewGitAPI(container.Git),
+		Runtime:   transport.NewRuntimeAPI(container.Runtime),
+		Service:   transport.NewServiceAPI(container.Service),
+		Task:      transport.NewTaskAPI(container.Task),
+		Setting:   transport.NewSettingAPI(container.Setting),
 	}
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	a.api.SetContext(ctx)
-	a.container.Publisher.SetContext(ctx)
+	a.Site.SetContext(ctx)
+	a.Git.SetContext(ctx)
+	a.Runtime.SetContext(ctx)
+	a.Service.SetContext(ctx)
+	a.Task.SetContext(ctx)
+	a.Setting.SetContext(ctx)
+	a.container.Bus.SetContext(ctx)
 }
 
-// shutdown is called when the app terminates
 func (a *App) shutdown(ctx context.Context) {
 	if a.container != nil && a.container.DB != nil {
-		_ = a.container.DB.Close()
+		if err := a.container.DB.Close(); err != nil {
+			println("Failed to close database:", err.Error())
+		}
 	}
 }

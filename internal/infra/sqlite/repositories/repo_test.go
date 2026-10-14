@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"devenv/internal/domain/host"
-	"devenv/internal/domain/project"
 	"devenv/internal/domain/runtime"
 	"devenv/internal/domain/service"
+	"devenv/internal/domain/site"
 	"devenv/internal/domain/task"
 	"devenv/internal/infra/sqlite"
 	"devenv/internal/infra/sqlite/repositories"
@@ -32,10 +31,10 @@ func TestSystemTablesAndIntegerIDs(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 1. Test system_runtime_versions (autoincrement ID)
-	runtimeRepo := repositories.NewRuntimeRepository(db.DB)
+	// 1. Test system_runtime_versions
+	runtimes := repositories.NewRuntimeRepository(db.DB)
 	now := time.Now().UTC()
-	rtID, err := runtimeRepo.Create(ctx, runtime.RuntimeVersion{
+	rtID, err := runtimes.Create(ctx, runtime.RuntimeVersion{
 		RuntimeType:  runtime.TypePHP,
 		Version:      "8.2.9",
 		Architecture: "x64",
@@ -52,7 +51,7 @@ func TestSystemTablesAndIntegerIDs(t *testing.T) {
 		t.Fatalf("expected positive integer autoincrement ID, got %d", rtID)
 	}
 
-	rt, err := runtimeRepo.GetByID(ctx, rtID)
+	rt, err := runtimes.GetByID(ctx, rtID)
 	if err != nil || rt == nil {
 		t.Fatalf("failed to get runtime version by ID %d: %v", rtID, err)
 	}
@@ -60,44 +59,18 @@ func TestSystemTablesAndIntegerIDs(t *testing.T) {
 		t.Fatalf("expected version 8.2.9, got %s", rt.Version)
 	}
 
-	// 2. Test system_projects (autoincrement ID, integer foreign key)
-	projectRepo := repositories.NewProjectRepository(db.DB)
-	projID, err := projectRepo.Create(ctx, project.Project{
-		Name:         "test-app",
-		Path:         `G:\www\test-app`,
-		PathKey:      `g:\www\test-app`,
-		PHPVersionID: &rtID,
-		Status:       project.StatusReady,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	})
-	if err != nil {
-		t.Fatalf("failed to create project: %v", err)
-	}
-	if projID <= 0 {
-		t.Fatalf("expected positive integer ID, got %d", projID)
-	}
-
-	proj, err := projectRepo.GetByID(ctx, projID)
-	if err != nil || proj == nil {
-		t.Fatalf("failed to get project by ID %d: %v", projID, err)
-	}
-	if proj.PHPVersionID == nil || *proj.PHPVersionID != rtID {
-		t.Fatalf("expected PHPVersionID %d, got %v", rtID, proj.PHPVersionID)
-	}
-
-	// 3. Test system_service_instances
-	serviceRepo := repositories.NewServiceRepository(db.DB)
+	// 2. Test system_service_instances
+	instances := repositories.NewServiceRepository(db.DB)
 	port := 9000
-	srvID, err := serviceRepo.Create(ctx, service.Instance{
-		Name:             "PHP FastCGI",
-		RuntimeVersionID: rtID,
-		ServiceType:      runtime.TypePHP,
-		Port:             &port,
-		AutoStart:        true,
-		Enabled:          true,
-		CreatedAt:        now,
-		UpdatedAt:        now,
+	srvID, err := instances.Create(ctx, service.Instance{
+		Name:        "PHP FastCGI",
+		RuntimeID:   rtID,
+		ServiceType: runtime.TypePHP,
+		Port:        &port,
+		AutoStart:   true,
+		Enabled:     true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	})
 	if err != nil {
 		t.Fatalf("failed to create service: %v", err)
@@ -106,7 +79,7 @@ func TestSystemTablesAndIntegerIDs(t *testing.T) {
 		t.Fatalf("expected positive integer ID for service, got %d", srvID)
 	}
 
-	srv, err := serviceRepo.GetByID(ctx, srvID)
+	srv, err := instances.GetByID(ctx, srvID)
 	if err != nil || srv == nil {
 		t.Fatalf("failed to get service: %v", err)
 	}
@@ -114,35 +87,50 @@ func TestSystemTablesAndIntegerIDs(t *testing.T) {
 		t.Fatalf("expected port 9000, got %v", srv.Port)
 	}
 
-	// 4. Test system_virtual_hosts
-	hostRepo := repositories.NewHostRepository(db.DB)
-	hostID, err := hostRepo.Create(ctx, host.VirtualHost{
-		ProjectID:     projID,
-		Domain:        "test-app.local",
-		DocumentRoot:  `G:\www\test-app\public`,
-		WebServerType: "nginx",
-		Port:          80,
-		Enabled:       true,
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	})
-	if err != nil {
-		t.Fatalf("failed to create virtual host: %v", err)
+	// 3. Test system_sites
+	sites := repositories.NewSiteRepository(db.DB)
+	curSite := &site.Site{
+		Name:      "test-site",
+		Kind:      site.PHP,
+		Domains:   []string{"test.local"},
+		Root:      `G:\www\test-site`,
+		RuntimeID: &rtID,
+		ServiceID: &srvID,
+		Port:      80,
+		Proxy:     false,
+		Upstream:  &port,
+		Meta: site.Meta{
+			Entry:   "index.php",
+			History: make([]site.Snapshot, 0),
+			Env:     make(map[string]string),
+		},
+		Status: site.Stopped,
 	}
-	if hostID <= 0 {
-		t.Fatalf("expected positive integer ID for host, got %d", hostID)
+	if err := sites.Create(ctx, curSite); err != nil {
+		t.Fatalf("failed to create site: %v", err)
+	}
+	if curSite.ID <= 0 {
+		t.Fatalf("expected positive integer ID for site, got %d", curSite.ID)
 	}
 
-	// 5. Test system_tasks
-	taskRepo := repositories.NewTaskRepository(db.DB)
-	taskID, err := taskRepo.Create(ctx, task.Task{
-		TaskType:     "install",
-		Status:       task.StatusRunning,
-		Progress:     50,
-		Message:      "Downloading PHP 8.3...",
-		PayloadJSON:  "{}",
-		CreatedAt:    now,
-		UpdatedAt:    now,
+	gotSite, err := sites.Get(ctx, curSite.ID)
+	if err != nil || gotSite == nil {
+		t.Fatalf("failed to get site by ID %d: %v", curSite.ID, err)
+	}
+	if gotSite.Name != "test-site" || gotSite.Kind != site.PHP {
+		t.Fatalf("unexpected site: %+v", gotSite)
+	}
+
+	// 4. Test system_tasks
+	tasks := repositories.NewTaskRepository(db.DB)
+	taskID, err := tasks.Create(ctx, task.Task{
+		TaskType:    "install",
+		Status:      task.StatusRunning,
+		Progress:    50,
+		Message:     "Downloading PHP 8.3...",
+		PayloadJSON: "{}",
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	})
 	if err != nil {
 		t.Fatalf("failed to create task: %v", err)

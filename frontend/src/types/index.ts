@@ -7,6 +7,7 @@ export type RuntimeType =
   | 'postgresql'
   | 'redis'
   | 'apache'
+  | 'nodejs'
 
 export type RuntimeStatus =
   | 'available'
@@ -35,49 +36,16 @@ export interface OperationResult {
   message?: string
 }
 
-export interface Project {
-  id: ID
-  name: string
-  path: string
-  phpVersionId: ID | null
-  status: 'ready' | 'missing' | 'invalid'
-  createdAt: string
-  updatedAt: string
-}
-
-export interface CreateProjectInput {
-  name: string
-  path: string
-  phpVersionId?: ID | null
-}
-
-export interface UpdateProjectInput {
-  id: ID
-  name?: string
-  phpVersionId?: ID | null
-}
-
-export interface ProjectPathValidation {
-  valid: boolean
-  normalizedPath: string
-  exists: boolean
-  writable: boolean
-  errors: string[]
-}
-
 export interface PHPVersion {
   id: ID
+  runtimeType?: string
   version: string
   architecture: string
   installPath: string
   status: RuntimeStatus
   isDefault: boolean
-}
-
-export interface RegisterPHPVersionInput {
-  version: string
-  architecture: string
-  installPath: string
+  siteCount?: number
+  serviceCount?: number
 }
 
 export interface PHPExtension {
@@ -90,47 +58,39 @@ export interface ServiceInstance {
   id: ID
   name: string
   serviceType: RuntimeType
-  runtimeVersionId: ID
-  port: number | null
-  configPath: string | null
-  dataPath: string | null
+  runtimeId: ID
+  runtimeVersion?: string
+  runtimePath?: string
+  port?: number
+  configPath?: string
+  dataPath?: string
   enabled: boolean
   autoStart: boolean
   status: ServiceStatus
-  pid: number | null
+  pid?: number
+}
+
+export interface RuntimeOption {
+  runtimeId: ID
+  version: string
+  architecture: string
+  installPath: string
+  status: string
+  isCurrent: boolean
+}
+
+export interface InstallResult {
+  runtimeId: ID
+  serviceId?: ID
+  serviceCreated: boolean
 }
 
 export interface ServiceStatusInfo {
   serviceId: ID
   status: ServiceStatus
-  pid: number | null
-  startedAt: string | null
-  lastErrorCode: string | null
-}
-
-export interface VirtualHost {
-  id: ID
-  projectId: ID
-  domain: string
-  documentRoot: string
-  webServerType: 'nginx' | 'apache'
-  port: number
-  enabled: boolean
-  configPath: string | null
-}
-
-export interface CreateVirtualHostInput {
-  projectId: ID
-  domain: string
-  documentRoot: string
-  webServerType: 'nginx' | 'apache'
-  port: number
-}
-
-export interface ValidationResult {
-  valid: boolean
-  errors: string[]
-  warnings: string[]
+  pid?: number
+  startedAt?: string
+  errorCode?: string
 }
 
 export interface Task {
@@ -139,11 +99,11 @@ export interface Task {
   status: TaskStatus
   progress: number
   message: string
-  errorCode: string | null
-  errorMessage: string | null
+  errorCode?: string
+  errorMessage?: string
   createdAt: string
   updatedAt: string
-  finishedAt: string | null
+  finishedAt?: string
 }
 
 export interface AppSettings {
@@ -191,7 +151,111 @@ export interface RuntimeVersion {
   createdAt?: string
   updatedAt?: string
   isDefault?: boolean
-  refProjectsCount?: number
-  refServicesCount?: number
+  siteCount?: number
+  serviceCount?: number
 }
 
+export type SiteKind = 'static' | 'php' | 'nodejs' | 'go' | 'python'
+
+export type SiteStatus = 'stopped' | 'running' | 'error'
+
+export interface SiteSnapshot {
+  version: string
+  timestamp: string
+  summary: string
+  content: string
+}
+
+export interface SiteMeta {
+  entry: string
+  cmd: string
+  autoStart: boolean
+  env: Record<string, string>
+  custom: string
+  accessLog: string
+  errorLog: string
+  history: SiteSnapshot[]
+}
+
+export interface Site {
+  id: ID
+  name: string
+  kind: SiteKind
+  domains: string[]
+  root: string
+  runtimeId?: ID
+  serviceId?: ID
+  git: boolean
+  remote: string
+  branch: string
+  commit: string
+  pulledAt: string
+  conf: string
+  port: number
+  tls: boolean
+  cert: string
+  key: string
+  issuer: string
+  proxy: boolean
+  upstream?: number
+  meta: SiteMeta
+  status: SiteStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateSiteInput {
+  name: string
+  kind: SiteKind
+  domains: string[]
+  root: string
+  runtimeId?: ID
+  serviceId?: ID
+  autoService: boolean
+  git: boolean
+  remote: string
+  branch: string
+  port: number
+  tls: boolean
+  issuer: string
+  cert: string
+  key: string
+  upstream?: number
+  entry: string
+  cmd: string
+  autoStart: boolean
+  startNow: boolean
+  custom: string
+  env?: Record<string, string>
+}
+
+export interface UpdateSiteInput {
+  id: ID
+  name?: string
+  domains?: string[]
+  root?: string
+  runtimeId?: ID
+  serviceId?: ID
+  port?: number
+  tls?: boolean
+  issuer?: string
+  cert?: string
+  key?: string
+  upstream?: number
+  entry?: string
+  cmd?: string
+  custom?: string
+  autoStart?: boolean
+}
+
+export interface GitStatus {
+  branch: string
+  commit: string
+  message: string
+  clean: boolean
+  ahead: number
+  behind: number
+  modified: string[]
+  untracked: string[]
+  checkedAt: string
+}

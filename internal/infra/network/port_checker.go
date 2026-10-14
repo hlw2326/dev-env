@@ -18,7 +18,9 @@ func (c *Checker) IsPortAvailable(port int) bool {
 	if err != nil {
 		return false
 	}
-	_ = listener.Close()
+	if err := listener.Close(); err != nil {
+		return false
+	}
 	return true
 }
 
@@ -37,6 +39,8 @@ func IsServiceListening(port int) bool {
 	if err != nil {
 		return false
 	}
-	_ = conn.Close()
+	if err := conn.Close(); err != nil {
+		return true
+	}
 	return true
 }

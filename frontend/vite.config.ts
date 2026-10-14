@@ -11,7 +11,7 @@ export default defineConfig({
     AutoImport({
       imports: ['vue', 'vue-router', 'pinia'],
       dirs: ['src/utils'],
-      dts: 'src/types/auto-imports.d.ts'
+      dts: 'auto-imports.d.ts'
     }),
     Components({
       resolvers: [
@@ -20,7 +20,7 @@ export default defineConfig({
         PrimeVueResolver({ components: { prefix: 'p' } })
       ],
       dirs: ['src/components'],
-      dts: 'src/types/components.d.ts'
+      dts: 'components.d.ts'
     })
   ],
   resolve: {

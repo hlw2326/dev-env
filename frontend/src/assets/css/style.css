@@ -45,13 +45,32 @@
 
     /* 品牌色与状态色 */
     --p-primary-color: #334155;
-    /* slate-700 */
     --primary-color: #334155;
     --primary-hover: #1e293b;
+    --on-primary: #ffffff;
     --success-color: #10b981;
     --warning-color: #f59e0b;
     --danger-color: #ef4444;
     --info-color: #3b82f6;
+
+    /* 语义状态令牌 */
+    --ok: #059669;
+    --ok-bg: #ecfdf5;
+    --ok-border: #a7f3d0;
+    --warn: #d97706;
+    --warn-bg: #fffbeb;
+    --warn-border: #fde68a;
+    --err: #dc2626;
+    --err-bg: #fef2f2;
+    --err-border: #fecaca;
+    --info: #2563eb;
+    --info-bg: #eff6ff;
+    --info-border: #bfdbfe;
+    --indigo: #4f46e5;
+    --indigo-bg: #eef2ff;
+    --indigo-border: #c7d2fe;
+    --code-bg: #0f172a;
+    --code-text: #e2e8f0;
 
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
@@ -59,16 +78,12 @@
 }
 
 html.dark {
-    /* ===== Dark 暗黑主题设计令牌 ===== */
+    /* Dark 暗黑主题设计令牌 */
     /* 背景色 */
     --bg-app: #090d16;
-    /* 全局暗黑背景 */
     --bg-card: #131b2e;
-    /* 卡片与面板深色底 */
     --bg-sidebar: #0f172a;
-    /* 侧边栏深色底 */
     --bg-hover: #1e293b;
-    /* 悬浮背景色 */
 
     /* 边框色 */
     --border-color: #1e293b;
@@ -76,20 +91,37 @@ html.dark {
 
     /* 文本色 */
     --text-primary: #f8fafc;
-    /* 主要文本高亮白色 */
     --text-secondary: #94a3b8;
-    /* 次要文本灰白 */
     --text-muted: #64748b;
-    /* 弱化文本 */
 
     --text-main: #f8fafc;
     --text-dim: #64748b;
+    --on-primary: #ffffff;
 
     /* 状态色在暗黑模式微调 */
     --success-color: #34d399;
     --warning-color: #fbbf24;
     --danger-color: #f87171;
     --info-color: #60a5fa;
+
+    /* 暗黑语义状态令牌 */
+    --ok: #34d399;
+    --ok-bg: #064e3b;
+    --ok-border: #065f46;
+    --warn: #fbbf24;
+    --warn-bg: #451a03;
+    --warn-border: #78350f;
+    --err: #f87171;
+    --err-bg: #450a0a;
+    --err-border: #7f1d1d;
+    --info: #60a5fa;
+    --info-bg: #1e3a8a;
+    --info-border: #1d4ed8;
+    --indigo: #818cf8;
+    --indigo-bg: #1e1b4b;
+    --indigo-border: #312e81;
+    --code-bg: #090d16;
+    --code-text: #cbd5e1;
 }
 
 /* 重置与无动画规范 */

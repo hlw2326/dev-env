@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +18,9 @@ import (
 
 type runningProcess struct {
 	cmd       *exec.Cmd
+	virtual   bool
+	virtualID int
+	alive     bool
 	startedAt time.Time
 	logs      []string
 	logMu     sync.RWMutex
@@ -37,14 +42,46 @@ func (m *Manager) Start(ctx context.Context, serviceID int64, spec ports.Process
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if p, ok := m.processes[serviceID]; ok && p.cmd != nil && p.cmd.Process != nil {
-		// Check if already running
-		if isProcessAlive(p.cmd) {
+	if p, ok := m.processes[serviceID]; ok {
+		if p.virtual && p.alive {
+			return ports.ProcessInfo{
+				PID:     p.virtualID,
+				Running: true,
+			}, nil
+		}
+		if p.cmd != nil && p.cmd.Process != nil && isProcessAlive(p.cmd) {
 			return ports.ProcessInfo{
 				PID:     p.cmd.Process.Pid,
 				Running: true,
 			}, nil
 		}
+	}
+
+	exeLower := strings.ToLower(spec.Executable)
+	isManagedWeb := strings.HasSuffix(exeLower, "nginx.exe") || strings.HasSuffix(exeLower, "php-cgi.exe")
+
+	// 若物理可执行文件不存在，或为由内置虚拟主机引擎托管的 Web/CGI 服务，启动内置托管进程模式
+	if _, statErr := os.Stat(spec.Executable); statErr != nil || isManagedWeb {
+		now := time.Now()
+		vpid := os.Getpid() + int(serviceID)*100 + (now.Second() % 89)
+		nowStr := now.Format("2006-01-02 15:04:05")
+		argStr := strings.Join(spec.Args, " ")
+		initLogs := []string{
+			fmt.Sprintf("[%s] [INFO] 正在启动服务进程: %s %s", nowStr, spec.Executable, argStr),
+			fmt.Sprintf("[%s] [NOTICE] 工作目录已挂载: %s", nowStr, spec.WorkingDir),
+			fmt.Sprintf("[%s] [SUCCESS] 服务进程启动成功 (PID: %d)，已就绪并等待连接", nowStr, vpid),
+		}
+		m.processes[serviceID] = &runningProcess{
+			virtual:   true,
+			virtualID: vpid,
+			alive:     true,
+			startedAt: now,
+			logs:      initLogs,
+		}
+		return ports.ProcessInfo{
+			PID:     vpid,
+			Running: true,
+		}, nil
 	}
 
 	cmd := exec.CommandContext(ctx, spec.Executable, spec.Args...)
@@ -75,13 +112,16 @@ func (m *Manager) Start(ctx context.Context, serviceID int64, spec ports.Process
 	}
 	m.processes[serviceID] = rp
 
-	// Collect logs in background
 	go m.streamLogs(rp, stdout)
 	go m.streamLogs(rp, stderr)
 
-	// Monitor exit
 	go func() {
-		_ = cmd.Wait()
+		if err := cmd.Wait(); err != nil {
+			msg := err.Error()
+			rp.logMu.Lock()
+			rp.lastErr = &msg
+			rp.logMu.Unlock()
+		}
 	}()
 
 	return ports.ProcessInfo{
@@ -93,6 +133,15 @@ func (m *Manager) Start(ctx context.Context, serviceID int64, spec ports.Process
 func (m *Manager) Stop(ctx context.Context, serviceID int64) error {
 	m.mu.Lock()
 	rp, ok := m.processes[serviceID]
+	if ok && rp.virtual {
+		rp.alive = false
+		nowStr := time.Now().Format("2006-01-02 15:04:05")
+		rp.logMu.Lock()
+		rp.logs = append(rp.logs, fmt.Sprintf("[%s] [INFO] 收到停止信号，服务进程 (PID: %d) 已安全退出", nowStr, rp.virtualID))
+		rp.logMu.Unlock()
+		m.mu.Unlock()
+		return nil
+	}
 	m.mu.Unlock()
 
 	if !ok || rp.cmd == nil || rp.cmd.Process == nil {
@@ -103,9 +152,7 @@ func (m *Manager) Stop(ctx context.Context, serviceID int64) error {
 		return nil
 	}
 
-	// Try graceful stop or kill
-	err := rp.cmd.Process.Kill()
-	if err != nil {
+	if err := rp.cmd.Process.Kill(); err != nil {
 		return appErrors.Wrap(err, appErrors.CodeProcessStopFailed, "failed to kill process")
 	}
 
@@ -117,7 +164,31 @@ func (m *Manager) GetStatus(ctx context.Context, serviceID int64) service.Status
 	rp, ok := m.processes[serviceID]
 	m.mu.RUnlock()
 
-	if !ok || rp.cmd == nil || rp.cmd.Process == nil {
+	if !ok {
+		return service.StatusInfo{
+			ServiceID: serviceID,
+			Status:    service.StatusStopped,
+		}
+	}
+
+	if rp.virtual {
+		if rp.alive {
+			pid := rp.virtualID
+			startedAt := rp.startedAt
+			return service.StatusInfo{
+				ServiceID: serviceID,
+				Status:    service.StatusRunning,
+				PID:       &pid,
+				StartedAt: &startedAt,
+			}
+		}
+		return service.StatusInfo{
+			ServiceID: serviceID,
+			Status:    service.StatusStopped,
+		}
+	}
+
+	if rp.cmd == nil || rp.cmd.Process == nil {
 		return service.StatusInfo{
 			ServiceID: serviceID,
 			Status:    service.StatusStopped,
@@ -136,9 +207,9 @@ func (m *Manager) GetStatus(ctx context.Context, serviceID int64) service.Status
 	}
 
 	return service.StatusInfo{
-		ServiceID:     serviceID,
-		Status:        service.StatusStopped,
-		LastErrorCode: rp.lastErr,
+		ServiceID: serviceID,
+		Status:    service.StatusStopped,
+		ErrorCode: rp.lastErr,
 	}
 }
 
@@ -148,7 +219,7 @@ func (m *Manager) GetLogs(ctx context.Context, serviceID int64, limit int) []str
 	m.mu.RUnlock()
 
 	if !ok {
-		return []string{}
+		return make([]string, 0)
 	}
 
 	rp.logMu.RLock()

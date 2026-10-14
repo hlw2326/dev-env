@@ -59,6 +59,25 @@ func Open(dbPath string) (*DB, error) {
 }
 
 func (d *DB) runMigrations(ctx context.Context) error {
+	// Ensure legacy schema prior to runtime_id / system_sites refactor is upgraded
+	var hasRuntimeID int
+	_ = d.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('system_service_instances') WHERE name = 'runtime_id'`).Scan(&hasRuntimeID)
+	var hasSitesTable int
+	_ = d.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'system_sites'`).Scan(&hasSitesTable)
+	if hasRuntimeID == 0 || hasSitesTable == 0 {
+		_, _ = d.ExecContext(ctx, `
+			PRAGMA foreign_keys = OFF;
+			DROP TABLE IF EXISTS system_git_repo_statuses;
+			DROP TABLE IF EXISTS system_git_status;
+			DROP TABLE IF EXISTS system_virtual_hosts;
+			DROP TABLE IF EXISTS system_projects;
+			DROP TABLE IF EXISTS system_sites;
+			DROP TABLE IF EXISTS system_service_instances;
+			DROP TABLE IF EXISTS system_schema_migrations;
+			PRAGMA foreign_keys = ON;
+		`)
+	}
+
 	// Create system_schema_migrations table if not exists
 	_, err := d.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS system_schema_migrations (

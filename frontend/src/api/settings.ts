@@ -1,8 +1,8 @@
-import * as AppAPI from '../../wailsjs/go/wails/AppAPI'
+import * as SettingAPI from '../../wailsjs/go/wails/SettingAPI'
 import type { AppSettings } from '../types'
 
 export async function getSettings(): Promise<AppSettings> {
-  const s = await AppAPI.GetSettings()
+  const s = await SettingAPI.Get()
   return {
     language: s.language,
     theme: s.theme as AppSettings['theme'],
@@ -13,7 +13,7 @@ export async function getSettings(): Promise<AppSettings> {
 }
 
 export async function updateSettings(settings: AppSettings): Promise<AppSettings> {
-  const s = await AppAPI.UpdateSettings(settings)
+  const s = await SettingAPI.Update(settings)
   return {
     language: s.language,
     theme: s.theme as AppSettings['theme'],
@@ -24,7 +24,7 @@ export async function updateSettings(settings: AppSettings): Promise<AppSettings
 }
 
 export async function resetSettings(): Promise<AppSettings> {
-  const s = await AppAPI.ResetSettings()
+  const s = await SettingAPI.Reset()
   return {
     language: s.language,
     theme: s.theme as AppSettings['theme'],
@@ -32,4 +32,12 @@ export async function resetSettings(): Promise<AppSettings> {
     defaultProjectPath: s.defaultProjectPath,
     autoStartServices: s.autoStartServices,
   }
+}
+
+export async function pickDir(title = '选择目录'): Promise<string> {
+  return await SettingAPI.SelectDir(title)
+}
+
+export async function pickFile(title = '选择文件'): Promise<string> {
+  return await SettingAPI.SelectFile(title)
 }

@@ -18,63 +18,61 @@ func NewManager() *Manager {
 	return &Manager{}
 }
 
-func (m *Manager) Clone(ctx context.Context, remoteURL, localPath, branch string) error {
-	if branch == "" {
-		branch = "main"
-	}
-	parentDir := filepath.Dir(localPath)
-	if err := os.MkdirAll(parentDir, 0755); err != nil {
+func (m *Manager) Clone(ctx context.Context, remote, root, branch string) error {
+	parent := filepath.Dir(root)
+	if err := os.MkdirAll(parent, 0755); err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(ctx, "git", "clone", "-b", branch, remoteURL, localPath)
-	if err := cmd.Run(); err != nil {
-		// Fallback to default branch if specified branch fails
-		cmdFallback := exec.CommandContext(ctx, "git", "clone", remoteURL, localPath)
-		return cmdFallback.Run()
+	args := []string{"clone"}
+	if branch != "" {
+		args = append(args, "-b", branch)
 	}
-	return nil
-}
-
-func (m *Manager) Pull(ctx context.Context, repoPath string) error {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "pull")
+	args = append(args, remote, root)
+	cmd := exec.CommandContext(ctx, "git", args...)
 	return cmd.Run()
 }
 
-func (m *Manager) GetStatus(ctx context.Context, repoPath string) (*site.GitStatus, error) {
+func (m *Manager) Pull(ctx context.Context, root string) error {
+	cmd := exec.CommandContext(ctx, "git", "-C", root, "pull")
+	return cmd.Run()
+}
+
+func (m *Manager) Status(ctx context.Context, root string) (*site.GitState, error) {
 	now := time.Now().Format(time.RFC3339)
-	gitDir := filepath.Join(repoPath, ".git")
+	gitDir := filepath.Join(root, ".git")
 	if _, err := os.Stat(gitDir); err != nil {
-		return &site.GitStatus{
-			CurrentBranch:  "main",
-			CurrentCommit:  "-",
-			CommitMessage:  "尚未初始化 Git 仓库",
-			IsClean:        true,
-			ModifiedFiles:  []string{},
-			UntrackedFiles: []string{},
-			LastCheckAt:    now,
+		return &site.GitState{
+			Branch:    "",
+			Commit:    "",
+			Message:   "",
+			Clean:     true,
+			Modified:  make([]string, 0),
+			Untracked: make([]string, 0),
+			CheckedAt: now,
 		}, nil
 	}
 
-	branchCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "branch", "--show-current")
-	branchOut, _ := branchCmd.Output()
+	branchOut, err := exec.CommandContext(ctx, "git", "-C", root, "branch", "--show-current").Output()
+	if err != nil {
+		return nil, err
+	}
 	branch := strings.TrimSpace(string(branchOut))
-	if branch == "" {
-		branch = "main"
+
+	var commit, msg string
+	if commitOut, err := exec.CommandContext(ctx, "git", "-C", root, "rev-parse", "--short", "HEAD").Output(); err == nil {
+		commit = strings.TrimSpace(string(commitOut))
+	}
+	if msgOut, err := exec.CommandContext(ctx, "git", "-C", root, "log", "-1", "--pretty=%s").Output(); err == nil {
+		msg = strings.TrimSpace(string(msgOut))
 	}
 
-	commitCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-parse", "--short", "HEAD")
-	commitOut, _ := commitCmd.Output()
-	commit := strings.TrimSpace(string(commitOut))
+	statusOut, err := exec.CommandContext(ctx, "git", "-C", root, "status", "--porcelain").Output()
+	if err != nil {
+		return nil, err
+	}
 
-	msgCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "log", "-1", "--pretty=%s")
-	msgOut, _ := msgCmd.Output()
-	commitMsg := strings.TrimSpace(string(msgOut))
-
-	statusCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "status", "--porcelain")
-	statusOut, _ := statusCmd.Output()
-
-	modifiedFiles := make([]string, 0)
-	untrackedFiles := make([]string, 0)
+	modified := make([]string, 0)
+	untracked := make([]string, 0)
 	lines := strings.Split(strings.ReplaceAll(string(statusOut), "\r\n", "\n"), "\n")
 	for _, line := range lines {
 		if len(line) < 3 {
@@ -83,56 +81,54 @@ func (m *Manager) GetStatus(ctx context.Context, repoPath string) (*site.GitStat
 		st := line[0:2]
 		file := strings.TrimSpace(line[3:])
 		if st == "??" {
-			untrackedFiles = append(untrackedFiles, file)
+			untracked = append(untracked, file)
 		} else if strings.TrimSpace(st) != "" {
-			modifiedFiles = append(modifiedFiles, file)
+			modified = append(modified, file)
 		}
 	}
 
-	aheadCount := 0
-	behindCount := 0
-	revCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-list", "--left-right", "--count", "HEAD...@{u}")
-	if revOut, err := revCmd.Output(); err == nil {
+	ahead := 0
+	behind := 0
+	if revOut, err := exec.CommandContext(ctx, "git", "-C", root, "rev-list", "--left-right", "--count", "HEAD...@{u}").Output(); err == nil {
 		parts := strings.Fields(string(revOut))
 		if len(parts) == 2 {
-			aheadCount, _ = strconv.Atoi(parts[0])
-			behindCount, _ = strconv.Atoi(parts[1])
-		}
-	}
-
-	return &site.GitStatus{
-		CurrentBranch:  branch,
-		CurrentCommit:  commit,
-		CommitMessage:  commitMsg,
-		IsClean:        len(modifiedFiles) == 0 && len(untrackedFiles) == 0,
-		AheadCount:     aheadCount,
-		BehindCount:    behindCount,
-		ModifiedFiles:  modifiedFiles,
-		UntrackedFiles: untrackedFiles,
-		LastCheckAt:    now,
-	}, nil
-}
-
-func (m *Manager) Commit(ctx context.Context, repoPath, message string, files []string) error {
-	if len(files) == 0 {
-		addAll := exec.CommandContext(ctx, "git", "-C", repoPath, "add", "-A")
-		if err := addAll.Run(); err != nil {
-			return err
-		}
-	} else {
-		for _, f := range files {
-			addCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "add", f)
-			if err := addCmd.Run(); err != nil {
-				return err
+			if a, err := strconv.Atoi(parts[0]); err == nil {
+				ahead = a
+			}
+			if b, err := strconv.Atoi(parts[1]); err == nil {
+				behind = b
 			}
 		}
 	}
 
-	commitCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", message)
-	return commitCmd.Run()
+	return &site.GitState{
+		Branch:    branch,
+		Commit:    commit,
+		Message:   msg,
+		Clean:     len(modified) == 0 && len(untracked) == 0,
+		Ahead:     ahead,
+		Behind:    behind,
+		Modified:  modified,
+		Untracked: untracked,
+		CheckedAt: now,
+	}, nil
 }
 
-func (m *Manager) Push(ctx context.Context, repoPath string) error {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "push")
-	return cmd.Run()
+func (m *Manager) Commit(ctx context.Context, root, message string, files []string) error {
+	if len(files) == 0 {
+		if err := exec.CommandContext(ctx, "git", "-C", root, "add", "-A").Run(); err != nil {
+			return err
+		}
+	} else {
+		for _, f := range files {
+			if err := exec.CommandContext(ctx, "git", "-C", root, "add", f).Run(); err != nil {
+				return err
+			}
+		}
+	}
+	return exec.CommandContext(ctx, "git", "-C", root, "commit", "-m", message).Run()
+}
+
+func (m *Manager) Push(ctx context.Context, root string) error {
+	return exec.CommandContext(ctx, "git", "-C", root, "push").Run()
 }

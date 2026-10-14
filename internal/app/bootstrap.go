@@ -5,100 +5,74 @@ import (
 	"os"
 	"path/filepath"
 
-	"devenv/internal/domain/runtime"
-	"devenv/internal/domain/service"
 	"devenv/internal/infra/events"
+	"devenv/internal/infra/git"
 	"devenv/internal/infra/network"
+	"devenv/internal/infra/nginx"
 	"devenv/internal/infra/process"
 	"devenv/internal/infra/sqlite"
 	"devenv/internal/infra/sqlite/repositories"
 )
 
 type Container struct {
-	DB          *sqlite.DB
-	Publisher   *events.Publisher
-	ProjectSvc  *ProjectService
-	PHPSvc      *PHPService
-	ServiceSvc  *ServiceAppService
-	HostSvc     *HostService
-	TaskSvc     *TaskService
-	SettingsSvc *SettingsService
+	DB      *sqlite.DB
+	Bus     *events.Publisher
+	Site    *SiteService
+	Git     *GitService
+	Runtime *RuntimeService
+	Service *ServiceService
+	Task    *TaskService
+	Setting *SettingService
 }
 
 func Bootstrap() (*Container, error) {
-	// Determine database path
 	dataDir := os.Getenv("LOCALAPPDATA")
 	if dataDir == "" {
 		dataDir = "."
 	}
-	dbPath := filepath.Join(dataDir, "DevEnv", "data", "devenv.db")
+	baseDir := filepath.Join(dataDir, "DevEnv")
+	dbPath := filepath.Join(baseDir, "data", "devenv.db")
 
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
 		return nil, err
 	}
 
-	publisher := events.NewPublisher()
-	portChecker := network.NewChecker()
-	procMgr := process.NewManager()
+	bus := events.NewPublisher()
+	probe := network.NewChecker()
+	proc := process.NewManager()
+	gitMgr := git.NewManager()
+	nginxMgr := nginx.NewManager(baseDir)
 
-	projectRepo := repositories.NewProjectRepository(db.DB)
-	runtimeRepo := repositories.NewRuntimeRepository(db.DB)
-	serviceRepo := repositories.NewServiceRepository(db.DB)
-	hostRepo := repositories.NewHostRepository(db.DB)
-	taskRepo := repositories.NewTaskRepository(db.DB)
-	settingsRepo := repositories.NewSettingsRepository(db.DB)
+	sites := repositories.NewSiteRepository(db.DB)
+	runtimes := repositories.NewRuntimeRepository(db.DB)
+	instances := repositories.NewServiceRepository(db.DB)
+	tasks := repositories.NewTaskRepository(db.DB)
+	settings := repositories.NewSettingsRepository(db.DB)
 
-	projectSvc := NewProjectService(projectRepo, runtimeRepo, publisher)
-	phpSvc := NewPHPService(runtimeRepo, settingsRepo, publisher)
-	serviceSvc := NewServiceAppService(serviceRepo, runtimeRepo, procMgr, portChecker, publisher)
-	hostSvc := NewHostService(hostRepo, projectRepo, publisher)
-	taskSvc := NewTaskService(taskRepo, publisher)
-	settingsSvc := NewSettingsService(settingsRepo)
+	serviceSvc := NewServiceService(instances, runtimes, proc, probe, bus)
+	runtimeSvc := NewRuntimeService(runtimes, sites, instances, settings, serviceSvc, bus)
+	taskSvc := NewTaskService(tasks, bus)
+	settingSvc := NewSettingService(settings)
+	siteSvc := NewSiteService(sites, runtimes, instances, serviceSvc, nginxMgr, gitMgr, probe, bus)
+	gitSvc := NewGitService(sites, gitMgr, bus)
 
-	// Auto scan local PHP if none registered
 	ctx := context.Background()
-	_ = phpSvc.ScanAndRegisterCommonPaths(ctx)
-
-	// Seed sample services if runtime exists and services empty
-	seedServicesIfEmpty(ctx, runtimeRepo, serviceRepo)
+	if err := runtimeSvc.Scan(ctx); err != nil {
+		return nil, err
+	}
+	if err := serviceSvc.Reconcile(ctx); err != nil {
+		return nil, err
+	}
 
 	return &Container{
-		DB:          db,
-		Publisher:   publisher,
-		ProjectSvc:  projectSvc,
-		PHPSvc:      phpSvc,
-		ServiceSvc:  serviceSvc,
-		HostSvc:     hostSvc,
-		TaskSvc:     taskSvc,
-		SettingsSvc: settingsSvc,
+		DB:      db,
+		Bus:     bus,
+		Site:    siteSvc,
+		Git:     gitSvc,
+		Runtime: runtimeSvc,
+		Service: serviceSvc,
+		Task:    taskSvc,
+		Setting: settingSvc,
 	}, nil
-}
-
-func seedServicesIfEmpty(ctx context.Context, runtimeRepo *repositories.RuntimeRepository, serviceRepo *repositories.ServiceRepository) {
-	services, _ := serviceRepo.ListAll(ctx)
-	if len(services) > 0 {
-		return
-	}
-
-	runtimes, _ := runtimeRepo.ListAll(ctx)
-	if len(runtimes) == 0 {
-		return
-	}
-
-	// If there's an installed PHP runtime, create a default PHP-FPM service
-	for _, rt := range runtimes {
-		if rt.RuntimeType == runtime.TypePHP {
-			port := 9000
-			_, _ = serviceRepo.Create(ctx, service.Instance{
-				Name:             "PHP FastCGI (" + rt.Version + ")",
-				ServiceType:      runtime.TypePHP,
-				RuntimeVersionID: rt.ID,
-				Port:             &port,
-				AutoStart:        false,
-				Enabled:          true,
-			})
-			break
-		}
-	}
 }

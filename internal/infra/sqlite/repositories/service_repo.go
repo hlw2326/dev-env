@@ -21,7 +21,7 @@ func NewServiceRepository(db *sql.DB) *ServiceRepository {
 
 func (r *ServiceRepository) Create(ctx context.Context, item service.Instance) (int64, error) {
 	query := `
-		INSERT INTO system_service_instances (name, runtime_version_id, service_type, port, config_path, data_path, auto_start, enabled, created_at, updated_at)
+		INSERT INTO system_service_instances (name, runtime_id, service_type, port, config_path, data_path, auto_start, enabled, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	createdAt := item.CreatedAt.UTC().Format(time.RFC3339)
@@ -36,7 +36,7 @@ func (r *ServiceRepository) Create(ctx context.Context, item service.Instance) (
 	}
 
 	res, err := r.db.ExecContext(ctx, query,
-		item.Name, item.RuntimeVersionID, string(item.ServiceType), item.Port, item.ConfigPath, item.DataPath, autoStart, enabled, createdAt, updatedAt,
+		item.Name, item.RuntimeID, string(item.ServiceType), item.Port, item.ConfigPath, item.DataPath, autoStart, enabled, createdAt, updatedAt,
 	)
 	if err != nil {
 		return 0, appErrors.Wrap(err, appErrors.CodeDatabaseError, "failed to insert service instance")
@@ -50,7 +50,7 @@ func (r *ServiceRepository) Create(ctx context.Context, item service.Instance) (
 
 func (r *ServiceRepository) GetByID(ctx context.Context, id int64) (*service.Instance, error) {
 	query := `
-		SELECT id, name, runtime_version_id, service_type, port, config_path, data_path, auto_start, enabled, created_at, updated_at
+		SELECT id, name, runtime_id, service_type, port, config_path, data_path, auto_start, enabled, created_at, updated_at
 		FROM system_service_instances WHERE id = ?
 	`
 	var s service.Instance
@@ -58,10 +58,10 @@ func (r *ServiceRepository) GetByID(ctx context.Context, id int64) (*service.Ins
 	var port sql.NullInt64
 	var cfgPath, dataPath sql.NullString
 	var autoStart, enabled int
-	var createdAtStr, updatedAtStr string
+	var createdStr, updatedStr string
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&s.ID, &s.Name, &s.RuntimeVersionID, &sType, &port, &cfgPath, &dataPath, &autoStart, &enabled, &createdAtStr, &updatedAtStr,
+		&s.ID, &s.Name, &s.RuntimeID, &sType, &port, &cfgPath, &dataPath, &autoStart, &enabled, &createdStr, &updatedStr,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, appErrors.New(appErrors.CodeNotFound, "service instance not found")
@@ -83,14 +83,22 @@ func (r *ServiceRepository) GetByID(ctx context.Context, id int64) (*service.Ins
 	}
 	s.AutoStart = autoStart == 1
 	s.Enabled = enabled == 1
-	s.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
-	s.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
+	createdAt, err := time.Parse(time.RFC3339, createdStr)
+	if err != nil {
+		return nil, err
+	}
+	updatedAt, err := time.Parse(time.RFC3339, updatedStr)
+	if err != nil {
+		return nil, err
+	}
+	s.CreatedAt = createdAt
+	s.UpdatedAt = updatedAt
 	return &s, nil
 }
 
 func (r *ServiceRepository) ListAll(ctx context.Context) ([]service.Instance, error) {
 	query := `
-		SELECT id, name, runtime_version_id, service_type, port, config_path, data_path, auto_start, enabled, created_at, updated_at
+		SELECT id, name, runtime_id, service_type, port, config_path, data_path, auto_start, enabled, created_at, updated_at
 		FROM system_service_instances ORDER BY name ASC
 	`
 	rows, err := r.db.QueryContext(ctx, query)
@@ -104,7 +112,7 @@ func (r *ServiceRepository) ListAll(ctx context.Context) ([]service.Instance, er
 
 func (r *ServiceRepository) ListByType(ctx context.Context, sType runtime.RuntimeType) ([]service.Instance, error) {
 	query := `
-		SELECT id, name, runtime_version_id, service_type, port, config_path, data_path, auto_start, enabled, created_at, updated_at
+		SELECT id, name, runtime_id, service_type, port, config_path, data_path, auto_start, enabled, created_at, updated_at
 		FROM system_service_instances WHERE service_type = ? ORDER BY name ASC
 	`
 	rows, err := r.db.QueryContext(ctx, query, string(sType))
@@ -117,17 +125,17 @@ func (r *ServiceRepository) ListByType(ctx context.Context, sType runtime.Runtim
 }
 
 func (r *ServiceRepository) scanList(rows *sql.Rows) ([]service.Instance, error) {
-	var list []service.Instance
+	list := make([]service.Instance, 0)
 	for rows.Next() {
 		var s service.Instance
 		var sType string
 		var port sql.NullInt64
 		var cfgPath, dataPath sql.NullString
 		var autoStart, enabled int
-		var createdAtStr, updatedAtStr string
+		var createdStr, updatedStr string
 
 		if err := rows.Scan(
-			&s.ID, &s.Name, &s.RuntimeVersionID, &sType, &port, &cfgPath, &dataPath, &autoStart, &enabled, &createdAtStr, &updatedAtStr,
+			&s.ID, &s.Name, &s.RuntimeID, &sType, &port, &cfgPath, &dataPath, &autoStart, &enabled, &createdStr, &updatedStr,
 		); err != nil {
 			return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "failed to scan service instance")
 		}
@@ -145,8 +153,16 @@ func (r *ServiceRepository) scanList(rows *sql.Rows) ([]service.Instance, error)
 		}
 		s.AutoStart = autoStart == 1
 		s.Enabled = enabled == 1
-		s.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
-		s.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
+		createdAt, err := time.Parse(time.RFC3339, createdStr)
+		if err != nil {
+			return nil, err
+		}
+		updatedAt, err := time.Parse(time.RFC3339, updatedStr)
+		if err != nil {
+			return nil, err
+		}
+		s.CreatedAt = createdAt
+		s.UpdatedAt = updatedAt
 		list = append(list, s)
 	}
 	return list, nil
@@ -155,7 +171,7 @@ func (r *ServiceRepository) scanList(rows *sql.Rows) ([]service.Instance, error)
 func (r *ServiceRepository) Update(ctx context.Context, item service.Instance) error {
 	query := `
 		UPDATE system_service_instances
-		SET name = ?, port = ?, config_path = ?, data_path = ?, auto_start = ?, enabled = ?, updated_at = ?
+		SET name = ?, runtime_id = ?, port = ?, config_path = ?, data_path = ?, auto_start = ?, enabled = ?, updated_at = ?
 		WHERE id = ?
 	`
 	updatedAt := item.UpdatedAt.UTC().Format(time.RFC3339)
@@ -168,11 +184,14 @@ func (r *ServiceRepository) Update(ctx context.Context, item service.Instance) e
 		enabled = 1
 	}
 
-	res, err := r.db.ExecContext(ctx, query, item.Name, item.Port, item.ConfigPath, item.DataPath, autoStart, enabled, updatedAt, item.ID)
+	res, err := r.db.ExecContext(ctx, query, item.Name, item.RuntimeID, item.Port, item.ConfigPath, item.DataPath, autoStart, enabled, updatedAt, item.ID)
 	if err != nil {
 		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "failed to update service instance")
 	}
-	affected, _ := res.RowsAffected()
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "failed to get rows affected")
+	}
 	if affected == 0 {
 		return appErrors.New(appErrors.CodeNotFound, "service instance not found for update")
 	}
@@ -185,7 +204,10 @@ func (r *ServiceRepository) Delete(ctx context.Context, id int64) error {
 	if err != nil {
 		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "failed to delete service instance")
 	}
-	affected, _ := res.RowsAffected()
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "failed to get rows affected")
+	}
 	if affected == 0 {
 		return appErrors.New(appErrors.CodeNotFound, "service instance not found for delete")
 	}
@@ -193,7 +215,7 @@ func (r *ServiceRepository) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *ServiceRepository) CountServicesUsingRuntime(ctx context.Context, runtimeID int64) (int, error) {
-	query := `SELECT COUNT(*) FROM system_service_instances WHERE runtime_version_id = ?`
+	query := `SELECT COUNT(*) FROM system_service_instances WHERE runtime_id = ?`
 	var count int
 	err := r.db.QueryRowContext(ctx, query, runtimeID).Scan(&count)
 	if err != nil {

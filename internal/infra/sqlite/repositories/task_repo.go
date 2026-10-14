@@ -50,11 +50,11 @@ func (r *TaskRepository) GetByID(ctx context.Context, id int64) (*task.Task, err
 		FROM system_tasks WHERE id = ?
 	`
 	var t task.Task
-	var statusStr, msg, payload, createdAtStr, updatedAtStr string
-	var errCode, errMsg, finishedAtStr sql.NullString
+	var statusStr, msg, payload, createdStr, updatedStr string
+	var errCode, errMsg, finishedStr sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&t.ID, &t.TaskType, &statusStr, &t.Progress, &msg, &errCode, &errMsg, &payload, &createdAtStr, &updatedAtStr, &finishedAtStr,
+		&t.ID, &t.TaskType, &statusStr, &t.Progress, &msg, &errCode, &errMsg, &payload, &createdStr, &updatedStr, &finishedStr,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, appErrors.New(appErrors.CodeNotFound, "task not found")
@@ -72,10 +72,18 @@ func (r *TaskRepository) GetByID(ctx context.Context, id int64) (*task.Task, err
 	if errMsg.Valid {
 		t.ErrorMessage = &errMsg.String
 	}
-	t.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
-	t.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
-	if finishedAtStr.Valid {
-		fTime, err := time.Parse(time.RFC3339, finishedAtStr.String)
+	createdAt, err := time.Parse(time.RFC3339, createdStr)
+	if err != nil {
+		return nil, err
+	}
+	updatedAt, err := time.Parse(time.RFC3339, updatedStr)
+	if err != nil {
+		return nil, err
+	}
+	t.CreatedAt = createdAt
+	t.UpdatedAt = updatedAt
+	if finishedStr.Valid {
+		fTime, err := time.Parse(time.RFC3339, finishedStr.String)
 		if err == nil {
 			t.FinishedAt = &fTime
 		}
@@ -94,14 +102,14 @@ func (r *TaskRepository) ListAll(ctx context.Context) ([]task.Task, error) {
 	}
 	defer rows.Close()
 
-	var list []task.Task
+	list := make([]task.Task, 0)
 	for rows.Next() {
 		var t task.Task
-		var statusStr, msg, payload, createdAtStr, updatedAtStr string
-		var errCode, errMsg, finishedAtStr sql.NullString
+		var statusStr, msg, payload, createdStr, updatedStr string
+		var errCode, errMsg, finishedStr sql.NullString
 
 		if err := rows.Scan(
-			&t.ID, &t.TaskType, &statusStr, &t.Progress, &msg, &errCode, &errMsg, &payload, &createdAtStr, &updatedAtStr, &finishedAtStr,
+			&t.ID, &t.TaskType, &statusStr, &t.Progress, &msg, &errCode, &errMsg, &payload, &createdStr, &updatedStr, &finishedStr,
 		); err != nil {
 			return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "failed to scan task")
 		}
@@ -115,10 +123,18 @@ func (r *TaskRepository) ListAll(ctx context.Context) ([]task.Task, error) {
 		if errMsg.Valid {
 			t.ErrorMessage = &errMsg.String
 		}
-		t.CreatedAt, _ = time.Parse(time.RFC3339, createdAtStr)
-		t.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAtStr)
-		if finishedAtStr.Valid {
-			fTime, err := time.Parse(time.RFC3339, finishedAtStr.String)
+		createdAt, err := time.Parse(time.RFC3339, createdStr)
+		if err != nil {
+			return nil, err
+		}
+		updatedAt, err := time.Parse(time.RFC3339, updatedStr)
+		if err != nil {
+			return nil, err
+		}
+		t.CreatedAt = createdAt
+		t.UpdatedAt = updatedAt
+		if finishedStr.Valid {
+			fTime, err := time.Parse(time.RFC3339, finishedStr.String)
 			if err == nil {
 				t.FinishedAt = &fTime
 			}
@@ -147,7 +163,10 @@ func (r *TaskRepository) Update(ctx context.Context, item task.Task) error {
 	if err != nil {
 		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "failed to update task")
 	}
-	affected, _ := res.RowsAffected()
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "failed to get rows affected")
+	}
 	if affected == 0 {
 		return appErrors.New(appErrors.CodeNotFound, "task not found for update")
 	}
