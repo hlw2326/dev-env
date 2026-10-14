@@ -16,12 +16,12 @@
 
       <!-- 中间：可拖拽区域与居中提示 (双击可最大化/还原) -->
       <div class="titlebar-center" @dblclick="handleToggleMaximize">
-        <span class="titlebar-title">本地开发环境管理平台</span>
+        <span class="titlebar-title">{{ $t('app.title') }}</span>
       </div>
 
       <!-- 右侧：环境信息与自定义窗口控制按钮 -->
       <div class="titlebar-right">
-        <span class="env-tag font-mono">Win64 · Go & Wails</span>
+        <span class="env-tag font-mono">{{ $t('app.env') }}</span>
 
         <div class="window-controls">
           <button
@@ -73,7 +73,7 @@
         <div class="sidebar-footer">
           <div class="sys-badge font-mono">
             <span class="status-dot online"></span>
-            <span>SQLite system_ 正常</span>
+            <span>{{ $t('common.online') }}</span>
           </div>
         </div>
       </aside>
@@ -89,6 +89,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { $t } from '@/i18n'
 import {
   WindowMinimise,
   WindowToggleMaximise,
@@ -103,16 +104,16 @@ interface NavItem {
   badge?: string | number
 }
 
-const navItems: NavItem[] = [
-  { label: '控制台', icon: 'pi pi-th-large', to: '/' },
-  { label: '项目管理', icon: 'pi pi-folder', to: '/projects' },
-  { label: '软件商店', icon: 'pi pi-shopping-bag', to: '/store' },
-  { label: '运行环境', icon: 'pi pi-box', to: '/runtimes' },
-  { label: '服务实例', icon: 'pi pi-server', to: '/services' },
-  { label: '虚拟主机', icon: 'pi pi-globe', to: '/hosts' },
-  { label: '任务作业', icon: 'pi pi-list-check', to: '/tasks' },
-  { label: '全局设置', icon: 'pi pi-cog', to: '/settings' }
-]
+const navItems = computed<NavItem[]>(() => [
+  { label: $t('nav.dashboard'), icon: 'pi pi-th-large', to: '/' },
+  { label: $t('nav.projects'), icon: 'pi pi-folder', to: '/projects' },
+  { label: $t('nav.store'), icon: 'pi pi-shopping-bag', to: '/store' },
+  { label: $t('nav.runtimes'), icon: 'pi pi-box', to: '/runtimes' },
+  { label: $t('nav.services'), icon: 'pi pi-server', to: '/services' },
+  { label: $t('nav.hosts'), icon: 'pi pi-globe', to: '/hosts' },
+  { label: $t('nav.tasks'), icon: 'pi pi-list-check', to: '/tasks' },
+  { label: $t('nav.settings'), icon: 'pi pi-cog', to: '/settings' }
+])
 
 const route = useRoute()
 const currentRouteName = computed(() => {

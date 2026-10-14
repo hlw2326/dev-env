@@ -55,21 +55,60 @@
   border-radius: var(--h-radius) !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
   border: 1px solid var(--border-color) !important;
+  overflow: hidden !important;
 }
 
 .p-dialog .p-dialog-header {
-  padding: 1.25rem 1.5rem !important;
+  padding: 12px 18px !important;
   border-bottom: 1px solid var(--border-color) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
 }
 
 .p-dialog .p-dialog-title {
-  font-size: var(--font-md) !important;
-  font-weight: 400 !important;
+  font-size: var(--font-base) !important;
+  font-weight: 500 !important;
+  color: var(--text-primary) !important;
+  line-height: 1.4 !important;
+}
+
+.p-dialog .p-dialog-header-actions .p-dialog-close-button,
+.p-dialog .p-dialog-close-button,
+.p-dialog .p-dialog-header-action {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
+  padding: 0 !important;
+  border-radius: 4px !important;
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.15s ease !important;
+}
+
+.p-dialog .p-dialog-header-actions .p-dialog-close-button:hover,
+.p-dialog .p-dialog-close-button:hover,
+.p-dialog .p-dialog-header-action:hover {
+  background-color: var(--bg-hover) !important;
   color: var(--text-primary) !important;
 }
 
 .p-dialog .p-dialog-content {
-  padding: 1.5rem !important;
+  padding: 1.25rem 1.25rem !important;
+}
+
+.p-dialog .p-dialog-footer {
+  padding: 10px 18px !important;
+  border-top: 1px solid var(--border-color) !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 0.5rem !important;
 }
 
 /* ===== 扁平化 Card ===== */

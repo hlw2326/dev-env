@@ -104,12 +104,14 @@
       </p-data-table>
     </h-card>
 
-    <!-- Create Dialog -->
-    <p-dialog 
-      v-model:visible="showCreateModal" 
-      modal 
-      header="添加虚拟主机" 
-      :style="{ width: '480px' }"
+    <!-- Create Modal -->
+    <h-modal 
+      v-model="showCreateModal" 
+      title="添加虚拟主机" 
+      width="480px"
+      ok-text="确认创建"
+      :loading="submitting"
+      @ok="submitCreate"
     >
       <form @submit.prevent="submitCreate">
         <div class="form-field">
@@ -167,13 +169,8 @@
             />
           </div>
         </div>
-
-        <div class="dialog-footer">
-          <p-button label="取消" severity="secondary" text @click="showCreateModal = false" />
-          <p-button label="确认创建" type="submit" :loading="submitting" />
-        </div>
       </form>
-    </p-dialog>
+    </h-modal>
   </h-page>
 </template>
 
@@ -181,6 +178,7 @@
 import { ref, computed, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
 import HCard from '@/components/h-card/h-card.vue'
+import HModal from '@/components/h-modal/h-modal.vue'
 import { listVirtualHosts, createVirtualHost, deleteVirtualHost, enableVirtualHost, disableVirtualHost } from '@/api/hosts'
 import { listProjects } from '@/api/projects'
 import type { VirtualHost, Project } from '@/types'

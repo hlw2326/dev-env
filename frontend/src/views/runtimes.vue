@@ -217,11 +217,10 @@
     </div>
 
     <!-- PHP 扩展配置弹窗 -->
-    <p-dialog 
-      v-model:visible="extDialogVisible" 
-      modal 
-      :header="`PHP ${activeRuntime?.version} 扩展管理`"
-      :style="{ width: '560px' }"
+    <h-modal 
+      v-model="extDialogVisible" 
+      :title="`PHP ${activeRuntime?.version} 扩展管理`"
+      width="560px"
     >
       <div class="ext-dialog-body">
         <div class="ext-header-bar">
@@ -255,14 +254,13 @@
       <template #footer>
         <p-button label="关闭" severity="secondary" outlined @click="extDialogVisible = false" />
       </template>
-    </p-dialog>
+    </h-modal>
 
     <!-- 卸载确认对话框 -->
-    <p-dialog 
-      v-model:visible="uninstallDialogVisible" 
-      modal 
-      header="卸载运行环境确认" 
-      :style="{ width: '460px' }"
+    <h-modal 
+      v-model="uninstallDialogVisible" 
+      title="卸载运行环境确认" 
+      width="460px"
     >
       <div v-if="activeRuntime" class="uninstall-confirm-body">
         <div class="warning-callout">
@@ -295,7 +293,7 @@
           @click="confirmUninstall" 
         />
       </template>
-    </p-dialog>
+    </h-modal>
   </h-page>
 </template>
 
@@ -303,6 +301,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import HPage from '@/components/h-page/h-page.vue'
+import HModal from '@/components/h-modal/h-modal.vue'
 import { 
   listAllRuntimes, 
   uninstallRuntime, 

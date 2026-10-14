@@ -1,6 +1,9 @@
 import { ref, computed } from 'vue'
 import { useProjectsStore } from '@/store/projects'
 import { createProject, deleteProject } from '@/api/projects'
+import type { CreateProjectParams } from './types'
+
+export * from './types.d'
 
 export function useProjects() {
   const store = useProjectsStore()
@@ -15,7 +18,7 @@ export function useProjects() {
     await store.fetchProjects()
   }
 
-  async function addProject(data: { name: string; path: string; phpVersion?: string; webServer?: string }) {
+  async function addProject(data: CreateProjectParams) {
     creating.value = true
     try {
       const res = await createProject(data)

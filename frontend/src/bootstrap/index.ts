@@ -6,6 +6,8 @@ import { definePreset } from '@primevue/themes'
 import Aura from '@primevue/themes/aura'
 import { router } from '@/router'
 import { pinia } from '@/store'
+import { i18n } from '@/i18n'
+import { initTheme } from '@/composables/theme'
 
 import 'primeicons/primeicons.css'
 import '@/style.css'
@@ -37,6 +39,14 @@ export const DevEnvPreset = definePreset(Aura, {
           hoverColor: '{slate.800}',
           activeColor: '{slate.900}'
         }
+      },
+      dark: {
+        primary: {
+          color: '{slate.300}',
+          inverseColor: '{slate.950}',
+          hoverColor: '{slate.200}',
+          activeColor: '{slate.100}'
+        }
       }
     }
   }
@@ -45,15 +55,19 @@ export const DevEnvPreset = definePreset(Aura, {
 export function bootstrap(app: App) {
   app.use(pinia)
   app.use(router)
+  app.use(i18n)
   app.use(PrimeVue, {
-    ripple: false, // 彻底禁用 PrimeVue 点击水波纹动效
+    ripple: false,
     theme: {
       preset: DevEnvPreset,
       options: {
-        darkModeSelector: false // 默认严格使用 Light 亮色主题
+        darkModeSelector: '.dark'
       }
     }
   })
   app.use(ToastService)
   app.use(ConfirmationService)
+
+  // 初始化应用主题与色彩
+  initTheme()
 }

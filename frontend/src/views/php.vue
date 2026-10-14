@@ -67,12 +67,14 @@
       </div>
     </div>
 
-    <!-- Register Dialog -->
-    <p-dialog 
-      v-model:visible="showRegisterModal" 
-      modal 
-      header="登记本地 PHP 环境" 
-      :style="{ width: '480px' }"
+    <!-- Register Modal -->
+    <h-modal 
+      v-model="showRegisterModal" 
+      title="登记本地 PHP 环境" 
+      width="480px"
+      ok-text="确认登记"
+      :loading="submitting"
+      @ok="submitRegister"
     >
       <form @submit.prevent="submitRegister">
         <div class="form-field">
@@ -93,20 +95,15 @@
             optionValue="value" 
           />
         </div>
-
-        <div class="dialog-footer">
-          <p-button label="取消" severity="secondary" text @click="showRegisterModal = false" />
-          <p-button label="确认登记" type="submit" :loading="submitting" />
-        </div>
       </form>
-    </p-dialog>
+    </h-modal>
 
-    <!-- Extensions Dialog -->
-    <p-dialog 
-      v-model:visible="showExtModal" 
-      modal 
-      :header="'PHP ' + currentExtVersion + ' 扩展模块清单'" 
-      :style="{ width: '600px', maxHeight: '80vh' }"
+    <!-- Extensions Modal -->
+    <h-modal 
+      v-model="showExtModal" 
+      :title="'PHP ' + currentExtVersion + ' 扩展模块清单'" 
+      width="600px"
+      :style="{ maxHeight: '80vh' }"
     >
       <p class="ext-desc">从 php.exe 检测到的当前生效与可用扩展模块</p>
 
@@ -122,16 +119,17 @@
         </div>
       </div>
 
-      <div class="dialog-footer">
-        <p-button label="关闭" severity="secondary" text @click="showExtModal = false" />
-      </div>
-    </p-dialog>
+      <template #footer>
+        <p-button label="关闭" severity="secondary" outlined @click="showExtModal = false" />
+      </template>
+    </h-modal>
   </h-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
+import HModal from '@/components/h-modal/h-modal.vue'
 import { listVersions, registerVersion, setDefaultVersion, getExtensions } from '@/api/php'
 import type { PHPVersion, PHPExtension } from '@/types'
 

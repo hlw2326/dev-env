@@ -55,6 +55,41 @@
 
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+    --bg-hover: #f1f5f9;
+}
+
+html.dark {
+    /* ===== Dark 暗黑主题设计令牌 ===== */
+    /* 背景色 */
+    --bg-app: #090d16;
+    /* 全局暗黑背景 */
+    --bg-card: #131b2e;
+    /* 卡片与面板深色底 */
+    --bg-sidebar: #0f172a;
+    /* 侧边栏深色底 */
+    --bg-hover: #1e293b;
+    /* 悬浮背景色 */
+
+    /* 边框色 */
+    --border-color: #1e293b;
+    --border-hover: #334155;
+
+    /* 文本色 */
+    --text-primary: #f8fafc;
+    /* 主要文本高亮白色 */
+    --text-secondary: #94a3b8;
+    /* 次要文本灰白 */
+    --text-muted: #64748b;
+    /* 弱化文本 */
+
+    --text-main: #f8fafc;
+    --text-dim: #64748b;
+
+    /* 状态色在暗黑模式微调 */
+    --success-color: #34d399;
+    --warning-color: #fbbf24;
+    --danger-color: #f87171;
+    --info-color: #60a5fa;
 }
 
 /* 重置与无动画规范 */

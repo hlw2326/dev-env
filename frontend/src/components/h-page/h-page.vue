@@ -60,7 +60,7 @@ withDefaults(defineProps<Props>(), {
   justify-content: space-between;
   align-items: center;
   padding: 14px var(--h-padding);
-  background: #ffffff;
+  background: var(--bg-card);
   border: none;
   border-bottom: 1px solid var(--border-color);
   border-radius: 0;

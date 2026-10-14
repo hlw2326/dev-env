@@ -100,11 +100,10 @@
     </div>
 
     <!-- 软件包详情与安装对话框 -->
-    <p-dialog 
-      v-model:visible="detailDialogVisible" 
-      modal 
-      :header="selectedPkg ? `${selectedPkg.displayName} - 版本选择与安装` : '软件安装'"
-      :style="{ width: '640px' }"
+    <h-modal 
+      v-model="detailDialogVisible" 
+      :title="selectedPkg ? `${selectedPkg.displayName} - 版本选择与安装` : '软件安装'"
+      width="640px"
     >
       <div v-if="selectedPkg" class="detail-container">
         <!-- 基础简介 -->
@@ -145,47 +144,57 @@
           />
         </div>
 
-        <!-- 加载中状态 -->
-        <div v-if="loadingVersions" class="versions-loading">
-          <i class="pi pi-spin pi-spinner"></i>
-          <span>正在从官方源与镜像动态检测最新发布版本...</span>
-        </div>
+        <!-- 版本列表区域（固定最小高度与平滑遮罩，彻底杜绝高度跳变抖动） -->
+        <div class="version-box">
+          <!-- 首次加载无数据状态 -->
+          <div v-if="loadingVersions && availableVersions.length === 0" class="versions-loading">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>正在从官方源与镜像动态检测最新发布版本...</span>
+          </div>
 
-        <div v-else class="version-list">
-          <div 
-            v-for="ver in availableVersions" 
-            :key="ver.version"
-            class="version-item"
-            :class="{ selected: selectedVersion?.version === ver.version }"
-            @click="selectedVersion = ver"
-          >
-            <div class="version-left">
-              <input 
-                type="radio" 
-                name="pkg-version" 
-                :checked="selectedVersion?.version === ver.version"
-                class="version-radio"
-              />
-              <div class="version-info">
-                <div class="version-name font-mono">
-                  v{{ ver.version }} 
-                  <span v-if="ver.variant" class="variant-tag">{{ ver.variant.toUpperCase() }}</span>
-                  <span class="arch-tag">{{ ver.architecture }}</span>
-                </div>
-                <div class="version-sub font-mono">
-                  大小: {{ formatFileSize(ver.fileSize) }}
-                  <span v-if="ver.releaseDate"> · 发布: {{ ver.releaseDate }}</span>
+          <!-- 已有数据刷新遮罩 -->
+          <div v-if="loadingVersions && availableVersions.length > 0" class="version-refresh-mask">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>正在更新版本数据...</span>
+          </div>
+
+          <!-- 版本列表 -->
+          <div v-if="availableVersions.length > 0" class="version-list">
+            <div 
+              v-for="ver in availableVersions" 
+              :key="ver.version"
+              class="version-item"
+              :class="{ selected: selectedVersion?.version === ver.version }"
+              @click="selectedVersion = ver"
+            >
+              <div class="version-left">
+                <input 
+                  type="radio" 
+                  name="pkg-version" 
+                  :checked="selectedVersion?.version === ver.version"
+                  class="version-radio"
+                />
+                <div class="version-info">
+                  <div class="version-name font-mono">
+                    v{{ ver.version }} 
+                    <span v-if="ver.variant" class="variant-tag">{{ ver.variant.toUpperCase() }}</span>
+                    <span class="arch-tag">{{ ver.architecture }}</span>
+                  </div>
+                  <div class="version-sub font-mono">
+                    大小: {{ formatFileSize(ver.fileSize) }}
+                    <span v-if="ver.releaseDate"> · 发布: {{ ver.releaseDate }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="version-tags">
-              <p-tag v-if="ver.isRecommended" severity="success" value="推荐" />
-              <p-tag v-if="ver.isLTS" severity="info" value="LTS" />
-              <p-tag 
-                v-if="isVersionInstalled(ver.version)" 
-                severity="secondary" 
-                value="本地已存在" 
-              />
+              <div class="version-tags">
+                <p-tag v-if="ver.isRecommended" severity="success" value="推荐" />
+                <p-tag v-if="ver.isLTS" severity="info" value="LTS" />
+                <p-tag 
+                  v-if="isVersionInstalled(ver.version)" 
+                  severity="secondary" 
+                  value="本地已存在" 
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -251,7 +260,7 @@
           @click="goToRuntimes" 
         />
       </template>
-    </p-dialog>
+    </h-modal>
   </h-page>
 </template>
 
@@ -259,6 +268,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import HPage from '@/components/h-page/h-page.vue'
+import HModal from '@/components/h-modal/h-modal.vue'
 import { listPackages, getPackageVersions, installPackage } from '@/api/store'
 import type { PackageInfo, PackageVersion } from '@/types'
 
@@ -698,17 +708,37 @@ onMounted(() => {
   color: var(--text-muted);
 }
 
+.version-box {
+  min-height: 200px;
+  position: relative;
+}
+
 .versions-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 36px 0;
+  height: 200px;
   color: var(--text-muted);
   font-size: 0.85rem;
   background: var(--bg-app);
   border: 1px dashed var(--border-color);
   border-radius: var(--radius-sm);
+}
+
+.version-refresh-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 10;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.825rem;
 }
 
 .version-list {

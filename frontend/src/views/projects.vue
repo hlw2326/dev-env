@@ -105,12 +105,14 @@
       </p-data-table>
     </h-card>
 
-    <!-- Create Dialog -->
-    <p-dialog 
-      v-model:visible="showCreateModal" 
-      modal 
-      header="新建项目" 
-      :style="{ width: '480px' }"
+    <!-- Create Modal -->
+    <h-modal 
+      v-model="showCreateModal" 
+      title="新建项目" 
+      width="480px"
+      ok-text="确认创建"
+      :loading="submitting"
+      @ok="submitCreate"
     >
       <form @submit.prevent="submitCreate">
         <div class="form-field">
@@ -141,33 +143,25 @@
             placeholder="选择绑定的 PHP 版本" 
           />
         </div>
-
-        <div class="dialog-footer">
-          <p-button label="取消" severity="secondary" text @click="showCreateModal = false" />
-          <p-button label="确认创建" type="submit" :loading="submitting" />
-        </div>
       </form>
-    </p-dialog>
+    </h-modal>
 
-    <!-- Import Dialog -->
-    <p-dialog 
-      v-model:visible="showImportModal" 
-      modal 
-      header="导入已有项目" 
-      :style="{ width: '480px' }"
+    <!-- Import Modal -->
+    <h-modal 
+      v-model="showImportModal" 
+      title="导入已有项目" 
+      width="480px"
+      ok-text="确认导入"
+      :loading="submitting"
+      @ok="submitImport"
     >
       <form @submit.prevent="submitImport">
         <div class="form-field">
           <label>已有目录物理绝对路径</label>
           <p-input-text v-model="importPath" required placeholder="如 D:\projects\shop" />
         </div>
-
-        <div class="dialog-footer">
-          <p-button label="取消" severity="secondary" text @click="showImportModal = false" />
-          <p-button label="确认导入" type="submit" :loading="submitting" />
-        </div>
       </form>
-    </p-dialog>
+    </h-modal>
   </h-page>
 </template>
 
@@ -175,6 +169,7 @@
 import { ref, computed, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
 import HCard from '@/components/h-card/h-card.vue'
+import HModal from '@/components/h-modal/h-modal.vue'
 import { listProjects, createProject, importProject, deleteProject, validateProjectPath } from '@/api/projects'
 import { listVersions } from '@/api/php'
 import type { Project, PHPVersion, ProjectPathValidation } from '@/types'

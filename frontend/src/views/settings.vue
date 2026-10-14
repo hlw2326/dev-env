@@ -1,80 +1,156 @@
 <template>
-  <h-page title="应用全局设置" desc="配置运行环境根目录、默认项目存储路径、启动偏好与内部数据库">
+  <h-page :title="$t('settings.title')" :desc="$t('settings.desc')">
     <template #extra>
-      <p-button label="恢复默认" severity="secondary" outlined @click="handleReset" />
-      <p-button label="保存配置" icon="pi pi-check" :loading="saving" @click="handleSave" />
+      <p-button :label="$t('settings.reset')" severity="secondary" outlined @click="handleReset" />
+      <p-button :label="$t('settings.save')" icon="pi pi-check" :loading="saving" @click="handleSave" />
     </template>
 
-    <!-- Settings Grid -->
     <div class="settings-grid">
-      <!-- General -->
-      <h-card title="通用外观与语言">
+      <!-- 通用外观与语言 -->
+      <h-card :title="$t('settings.appearance')" class="full-col">
+        <!-- 界面语言选择 -->
+        <div class="setting-item">
+          <label class="setting-item-label">{{ $t('settings.lang') }}</label>
+          <div class="lang-switch-group">
+            <button
+              type="button"
+              class="lang-pill"
+              :class="{ active: currentLocale === 'zh-CN' }"
+              @click="handleLanguageChange('zh-CN')"
+            >
+              <i class="pi pi-globe"></i>
+              <span>简体中文</span>
+            </button>
+            <button
+              type="button"
+              class="lang-pill"
+              :class="{ active: currentLocale === 'en-US' }"
+              @click="handleLanguageChange('en-US')"
+            >
+              <i class="pi pi-language"></i>
+              <span>English</span>
+            </button>
+          </div>
+        </div>
 
+        <div class="divider"></div>
+
+        <!-- 色彩模式 -->
+        <div class="setting-item">
+          <label class="setting-item-label">{{ $t('settings.themeMode') }}</label>
+          <div class="theme-options">
+            <!-- 浅色明亮 -->
+            <div
+              class="theme-card"
+              :class="{ active: theme.mode === 'light' }"
+              @click="handleThemeModeChange('light')"
+            >
+              <div class="theme-preview light-preview">
+                <div class="bar"></div>
+                <div class="line"></div>
+              </div>
+              <span class="theme-name">{{ $t('settings.light') }}</span>
+            </div>
+
+            <!-- 深色暗黑 -->
+            <div
+              class="theme-card"
+              :class="{ active: theme.mode === 'dark' }"
+              @click="handleThemeModeChange('dark')"
+            >
+              <div class="theme-preview dark-preview">
+                <div class="bar"></div>
+                <div class="line"></div>
+              </div>
+              <span class="theme-name">{{ $t('settings.dark') }}</span>
+            </div>
+
+            <!-- 跟随系统 -->
+            <div
+              class="theme-card"
+              :class="{ active: theme.mode === 'system' }"
+              @click="handleThemeModeChange('system')"
+            >
+              <div class="theme-preview system-preview">
+                <div class="half-light"></div>
+                <div class="half-dark"></div>
+              </div>
+              <span class="theme-name">{{ $t('settings.system') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- 系统强调色 -->
+        <div class="setting-item">
+          <div class="color-header">
+            <label class="setting-item-label">{{ $t('settings.themeColor') }}</label>
+            <span class="color-tag" :style="{ backgroundColor: theme.color }">
+              {{ currentColorName }}
+            </span>
+          </div>
+
+          <div class="color-options">
+            <div
+              v-for="item in THEME_COLORS"
+              :key="item.value"
+              class="color-wrap"
+              :class="{ active: theme.color.toLowerCase() === item.value.toLowerCase() }"
+              :title="item.name"
+              @click="setThemeColor(item.value)"
+            >
+              <div class="color-dot" :style="{ backgroundColor: item.value }">
+                <i
+                  v-if="theme.color.toLowerCase() === item.value.toLowerCase()"
+                  class="pi pi-check check-icon"
+                ></i>
+              </div>
+            </div>
+
+            <!-- 自定义颜色拾取器 -->
+            <label class="color-btn" :title="$t('settings.customColor')">
+              <input
+                type="color"
+                :value="theme.color"
+                class="color-input"
+                @input="onColorPick"
+              />
+              <i class="pi pi-plus plus-icon"></i>
+            </label>
+          </div>
+        </div>
+      </h-card>
+
+      <!-- 核心工作路径 -->
+      <h-card :title="$t('settings.paths')">
         <div class="form-field">
-          <label>界面语言</label>
-          <p-select 
-            v-model="settings.language" 
-            :options="langOptions" 
-            optionLabel="label" 
-            optionValue="value" 
+          <label>{{ $t('settings.runtimeRoot') }}</label>
+          <p-input-text
+            v-model="settings.runtimeRootPath"
+            class="font-mono"
+            placeholder="如 D:\DevEnv\runtimes"
           />
         </div>
 
         <div class="form-field">
-          <label>主题模式</label>
-          <p-select 
-            v-model="settings.theme" 
-            :options="themeOptions" 
-            optionLabel="label" 
-            optionValue="value" 
+          <label>{{ $t('settings.defaultProject') }}</label>
+          <p-input-text
+            v-model="settings.defaultProjectPath"
+            class="font-mono"
+            placeholder="如 G:\www 或 D:\projects"
           />
         </div>
       </h-card>
 
-      <!-- Environment Paths -->
-      <h-card title="路径配置">
-        <div class="form-field">
-          <label>环境根目录</label>
-          <p-input-text 
-            v-model="settings.runtimeRootPath" 
-            class="font-mono" 
-            placeholder="如 D:\DevEnv\runtimes" 
-          />
-        </div>
-
-        <div class="form-field">
-          <label>默认项目路径</label>
-          <p-input-text 
-            v-model="settings.defaultProjectPath" 
-            class="font-mono" 
-            placeholder="如 G:\www 或 D:\projects" 
-          />
-        </div>
-      </h-card>
-
-      <!-- Services & DB Info -->
-      <h-card title="服务管理与内部数据持久化" class="full-col">
+      <!-- 服务管理 -->
+      <h-card :title="$t('settings.serviceManager')">
         <div class="toggle-row">
           <div class="toggle-info">
-            <span class="toggle-title">开机自启服务</span>
-            <span class="toggle-sub">应用启动时自动开启标记为自启的服务实例</span>
+            <span class="toggle-title">{{ $t('settings.autoStart') }}</span>
+            <span class="toggle-sub">{{ $t('settings.autoStartSub') }}</span>
           </div>
           <p-toggle-switch v-model="settings.autoStartServices" />
-        </div>
-
-        <div class="db-spec-box font-mono">
-          <div class="spec-row">
-            <span class="spec-lbl">数据库驱动:</span>
-            <span class="spec-val">SQLite 3 (WAL 模式, 纯 Go 驱动 modernc.org/sqlite)</span>
-          </div>
-          <div class="spec-row">
-            <span class="spec-lbl">统一表名前缀:</span>
-            <span class="spec-val">system_projects, system_runtime_versions, system_service_instances, system_virtual_hosts, system_tasks, system_app_settings</span>
-          </div>
-          <div class="spec-row">
-            <span class="spec-lbl">主键设计规范:</span>
-            <span class="spec-val">数字自增 ID (INTEGER PRIMARY KEY AUTOINCREMENT)</span>
-          </div>
         </div>
       </h-card>
     </div>
@@ -82,14 +158,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import HPage from '@/components/h-page/h-page.vue'
 import HCard from '@/components/h-card/h-card.vue'
 import { getSettings, updateSettings, resetSettings } from '@/api/settings'
+import { $t, setLocale, getLocale } from '@/i18n'
+import { useTheme, type ThemeMode } from '@/composables/theme'
 import type { AppSettings } from '@/types'
 
 defineOptions({
   name: 'Settings'
+})
+
+const { theme, setThemeMode, setThemeColor, THEME_COLORS } = useTheme()
+
+const currentLocale = computed(() => getLocale())
+
+const currentColorName = computed(() => {
+  const matched = THEME_COLORS.find(
+    (c) => c.value.toLowerCase() === theme.color.toLowerCase()
+  )
+  return matched ? matched.name : `${$t('settings.customColor')} (${theme.color})`
 })
 
 const settings = ref<AppSettings>({
@@ -97,25 +186,32 @@ const settings = ref<AppSettings>({
   theme: 'light',
   runtimeRootPath: '',
   defaultProjectPath: '',
-  autoStartServices: false,
+  autoStartServices: false
 })
 
 const saving = ref(false)
 
-const langOptions = [
-  { label: '简体中文', value: 'zh-CN' },
-  { label: 'English', value: 'en-US' },
-]
+function handleLanguageChange(lang: string) {
+  settings.value.language = lang
+  setLocale(lang)
+}
 
-const themeOptions = [
-  { label: '明亮浅色', value: 'light' },
-  { label: '跟随系统', value: 'system' },
-  { label: '暗黑深色', value: 'dark' },
-]
+function handleThemeModeChange(mode: ThemeMode) {
+  settings.value.theme = mode
+  setThemeMode(mode)
+}
+
+function onColorPick(event: Event) {
+  const color = (event.target as HTMLInputElement).value
+  setThemeColor(color)
+}
 
 async function loadSettings() {
   try {
-    settings.value = await getSettings()
+    const data = await getSettings()
+    settings.value = data
+    if (data.language) setLocale(data.language)
+    if (data.theme) setThemeMode(data.theme)
   } catch (err: any) {
     console.error('加载设置失败', err)
   }
@@ -124,8 +220,10 @@ async function loadSettings() {
 async function handleSave() {
   saving.value = true
   try {
+    settings.value.theme = theme.mode
+    settings.value.language = getLocale()
     settings.value = await updateSettings(settings.value)
-    toast.success('设置已成功保存')
+    toast.success($t('settings.saveSuccess'))
   } catch (err: any) {
     toast.error(err?.message || '保存设置失败')
   } finally {
@@ -134,10 +232,13 @@ async function handleSave() {
 }
 
 async function handleReset() {
-  if (!confirm('确定要恢复默认设置吗？已有项目和环境记录不受影响。')) return
+  if (!confirm($t('settings.resetConfirm'))) return
   try {
     settings.value = await resetSettings()
-    toast.info('已重置为默认配置')
+    setLocale(settings.value.language || 'zh-CN')
+    setThemeMode((settings.value.theme as ThemeMode) || 'light')
+    setThemeColor('#334155')
+    toast.info($t('settings.resetSuccess'))
   } catch (err: any) {
     toast.error(err?.message || '重置失败')
   }
@@ -148,46 +249,239 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.settings-page {
-  display: flex;
-  flex-direction: column;
-}
-
+<style scoped lang="scss">
 .settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--h-padding);
 }
 
-.setting-card {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.setting-card.full-col {
+.full-col {
   grid-column: span 2;
 }
 
-.card-title {
-  font-size: 1.05rem;
-  font-weight: 400;
-  color: var(--text-main);
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.card-desc {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: -10px;
+.setting-item-label {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 12px 0;
+}
+
+/* 语言切换药丸组 */
+.lang-switch-group {
+  display: flex;
+  gap: 10px;
+
+  .lang-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: var(--p-primary-color);
+      color: var(--text-primary);
+    }
+
+    &.active {
+      border-color: var(--p-primary-color);
+      background: var(--bg-app);
+      color: var(--p-primary-color);
+      font-weight: 500;
+    }
+  }
+}
+
+/* 主题模式微缩卡片（参考 zbzs/ele） */
+.theme-options {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+
+  .theme-preview {
+    width: 6.5rem;
+    height: 4rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.18s ease;
+
+    .bar {
+      height: 0.875rem;
+      width: 100%;
+    }
+
+    .line {
+      height: 0.375rem;
+      width: 60%;
+      margin: 0.75rem auto;
+      border-radius: 2px;
+    }
+  }
+
+  .light-preview {
+    background: #ffffff;
+    .bar { background: #f1f5f9; }
+    .line { background: #e2e8f0; }
+  }
+
+  .dark-preview {
+    background: #0f172a;
+    .bar { background: #1e293b; }
+    .line { background: #334155; }
+  }
+
+  .system-preview {
+    display: flex;
+    .half-light { width: 50%; height: 100%; background: #ffffff; }
+    .half-dark { width: 50%; height: 100%; background: #0f172a; }
+  }
+
+  .theme-name {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    transition: color 0.18s ease;
+  }
+
+  &:hover {
+    .theme-preview {
+      border-color: var(--p-primary-color);
+    }
+  }
+
+  &.active {
+    .theme-preview {
+      border-color: var(--p-primary-color);
+      box-shadow: 0 0 0 2px var(--p-primary-color);
+    }
+
+    .theme-name {
+      color: var(--p-primary-color);
+      font-weight: 500;
+    }
+  }
+}
+
+/* 系统强调色选择 */
+.color-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .color-tag {
+    font-size: var(--font-xs);
+    color: #ffffff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    line-height: 1.2;
+    font-weight: 500;
+  }
+}
+
+.color-options {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+
+  .color-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s ease;
+
+    &:hover {
+      transform: scale(1.1);
+    }
+
+    &.active {
+      border-color: var(--text-primary);
+    }
+
+    .color-dot {
+      width: 1.375rem;
+      height: 1.375rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .check-icon {
+        font-size: 0.75rem;
+        color: #ffffff;
+      }
+    }
+  }
+
+  .color-btn {
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 50%;
+    border: 1px dashed var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: var(--p-primary-color);
+      color: var(--p-primary-color);
+    }
+
+    .color-input {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .plus-icon {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+  }
 }
 
 .toggle-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px;
-  background: #f8fafc;
+  padding: 10px 14px;
+  background: var(--bg-app);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
 }
@@ -195,41 +489,16 @@ onMounted(() => {
 .toggle-info {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .toggle-title {
-  font-size: 0.9rem;
-  font-weight: 400;
-  color: var(--text-main);
+  font-size: var(--font-base);
+  color: var(--text-primary);
 }
 
 .toggle-sub {
-  font-size: 0.775rem;
+  font-size: var(--font-xs);
   color: var(--text-muted);
-}
-
-.db-spec-box {
-  background: #f8fafc;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 0.775rem;
-}
-
-.spec-row {
-  display: flex;
-  gap: 12px;
-}
-
-.spec-lbl {
-  color: var(--text-muted);
-  min-width: 120px;
-}
-
-.spec-val {
-  color: #2563eb;
 }
 </style>
