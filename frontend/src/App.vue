@@ -343,7 +343,9 @@ onUnmounted(() => {
   text-decoration: none;
   font-size: var(--font-sm);
   font-weight: 400;
-  border-left: 3px solid transparent;
+  border-left: none;
+  border-right: 3px solid transparent;
+  position: relative;
   transition: none !important;
 }
 
@@ -356,8 +358,11 @@ onUnmounted(() => {
 .nav-item.active {
   background: var(--bg-app);
   color: var(--text-primary);
-  border-left: 3px solid var(--p-primary-color);
+  border-left: none;
+  border-right: 3px solid var(--p-primary-color);
   border-radius: 0;
+  margin-right: -1px;
+  z-index: 1;
   transition: none !important;
 }
 
