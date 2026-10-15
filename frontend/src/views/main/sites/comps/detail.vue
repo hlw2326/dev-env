@@ -8,11 +8,12 @@
 		:modal="true"
 		:closable="true"
 		:mask-close="false"
-		:footer="false"
-		ok-text="确定"
+		:footer="currentTab === 'overview'"
+		ok-text="保存修改"
 		ok-icon="pi pi-check"
 		cancel-text="取消"
 		:loading="false"
+		@ok="saveOverview"
 	>
 		<!-- 详情页签切换栏 -->
 		<div class="panel-tabs detail-tabs">
@@ -31,6 +32,7 @@
 		<!-- 概览设置页签 -->
 		<comp-detail-overview
 			v-if="currentTab === 'overview'"
+			ref="overview"
 			:site="site"
 			:software-list="softwareList"
 			@save="emit('save', $event)"
@@ -80,6 +82,16 @@ const detailTabs = [
 
 // 当前激活页签
 const currentTab = ref('overview')
+
+// 概览表单组件实例
+const overview = ref<InstanceType<typeof CompDetailOverview> | null>(null)
+
+// 通过弹窗底部按钮保存概览设置
+function saveOverview(): void {
+	if (overview.value !== null) {
+		overview.value.save()
+	}
+}
 </script>
 
 <style scoped lang="scss">

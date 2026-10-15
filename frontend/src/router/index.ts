@@ -21,9 +21,9 @@ const routes: RouteRecordRaw[] = [
 			},
 			{
 				path: 'services',
-				name: '运行中的服务',
+				name: '运行服务',
 				component: () => import('@/views/main/services/index.vue'),
-				meta: { title: '运行中的服务' },
+				meta: { title: '运行服务' },
 			},
 			{
 				path: 'software',

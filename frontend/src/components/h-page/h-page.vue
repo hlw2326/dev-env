@@ -1,6 +1,6 @@
 <template>
 	<!-- 页面通用容器 -->
-	<div class="h-page" :class="{ 'no-scroll': scroll === false }">
+	<div class="h-page">
 		<!-- 页面顶部标题栏 -->
 		<slot name="header">
 			<div v-if="title || $slots.title || $slots.extra" class="header">
@@ -19,7 +19,7 @@
 		</slot>
 
 		<!-- 页面内容区 -->
-		<div class="body" :class="{ 'with-padding': padding !== false }">
+		<div class="body" :class="{ 'with-padding': padding, scrollable: scroll }">
 			<slot></slot>
 		</div>
 	</div>
@@ -34,7 +34,12 @@ defineOptions({
 })
 
 // 接收页面属性
-defineProps<HPageProps>()
+const {
+	title,
+	description,
+	padding = true,
+	scroll = true,
+} = defineProps<HPageProps>()
 </script>
 
 <style scoped lang="scss">
@@ -42,14 +47,10 @@ defineProps<HPageProps>()
 .h-page {
 	display: flex;
 	flex-direction: column;
-	min-height: 100%;
+	height: 100%;
+	min-height: 0;
 	width: 100%;
-
-	/* 禁用外层滚动 */
-	&.no-scroll {
-		height: 100%;
-		overflow: hidden;
-	}
+	overflow: hidden;
 }
 
 /* 页面头部栏 */
@@ -57,7 +58,7 @@ defineProps<HPageProps>()
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 0.875rem var(--h-padding);
+	padding: 0.875rem var(--page-padding);
 	background: var(--bg-card);
 	border-bottom: 1px solid var(--border-color);
 	flex-shrink: 0;
@@ -92,12 +93,19 @@ defineProps<HPageProps>()
 /* 页面主体区域 */
 .body {
 	flex: 1;
+	min-height: 0;
 	display: flex;
 	flex-direction: column;
+	overflow: hidden;
+
+	/* 页面正文独立滚动 */
+	&.scrollable {
+		overflow-y: auto;
+	}
 
 	/* 标准内边距修饰 */
 	&.with-padding {
-		padding: var(--h-padding);
+		padding: var(--page-padding);
 		gap: var(--h-padding);
 	}
 }

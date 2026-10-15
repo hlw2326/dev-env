@@ -51,10 +51,6 @@
 			<p-toggle-switch v-model="autostart" @change="saveForm" />
 		</div>
 
-		<!-- 底部保存按钮 -->
-		<div class="footer-bar">
-			<p-button icon="pi pi-check" label="保存修改" @click="saveForm" />
-		</div>
 	</div>
 </template>
 
@@ -127,6 +123,11 @@ function saveForm(): void {
 	})
 }
 
+// 暴露弹窗底部保存入口
+defineExpose({
+	save: saveForm,
+})
+
 // 监听站点变化同步表单状态
 watch(
 	() => props.site,
@@ -190,10 +191,4 @@ watch(
 	color: var(--text-secondary);
 }
 
-/* 底部操作栏 */
-.footer-bar {
-	display: flex;
-	justify-content: flex-end;
-	padding-top: 0.5rem;
-}
 </style>

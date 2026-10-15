@@ -1,6 +1,6 @@
 <template>
 	<!-- 网站管理页面 -->
-	<h-page title="网站" description="管理本地 PHP、Node.js 与静态网站，所有站点共用本地网关">
+	<h-page title="网站" description="管理本地 PHP、Node.js 与静态网站，所有站点共用本地网关" padding>
 		<!-- 页面右上角创建按钮 -->
 		<template #extra>
 			<p-button icon="pi pi-plus" label="创建网站" @click="createVisible = true" />

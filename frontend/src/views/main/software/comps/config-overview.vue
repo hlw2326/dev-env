@@ -44,7 +44,7 @@
 		<div class="kv-row">
 			<span class="kv-label">{{ folderLabel }}</span>
 			<div class="row-actions">
-				<span class="kv-val font-mono">{{ item.path }}</span>
+				<span class="kv-val font-mono" :title="item.path">{{ item.path }}</span>
 				<p-button
 					size="small"
 					severity="secondary"
@@ -152,6 +152,7 @@ watch(
 .kv-label {
 	font-size: var(--font-sm);
 	color: var(--text-secondary);
+	flex-shrink: 0;
 }
 
 /* 右侧字段值 */
@@ -164,7 +165,18 @@ watch(
 .row-actions {
 	display: flex;
 	align-items: center;
+	justify-content: flex-end;
 	gap: 0.625rem;
+	min-width: 0;
+	flex: 1;
+
+	/* 长内容限制在剩余空间内 */
+	.kv-val {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 }
 
 /* 状态文本 */

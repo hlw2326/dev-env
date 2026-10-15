@@ -1,6 +1,6 @@
 <template>
 	<!-- 运行中的服务页面 -->
-	<h-page title="运行中的服务" description="查看当前运行的数据库与缓存服务">
+	<h-page title="运行服务" description="查看当前运行的数据库与缓存服务">
 		<!-- 页面右上角刷新按钮 -->
 		<template #extra>
 			<p-button

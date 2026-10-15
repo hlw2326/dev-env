@@ -40,6 +40,8 @@ import CompSidebar from './comps/sidebar.vue'
 /* 页面内容滚动区 */
 .main-content {
 	flex: 1;
-	overflow-y: auto;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
 }
 </style>
