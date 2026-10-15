@@ -1,12 +1,12 @@
 # Git 集成
 
-产品目标:站点项目 Git 提交、创建标签、推送到多个远程。
+产品目标:项目 Git 提交、创建标签、推送到多个远程。
 
 不做:分支操作、拉取、合并、变基、回退、冲突解决、子模块。
 
 ## 一、配置
 
-`system_site` 表新增 `git TEXT` 字段,JSON:
+`system_project` 表新增 `git TEXT` 字段,JSON:
 
 ```json
 {
@@ -37,7 +37,7 @@
 | `auto` | bool | 否 | 保存时自动提交,默认 `false` |
 | `template` | string | 否 | 提交消息模板,支持 `${files}` `${date}` `${time}` |
 
-- 只在站点详情"Git"页签编辑。
+- 只在项目详情"Git"页签编辑。
 - `token` AES-256-GCM 加密,复用 `sync.key`。
 - 不支持 SSH,只支持 HTTPS。
 - `remotes` 空时禁用推送,只能本地提交。
@@ -46,7 +46,7 @@
 
 ### 初始化
 
-站点详情"Git"页签【初始化仓库】,执行 `git init`。
+项目详情"Git"页签【初始化仓库】,执行 `git init`。
 
 ### 提交
 
@@ -99,15 +99,15 @@
 
 | 方法 | 入参 | 返回 |
 |------|------|------|
-| `GetStatus(siteID)` | | `StatusDTO` |
-| `Init(siteID)` | | `Result` |
-| `Commit(siteID, message)` | | `Result`,返回哈希 |
-| `CreateTag(siteID, tag, message)` | | `Result` |
-| `Push(siteID, remote, ref)` | `ref` 为 `main` 或 `v1.0.0` | `Result` |
-| `PushAll(siteID, ref)` | 推送到所有远程 | `Result`,每个远程的结果 |
-| `SaveConfig(siteID, config)` | `{enabled, remotes[], auto, template}` | `Result` |
-| `GetConfig(siteID)` | | `ConfigDTO`,`token` 返回掩码 |
-| `TestRemote(siteID, name)` | | `Result` |
+| `GetStatus(projectID)` | | `StatusDTO` |
+| `Init(projectID)` | | `Result` |
+| `Commit(projectID, message)` | | `Result`,返回哈希 |
+| `CreateTag(projectID, tag, message)` | | `Result` |
+| `Push(projectID, remote, ref)` | `ref` 为 `main` 或 `v1.0.0` | `Result` |
+| `PushAll(projectID, ref)` | 推送到所有远程 | `Result`,每个远程的结果 |
+| `SaveConfig(projectID, config)` | `{enabled, remotes[], auto, template}` | `Result` |
+| `GetConfig(projectID)` | | `ConfigDTO`,`token` 返回掩码 |
+| `TestRemote(projectID, name)` | | `Result` |
 
 `StatusDTO`:
 
@@ -153,7 +153,7 @@
 
 ```json
 {
-  "site": 1,
+  "project": 1,
   "stage": "staging",
   "message": "正在暂存..."
 }
@@ -165,7 +165,7 @@
 
 ```json
 {
-  "site": 1,
+  "project": 1,
   "remote": "github",
   "stage": "pushing",
   "message": "正在推送..."
@@ -176,7 +176,7 @@
 
 ```json
 {
-  "site": 1,
+  "project": 1,
   "operation": "commit",
   "ok": true,
   "result": "a3f5c2d",
@@ -245,7 +245,7 @@ Token 加密:
 迁移,改 `000001_init.sql`:
 
 ```sql
-ALTER TABLE system_site ADD COLUMN git TEXT DEFAULT '';
+ALTER TABLE system_project ADD COLUMN git TEXT DEFAULT '';
 ```
 
 改表同步全链路(见 [数据库.md](rules/数据库.md) 第六节)。

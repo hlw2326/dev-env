@@ -21,11 +21,11 @@ type SettingsView struct {
 }
 
 type SettingService struct {
-	base  string
-	repo  ports.SettingRepository
-	sites ports.SiteRepository
-	nginx ports.Gateway
-	hosts ports.HostsWriter
+	base     string
+	repo     ports.SettingRepository
+	projects ports.ProjectRepository
+	nginx    ports.Gateway
+	hosts    ports.HostsWriter
 
 	mu        sync.RWMutex
 	lastError string
@@ -34,16 +34,16 @@ type SettingService struct {
 func NewSettingService(
 	base string,
 	repo ports.SettingRepository,
-	sites ports.SiteRepository,
+	projects ports.ProjectRepository,
 	nginx ports.Gateway,
 	hosts ports.HostsWriter,
 ) *SettingService {
 	return &SettingService{
-		base:  base,
-		repo:  repo,
-		sites: sites,
-		nginx: nginx,
-		hosts: hosts,
+		base:     base,
+		repo:     repo,
+		projects: projects,
+		nginx:    nginx,
+		hosts:    hosts,
 	}
 }
 
@@ -94,13 +94,13 @@ func (s *SettingService) SaveSettings(ctx context.Context, next setting.Settings
 	}
 	next.Root = filepath.Clean(strings.TrimSpace(next.Root))
 	if !filepath.IsAbs(next.Root) {
-		return appErrors.New(appErrors.PATH_INVALID, "站点根目录必须是绝对路径")
+		return appErrors.New(appErrors.PATH_INVALID, "项目根目录必须是绝对路径")
 	}
 	if next.Port <= 0 || next.Port > ports.MAX_PORT {
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "Nginx 监听端口必须在 1 到 65535 之间")
 	}
 	if err := os.MkdirAll(next.Root, 0o755); err != nil {
-		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建站点根目录失败")
+		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建项目根目录失败")
 	}
 
 	prev, err := s.repo.Load(ctx)
@@ -121,7 +121,7 @@ func (s *SettingService) SaveSettings(ctx context.Context, next setting.Settings
 	}
 
 	if next.Hosts {
-		list, err := s.sites.List(ctx)
+		list, err := s.projects.List(ctx)
 		if err != nil {
 			return err
 		}

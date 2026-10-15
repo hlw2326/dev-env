@@ -93,7 +93,8 @@ async function toggleTheme(): Promise<void> {
 <style scoped lang="scss">
 /* 标题栏容器 */
 .titlebar {
-	height: 2.375rem;
+	height: 2.75rem;
+	min-height: 2.75rem;
 	background: var(--bg-card);
 	border-bottom: 1px solid var(--border-color);
 	display: flex;

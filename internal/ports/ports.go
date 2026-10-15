@@ -3,8 +3,8 @@ package ports
 import (
 	"context"
 
+	"devenv/internal/domain/project"
 	"devenv/internal/domain/setting"
-	"devenv/internal/domain/site"
 	"devenv/internal/domain/software"
 )
 
@@ -22,15 +22,15 @@ type SoftwareRepository interface {
 	Delete(ctx context.Context, id int64) error
 }
 
-type SiteRepository interface {
-	List(ctx context.Context) ([]site.Site, error)
-	Get(ctx context.Context, id int64) (*site.Site, error)
-	GetByName(ctx context.Context, name string) (*site.Site, error)
-	ListBySoftware(ctx context.Context, softwareID int64) ([]site.Site, error)
-	ListMissingSoftware(ctx context.Context, kind string) ([]site.Site, error)
-	Create(ctx context.Context, item *site.Site) error
-	Update(ctx context.Context, item *site.Site) error
-	BindSoftware(ctx context.Context, siteID, softwareID int64) error
+type ProjectRepository interface {
+	List(ctx context.Context) ([]project.Project, error)
+	Get(ctx context.Context, id int64) (*project.Project, error)
+	GetByName(ctx context.Context, name string) (*project.Project, error)
+	ListBySoftware(ctx context.Context, softwareID int64) ([]project.Project, error)
+	ListMissingSoftware(ctx context.Context, kind string) ([]project.Project, error)
+	Create(ctx context.Context, item *project.Project) error
+	Update(ctx context.Context, item *project.Project) error
+	BindSoftware(ctx context.Context, projectID, softwareID int64) error
 	Delete(ctx context.Context, id int64) error
 }
 

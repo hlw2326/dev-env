@@ -20,10 +20,10 @@
 		<!-- 统计卡片区 -->
 		<comp-stats />
 
-		<!-- 服务状态与最近站点双列网格 -->
+		<!-- 服务状态与最近项目双列网格 -->
 		<div class="dash-grid">
 			<comp-services />
-			<comp-sites />
+			<comp-projects />
 		</div>
 	</h-page>
 </template>
@@ -33,7 +33,7 @@ import { onMounted } from 'vue'
 import { useDashboard } from './use-dashboard'
 import CompStats from './comps/stats.vue'
 import CompServices from './comps/services.vue'
-import CompSites from './comps/sites.vue'
+import CompProjects from './comps/projects.vue'
 
 	// 概览页 Nginx 状态与加载函数
 	const { listening, nginxPort, loadData } = useDashboard()

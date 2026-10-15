@@ -40,7 +40,7 @@ func main() {
 		OnShutdown:       app.shutdown,
 		Bind: []any{
 			app,
-			app.Site,
+			app.Project,
 			app.Software,
 			app.System,
 		},

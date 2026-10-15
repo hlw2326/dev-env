@@ -1,6 +1,6 @@
 <template>
-	<!-- 网关与站点设置卡片 -->
-	<h-card title="Nginx 与站点">
+	<!-- 网关与项目设置卡片 -->
+	<h-card title="Nginx 与项目">
 		<div class="settings-block">
 			<!-- Nginx 监听状态 -->
 			<div class="gateway-status">
@@ -36,9 +36,9 @@
 				{{ nginxError }}
 			</div>
 
-			<!-- 新站点默认父目录 -->
+			<!-- 新项目默认父目录 -->
 			<div class="form-field">
-				<label>新站点默认父目录</label>
+				<label>新项目默认父目录</label>
 				<div class="folder-row">
 					<p-input-text v-model="form.root" class="font-mono flex-input" />
 					<p-button
@@ -49,7 +49,7 @@
 						@click="pickRoot"
 					/>
 				</div>
-				<span class="field-hint">创建新网站时默认使用该目录作为父目录</span>
+				<span class="field-hint">创建新项目时默认使用该目录作为父目录</span>
 			</div>
 
 			<!-- Nginx 监听端口 -->
@@ -62,7 +62,7 @@
 					:max="65535"
 					class="port-input"
 				/>
-				<span class="field-hint">所有网站通过 Nginx 共用此端口（默认 80），端口被占用时请修改并保存</span>
+				<span class="field-hint">Web 项目通过 Nginx 共用此端口（默认 80），端口被占用时请修改并保存</span>
 			</div>
 
 			<!-- 自动写入系统 hosts 开关 -->
@@ -82,7 +82,7 @@
 <script setup lang="ts">
 import { useSettings } from '../use-settings'
 
-// 网关与站点设置状态与方法
+// 网关与项目设置状态与方法
 	const { form, listening, nginxError, pickRoot, openNginxConfig } = useSettings()
 </script>
 

@@ -88,10 +88,10 @@ export function useSettings() {
 		setColor(color)
 	}
 
-	// 选择默认站点父目录
+	// 选择默认项目父目录
 	async function pickRoot(): Promise<void> {
 		try {
-			const picked = await pickFolder('选择默认站点父目录')
+			const picked = await pickFolder('选择默认项目父目录')
 			if (picked !== '') {
 				form.root = picked
 			}

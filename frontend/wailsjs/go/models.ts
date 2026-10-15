@@ -81,28 +81,6 @@ export namespace wails {
 	        this.restart = source["restart"];
 	    }
 	}
-	export class CreateInput {
-	    kind: string;
-	    name: string;
-	    host: string;
-	    root: string;
-	    run: string;
-	    command: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new CreateInput(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.kind = source["kind"];
-	        this.name = source["name"];
-	        this.host = source["host"];
-	        this.root = source["root"];
-	        this.run = source["run"];
-	        this.command = source["command"];
-	    }
-	}
 	export class ExtensionDTO {
 	    name: string;
 	    enabled: boolean;
@@ -167,13 +145,81 @@ export namespace wails {
 	        this.name = source["name"];
 	    }
 	}
-	export class PluginActionInput {
+	export class ProjectCreateInput {
+	    kind: string;
+	    name: string;
+	    host: string;
+	    root: string;
+	    run: string;
+	    command: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectCreateInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.name = source["name"];
+	        this.host = source["host"];
+	        this.root = source["root"];
+	        this.run = source["run"];
+	        this.command = source["command"];
+	    }
+	}
+	export class ProjectDTO {
+	    id: number;
+	    name: string;
+	    kind: string;
+	    hosts: string[];
+	    root: string;
+	    run: string;
+	    path: string;
+	    software?: number;
+	    version: string;
+	    command: string;
+	    nginx: string;
+	    port: number;
+	    autostart: boolean;
+	    state: string;
+	    url: string;
+	    need: string;
+	    created: string;
+	    updated: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.kind = source["kind"];
+	        this.hosts = source["hosts"];
+	        this.root = source["root"];
+	        this.run = source["run"];
+	        this.path = source["path"];
+	        this.software = source["software"];
+	        this.version = source["version"];
+	        this.command = source["command"];
+	        this.nginx = source["nginx"];
+	        this.port = source["port"];
+	        this.autostart = source["autostart"];
+	        this.state = source["state"];
+	        this.url = source["url"];
+	        this.need = source["need"];
+	        this.created = source["created"];
+	        this.updated = source["updated"];
+	    }
+	}
+	export class ProjectPluginActionInput {
 	    projectId: number;
 	    pluginId: string;
 	    actionId: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new PluginActionInput(source);
+	        return new ProjectPluginActionInput(source);
 	    }
 	
 	    constructor(source: any = {}) {
@@ -224,6 +270,62 @@ export namespace wails {
 		    }
 		    return a;
 		}
+	}
+	export class ProjectTemplateDTO {
+	    kind: string;
+	    label: string;
+	    icon: string;
+	    description: string;
+	    runtimeKind: string;
+	    commandMode: string;
+	    defaultCommand: string;
+	    commandLabel: string;
+	    commandPlaceholder: string;
+	    capabilities: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectTemplateDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.label = source["label"];
+	        this.icon = source["icon"];
+	        this.description = source["description"];
+	        this.runtimeKind = source["runtimeKind"];
+	        this.commandMode = source["commandMode"];
+	        this.defaultCommand = source["defaultCommand"];
+	        this.commandLabel = source["commandLabel"];
+	        this.commandPlaceholder = source["commandPlaceholder"];
+	        this.capabilities = source["capabilities"];
+	    }
+	}
+	export class ProjectUpdateInput {
+	    id: number;
+	    hosts: string[];
+	    root: string;
+	    run: string;
+	    software?: number;
+	    command: string;
+	    nginx: string;
+	    autostart: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectUpdateInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.hosts = source["hosts"];
+	        this.root = source["root"];
+	        this.run = source["run"];
+	        this.software = source["software"];
+	        this.command = source["command"];
+	        this.nginx = source["nginx"];
+	        this.autostart = source["autostart"];
+	    }
 	}
 	export class Result {
 	    ok: boolean;
@@ -279,52 +381,6 @@ export namespace wails {
 	        this.hosts = source["hosts"];
 	    }
 	}
-	export class SiteDTO {
-	    id: number;
-	    name: string;
-	    kind: string;
-	    hosts: string[];
-	    root: string;
-	    run: string;
-	    path: string;
-	    software?: number;
-	    version: string;
-	    command: string;
-	    nginx: string;
-	    port: number;
-	    autostart: boolean;
-	    state: string;
-	    url: string;
-	    need: string;
-	    created: string;
-	    updated: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new SiteDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.kind = source["kind"];
-	        this.hosts = source["hosts"];
-	        this.root = source["root"];
-	        this.run = source["run"];
-	        this.path = source["path"];
-	        this.software = source["software"];
-	        this.version = source["version"];
-	        this.command = source["command"];
-	        this.nginx = source["nginx"];
-	        this.port = source["port"];
-	        this.autostart = source["autostart"];
-	        this.state = source["state"];
-	        this.url = source["url"];
-	        this.need = source["need"];
-	        this.created = source["created"];
-	        this.updated = source["updated"];
-	    }
-	}
 	export class SoftwareDTO {
 	    id: number;
 	    kind: string;
@@ -363,32 +419,6 @@ export namespace wails {
 	        this.pid = source["pid"];
 	        this.daemon = source["daemon"];
 	        this.service = source["service"];
-	    }
-	}
-	export class UpdateInput {
-	    id: number;
-	    hosts: string[];
-	    root: string;
-	    run: string;
-	    software?: number;
-	    command: string;
-	    nginx: string;
-	    autostart: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new UpdateInput(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.hosts = source["hosts"];
-	        this.root = source["root"];
-	        this.run = source["run"];
-	        this.software = source["software"];
-	        this.command = source["command"];
-	        this.nginx = source["nginx"];
-	        this.autostart = source["autostart"];
 	    }
 	}
 	export class VersionDTO {

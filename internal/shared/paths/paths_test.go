@@ -2,7 +2,7 @@ package paths
 
 import "testing"
 
-func TestNginxSiteConfigName(t *testing.T) {
+func TestNginxProjectConfigName(t *testing.T) {
 	tests := []struct {
 		id   int64
 		name string
@@ -13,9 +13,9 @@ func TestNginxSiteConfigName(t *testing.T) {
 		{id: 9, name: "", want: "website-9.conf"},
 	}
 	for _, item := range tests {
-		got := NginxSiteConfigName(item.id, item.name)
+		got := NginxProjectConfigName(item.id, item.name)
 		if got != item.want {
-			t.Fatalf("NginxSiteConfigName(%q) = %q, want %q", item.name, got, item.want)
+			t.Fatalf("NginxProjectConfigName(%q) = %q, want %q", item.name, got, item.want)
 		}
 	}
 }

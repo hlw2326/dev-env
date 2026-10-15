@@ -11,7 +11,7 @@ type ConfigResult struct {
 	Restart bool   `json:"restart"`
 }
 
-type SiteDTO struct {
+type ProjectDTO struct {
 	ID        int64    `json:"id"`
 	Name      string   `json:"name"`
 	Kind      string   `json:"kind"`
@@ -32,7 +32,20 @@ type SiteDTO struct {
 	Updated   string   `json:"updated"`
 }
 
-type CreateInput struct {
+type ProjectTemplateDTO struct {
+	Kind               string   `json:"kind"`
+	Label              string   `json:"label"`
+	Icon               string   `json:"icon"`
+	Description        string   `json:"description"`
+	RuntimeKind        string   `json:"runtimeKind"`
+	CommandMode        string   `json:"commandMode"`
+	DefaultCommand     string   `json:"defaultCommand"`
+	CommandLabel       string   `json:"commandLabel"`
+	CommandPlaceholder string   `json:"commandPlaceholder"`
+	Capabilities       []string `json:"capabilities"`
+}
+
+type ProjectCreateInput struct {
 	Kind    string `json:"kind"`
 	Name    string `json:"name"`
 	Host    string `json:"host"`
@@ -41,7 +54,7 @@ type CreateInput struct {
 	Command string `json:"command"`
 }
 
-type UpdateInput struct {
+type ProjectUpdateInput struct {
 	ID        int64    `json:"id"`
 	Hosts     []string `json:"hosts"`
 	Root      string   `json:"root"`
@@ -52,7 +65,7 @@ type UpdateInput struct {
 	Autostart bool     `json:"autostart"`
 }
 
-type PluginActionInput struct {
+type ProjectPluginActionInput struct {
 	ProjectID int64  `json:"projectId"`
 	PluginID  string `json:"pluginId"`
 	ActionID  string `json:"actionId"`

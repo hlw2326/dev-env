@@ -3,7 +3,7 @@ export function trimSlash(value: string): string {
 	return value.replace(/[\\/]+$/, '')
 }
 
-// 拼接站点根路径与子名称
+// 拼接项目根路径与子名称
 export function joinPath(root: string, name: string): string {
 	const base = trimSlash(root.trim())
 	const segment = name.trim().replace(/^[\\/]+/, '')

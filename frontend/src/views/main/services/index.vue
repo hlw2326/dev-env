@@ -48,17 +48,11 @@ const { services, loading, busy, loadData, startService, stopService, bindEvents
 
 // 服务事件解绑函数
 let stopEvents: (() => void) | null = null
-let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 // 挂载时加载并监听服务变化
 onMounted(() => {
 	loadData()
 	stopEvents = bindEvents()
-	refreshTimer = setInterval(() => {
-		if (!loading.value) {
-			loadData()
-		}
-	}, 3000)
 })
 
 // 卸载时移除服务事件监听
@@ -66,10 +60,6 @@ onUnmounted(() => {
 	if (stopEvents) {
 		stopEvents()
 		stopEvents = null
-	}
-	if (refreshTimer) {
-		clearInterval(refreshTimer)
-		refreshTimer = null
 	}
 })
 </script>

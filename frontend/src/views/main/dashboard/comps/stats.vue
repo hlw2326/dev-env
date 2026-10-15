@@ -24,23 +24,23 @@ import { computed } from 'vue'
 import { useDashboard } from '../use-dashboard'
 
 // 概览统计状态
-const { sites, readySoftware, daemonList, runningSites, runningDaemons } = useDashboard()
+const { projects, readySoftware, daemonList, runningProjects, runningDaemons } = useDashboard()
 
 // 统计卡片配置列表
 const statCards = computed(() => [
 	{
 		label: '项目总数',
-		value: `${sites.value.length}`,
+		value: `${projects.value.length}`,
 		icon: 'pi pi-globe',
 		tone: 'info',
-		route: '/sites',
+		route: '/projects',
 	},
 	{
 		label: '运行中项目',
-		value: `${runningSites.value} / ${sites.value.length}`,
+		value: `${runningProjects.value} / ${projects.value.length}`,
 		icon: 'pi pi-check-circle',
 		tone: 'warn',
-		route: '/sites',
+		route: '/projects',
 	},
 	{
 		label: '已安装软件',

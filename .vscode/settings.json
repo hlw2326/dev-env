@@ -13,8 +13,15 @@
     "php.suggest.basic": false,
     "php.proposeExtensionWorkarounds": true
   },
-  "workbench.tree.indent": 26,
   "workbench.tree.renderIndentGuides": "always",
+  "workbench.tree.enableStickyScroll": true,
+  "explorer.compactFolders": false,
+  "workbench.iconTheme": "material-icon-theme",
+  "workbench.colorCustomizations": {
+    "list.activeSelectionBackground": "#383a48",
+    "list.focusOutline": "#9399ae"
+  },
+  "workbench.tree.indent": 30,
   "window.zoomLevel": 1.4,
   "editor.fontFamily": "JetBrains Mono, Consolas, 'Courier New', monospace",
   "editor.tabSize": 4,
@@ -29,10 +36,6 @@
   "editor.guides.indentation": true,
   "editor.guides.highlightActiveIndentation": true,
   "editor.guides.bracketPairs": "active",
-  "workbench.colorCustomizations": {
-    "editorIndentGuide.background1": "#2A2A2A",
-    "editorIndentGuide.activeBackground1": "#dedede"
-  },
   "editor.tokenColorCustomizations": {
     "textMateRules": [
       {

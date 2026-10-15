@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"devenv/internal/domain/site"
+	"devenv/internal/domain/project"
 	"devenv/internal/domain/software"
 	"devenv/internal/infra/network"
 	processinfra "devenv/internal/infra/process"
@@ -38,8 +38,8 @@ func TestRenderPHPRouteUsesPathInfoFallback(t *testing.T) {
 	config, err := renderRoute(80, ports.Route{
 		ID:    1,
 		Hosts: []string{"demo.localhost"},
-		Kind:  site.KIND_PHP,
-		Path:  `C:\sites\demo\public`,
+		Kind:  project.KIND_PHP,
+		Path:  `C:\projects\demo\public`,
 		Log:   `C:\logs\demo\access.log`,
 	}, 9000)
 	if err != nil {
@@ -65,7 +65,7 @@ func TestRenderNodeRouteSupportsWebSocket(t *testing.T) {
 	config, err := renderRoute(8080, ports.Route{
 		ID:    2,
 		Hosts: []string{"node.localhost"},
-		Kind:  site.KIND_NODE,
+		Kind:  project.KIND_NODE,
 		Port:  3100,
 		Log:   `C:\logs\node\access.log`,
 	}, 0)
@@ -84,8 +84,8 @@ func TestRenderStaticRouteReturnsNotFoundWithoutIndexFallback(t *testing.T) {
 	config, err := renderRoute(8080, ports.Route{
 		ID:    3,
 		Hosts: []string{"static.localhost"},
-		Kind:  site.KIND_STATIC,
-		Path:  `C:\sites\static`,
+		Kind:  project.KIND_STATIC,
+		Path:  `C:\projects\static`,
 		Log:   `C:\logs\static\access.log`,
 	}, 0)
 	if err != nil {
@@ -103,8 +103,8 @@ func TestRenderRouteIncludesAdvancedConfiguration(t *testing.T) {
 	config, err := renderRoute(8080, ports.Route{
 		ID:    4,
 		Hosts: []string{"advanced.localhost"},
-		Kind:  site.KIND_STATIC,
-		Path:  `C:\sites\advanced`,
+		Kind:  project.KIND_STATIC,
+		Path:  `C:\projects\advanced`,
 		Log:   `C:\logs\advanced\access.log`,
 		Nginx: "client_max_body_size 20m;\nadd_header X-DevEnv advanced;",
 	}, 0)
@@ -151,11 +151,11 @@ func TestInstalledNginxAcceptsGeneratedConfig(t *testing.T) {
 	}
 	home := filepath.Dir(binary)
 	base := t.TempDir()
-	siteRoot := filepath.Join(base, "site")
-	if err := os.MkdirAll(siteRoot, 0o755); err != nil {
+	projectRoot := filepath.Join(base, "project")
+	if err := os.MkdirAll(projectRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(siteRoot, "index.php"), []byte("<?php echo 'ok';"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectRoot, "index.php"), []byte("<?php echo 'ok';"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -163,10 +163,10 @@ func TestInstalledNginxAcceptsGeneratedConfig(t *testing.T) {
 	routes := []ports.Route{{
 		ID:    3,
 		Hosts: []string{"php.localhost"},
-		Kind:  site.KIND_PHP,
-		Path:  siteRoot,
+		Kind:  project.KIND_PHP,
+		Path:  projectRoot,
 		PHP:   `C:\php\php-cgi.exe`,
-		Log:   filepath.Join(base, "logs", "site", "access.log"),
+		Log:   filepath.Join(base, "logs", "project", "access.log"),
 	}}
 	pools := map[string]pool{filepath.Clean(routes[0].PHP): {port: 9000}}
 	if err := gateway.writeConfig(home, 18080, routes, pools); err != nil {
@@ -197,7 +197,7 @@ func TestInstalledNginxForwardsPrettyURLPathInfo(t *testing.T) {
 	}
 
 	base := t.TempDir()
-	documentRoot := filepath.Join(base, "site")
+	documentRoot := filepath.Join(base, "project")
 	if err := os.MkdirAll(documentRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestInstalledNginxForwardsPrettyURLPathInfo(t *testing.T) {
 	if err := gateway.SetRoutes([]ports.Route{{
 		ID:    4,
 		Hosts: []string{"pretty.localhost"},
-		Kind:  site.KIND_PHP,
+		Kind:  project.KIND_PHP,
 		Path:  documentRoot,
 		PHP:   phpBinary,
 		Log:   filepath.Join(base, "logs", "pretty", "access.log"),

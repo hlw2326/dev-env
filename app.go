@@ -12,7 +12,7 @@ type App struct {
 	ctx       context.Context
 	container *app.Container
 	bootError error
-	Site      *transport.SiteAPI
+	Project   *transport.ProjectAPI
 	Software  *transport.SoftwareAPI
 	System    *transport.SystemAPI
 }
@@ -22,7 +22,7 @@ func NewApp() *App {
 	if err != nil {
 		return &App{
 			bootError: err,
-			Site:      transport.NewSiteAPI(nil),
+			Project:   transport.NewProjectAPI(nil),
 			Software:  transport.NewSoftwareAPI(nil),
 			System:    transport.NewSystemAPI(nil),
 		}
@@ -30,7 +30,7 @@ func NewApp() *App {
 
 	return &App{
 		container: container,
-		Site:      transport.NewSiteAPI(container.Site),
+		Project:   transport.NewProjectAPI(container.Project),
 		Software:  transport.NewSoftwareAPI(container.Software),
 		System:    transport.NewSystemAPI(container.Setting),
 	}
@@ -50,7 +50,7 @@ func (a *App) startup(ctx context.Context) {
 		runtime.Quit(ctx)
 		return
 	}
-	a.Site.SetContext(ctx)
+	a.Project.SetContext(ctx)
 	a.Software.SetContext(ctx)
 	a.System.SetContext(ctx)
 	a.container.Bus.SetContext(ctx)

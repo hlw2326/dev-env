@@ -21,7 +21,7 @@
 // 侧边栏导航项列表
 const menuItems = [
 	{ label: '环境概览', icon: 'pi pi-objects-column', to: '/' },
-	{ label: '项目管理', icon: 'pi pi-folder-open', to: '/sites' },
+	{ label: '项目管理', icon: 'pi pi-folder-open', to: '/projects' },
 	{ label: '服务管理', icon: 'pi pi-server', to: '/services' },
 	{ label: '软件商店', icon: 'pi pi-shopping-bag', to: '/software' },
 	{ label: '全局设置', icon: 'pi pi-cog', to: '/settings' },

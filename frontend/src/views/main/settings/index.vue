@@ -1,6 +1,6 @@
 <template>
 	<!-- 全局设置页面 -->
-	<h-page title="全局设置" description="配置默认站点目录、Nginx 监听端口、hosts 自动写入与界面主题">
+	<h-page title="全局设置" description="配置默认项目目录、Nginx 监听端口、hosts 自动写入与界面主题">
 		<!-- 页面右上角保存按钮 -->
 		<template #extra>
 			<p-button
@@ -11,7 +11,7 @@
 			/>
 		</template>
 
-		<!-- Nginx 与站点设置卡片 -->
+		<!-- Nginx 与项目设置卡片 -->
 		<div class="settings-content">
 			<comp-gateway />
 			<comp-theme />

@@ -1,10 +1,10 @@
 import { ref, computed } from 'vue'
-import { listSites, listSoftware, startSoftware, stopSoftware, loadSettings } from '@/api'
+import { listProjects, listSoftware, startSoftware, stopSoftware, loadSettings } from '@/api'
 import { toast, formatError } from '@/utils'
-import type { Site, Software } from '@/types'
+import type { Project, Software } from '@/types'
 
-// 站点列表状态
-const sites = ref<Site[]>([])
+// 项目列表状态
+const projects = ref<Project[]>([])
 
 // 已安装软件列表状态
 const installed = ref<Software[]>([])
@@ -26,9 +26,9 @@ const SERVICE_REFRESH_INTERVAL = 250
 
 // 概览页数据与操作组合式函数
 export function useDashboard() {
-	// 运行中站点数量
-	const runningSites = computed(() => {
-		return sites.value.filter((item) => item.state === 'running').length
+	// 运行中项目数量
+	const runningProjects = computed(() => {
+		return projects.value.filter((item) => item.state === 'running').length
 	})
 
 	// 已安装就绪的软件列表
@@ -52,12 +52,12 @@ export function useDashboard() {
 			loading.value = true
 		}
 		try {
-			const [siteList, softwareList, settings] = await Promise.all([
-				listSites(),
+			const [projectList, softwareList, settings] = await Promise.all([
+				listProjects(),
 				listSoftware(),
 				loadSettings(),
 			])
-			sites.value = siteList
+			projects.value = projectList
 			installed.value = softwareList
 			listening.value = settings.listening
 			nginxPort.value = settings.port
@@ -124,7 +124,7 @@ export function useDashboard() {
 	}
 
 	return {
-		sites,
+		projects,
 		installed,
 		readySoftware,
 		daemonList,
@@ -132,7 +132,7 @@ export function useDashboard() {
 		nginxPort,
 		loading,
 		busyId,
-		runningSites,
+		runningProjects,
 		runningDaemons,
 		loadData,
 		startService,

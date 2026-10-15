@@ -24,7 +24,7 @@ type Container struct {
 	Bus      *events.Publisher
 	Nginx    ports.Gateway
 	Runner   *process.Manager
-	Site     *SiteService
+	Project  *ProjectService
 	Software *SoftwareService
 	Setting  *SettingService
 }
@@ -48,15 +48,15 @@ func Bootstrap() (*Container, error) {
 	installerManager := installer.NewManager()
 	hostsWriter := hosts.NewWriter()
 	softwareRepo := sqlite.NewSoftwareRepository(db.DB)
-	siteRepo := sqlite.NewSiteRepository(db.DB)
+	projectRepo := sqlite.NewProjectRepository(db.DB)
 	settingRepo := sqlite.NewSettingRepository(db.DB)
 	nginx := gateway.NewNginx(base, softwareRepo, runner, probe)
 
-	siteService := NewSiteService(base, siteRepo, softwareRepo, settingRepo, nginx, runner, hostsWriter, probe, bus)
-	softwareService := NewSoftwareService(base, softwareRepo, siteRepo, catalogClient, installerManager, runner, probe, settingRepo, nginx, bus, func(ctx context.Context, item software.Software) {
-		siteService.BindInstalled(ctx, item)
+	projectService := NewProjectService(base, projectRepo, softwareRepo, settingRepo, nginx, runner, hostsWriter, probe, bus)
+	softwareService := NewSoftwareService(base, softwareRepo, projectRepo, catalogClient, installerManager, runner, probe, settingRepo, nginx, bus, func(ctx context.Context, item software.Software) {
+		projectService.BindInstalled(ctx, item)
 	})
-	settingService := NewSettingService(base, settingRepo, siteRepo, nginx, hostsWriter)
+	settingService := NewSettingService(base, settingRepo, projectRepo, nginx, hostsWriter)
 
 	return &Container{
 		Base:     base,
@@ -64,7 +64,7 @@ func Bootstrap() (*Container, error) {
 		Bus:      bus,
 		Nginx:    nginx,
 		Runner:   runner,
-		Site:     siteService,
+		Project:  projectService,
 		Software: softwareService,
 		Setting:  settingService,
 	}, nil
@@ -73,12 +73,12 @@ func Bootstrap() (*Container, error) {
 func (c *Container) Start(ctx context.Context) {
 	c.Software.StartAuto(ctx)
 	c.Setting.StartNginx(ctx)
-	c.Site.StartAuto(ctx)
+	c.Project.StartAuto(ctx)
 }
 
 func (c *Container) Shutdown() {
-	if err := c.Site.StopAll(); err != nil {
-		log.Printf("停止站点进程失败: %v", err)
+	if err := c.Project.StopAll(); err != nil {
+		log.Printf("停止项目进程失败: %v", err)
 	}
 	if err := c.Software.StopAll(); err != nil {
 		log.Printf("停止软件进程失败: %v", err)

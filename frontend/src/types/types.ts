@@ -6,14 +6,17 @@ export type Result = wails.Result
 // 配置保存结果
 export type ConfigResult = wails.ConfigResult
 
-// 站点数据传输对象
-export type Site = wails.SiteDTO
+// 项目数据传输对象
+export type Project = wails.ProjectDTO
 
-// 创建站点入参
-export type CreateInput = wails.CreateInput
+// 后端注册的项目模板
+export type ProjectTemplate = wails.ProjectTemplateDTO
 
-// 更新站点入参
-export type UpdateInput = wails.UpdateInput
+// 创建项目入参
+export type ProjectCreateInput = wails.ProjectCreateInput
+
+// 更新项目入参
+export type ProjectUpdateInput = wails.ProjectUpdateInput
 
 // 项目插件动作
 export type PluginAction = wails.PluginActionDTO
@@ -22,7 +25,7 @@ export type PluginAction = wails.PluginActionDTO
 export type ProjectPlugin = wails.ProjectPluginDTO
 
 // 执行项目插件操作入参
-export type PluginActionInput = wails.PluginActionInput
+export type ProjectPluginActionInput = wails.ProjectPluginActionInput
 
 // 软件商店卡片项
 export type MarketItem = wails.ItemDTO
@@ -91,11 +94,11 @@ export interface ServiceEvent {
 	message: string
 }
 
-// 站点状态变更事件载荷
-export interface SiteEvent {
-	// 站点记录主键
+// 项目状态变更事件载荷
+export interface ProjectEvent {
+	// 项目记录主键
 	id: number
-	// 站点状态码
+	// 项目状态码
 	state: string
 	// 状态或错误说明
 	message: string

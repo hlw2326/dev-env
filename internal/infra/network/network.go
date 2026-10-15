@@ -60,14 +60,26 @@ func (c *Checker) Listening(port int) bool {
 // ListeningPID returns the process ID owning a listening TCP port.
 // It is intentionally best-effort because the port can disappear while it is being queried.
 func (c *Checker) ListeningPID(port int) int {
-	if port <= 0 || port > ports.MAX_PORT {
-		return 0
-	}
+	return c.ListeningPIDs([]int{port})[port]
+}
 
+// ListeningPIDs returns listener process IDs for requested TCP ports using a
+// single system snapshot. This avoids launching netstat once per service row.
+func (c *Checker) ListeningPIDs(portsToFind []int) map[int]int {
+	result := make(map[int]int, len(portsToFind))
+	wanted := make(map[int]bool, len(portsToFind))
+	for _, port := range portsToFind {
+		if port > 0 && port <= ports.MAX_PORT {
+			wanted[port] = true
+		}
+	}
+	if len(wanted) == 0 {
+		return result
+	}
 	command := exec.Command("netstat", "-ano", "-p", "tcp")
 	output, err := command.Output()
 	if err != nil {
-		return 0
+		return result
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(string(output)))
@@ -82,14 +94,13 @@ func (c *Checker) ListeningPID(port int) int {
 			continue
 		}
 		listeningPort, err := strconv.Atoi(localAddress[separator+1:])
-		if err != nil || listeningPort != port {
+		if err != nil || !wanted[listeningPort] || result[listeningPort] != 0 {
 			continue
 		}
 		pid, err := strconv.Atoi(fields[4])
-		if err != nil {
-			return 0
+		if err == nil {
+			result[listeningPort] = pid
 		}
-		return pid
 	}
-	return 0
+	return result
 }

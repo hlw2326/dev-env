@@ -18,7 +18,7 @@ import (
 	"syscall"
 	"time"
 
-	"devenv/internal/domain/site"
+	"devenv/internal/domain/project"
 	"devenv/internal/domain/software"
 	processinfra "devenv/internal/infra/process"
 	"devenv/internal/ports"
@@ -48,7 +48,7 @@ type softwareReader interface {
 	GetMain(ctx context.Context, kind string) (*software.Software, error)
 }
 
-// Nginx 管理网站访问入口及站点使用的 PHP FastCGI 进程。
+// Nginx 管理 Web 项目访问入口及项目使用的 PHP FastCGI 进程。
 type Nginx struct {
 	home     string
 	software softwareReader
@@ -313,7 +313,7 @@ func (n *Nginx) startPools(routes []ports.Route, nginxPort int) (map[string]pool
 	seen := make(map[string]bool)
 	for _, route := range routes {
 		executable := filepath.Clean(strings.TrimSpace(route.PHP))
-		if route.Kind == site.KIND_PHP && executable != "." && executable != "" && !seen[executable] {
+		if route.Kind == project.KIND_PHP && executable != "." && executable != "" && !seen[executable] {
 			seen[executable] = true
 			executables = append(executables, executable)
 		}
@@ -441,14 +441,14 @@ func (n *Nginx) writeConfig(nginxHome string, port int, routes []ports.Route, po
 	}
 	for _, route := range routes {
 		if err := os.MkdirAll(filepath.Dir(route.Log), 0o755); err != nil {
-			return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建站点日志目录失败")
+			return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建项目日志目录失败")
 		}
 		fastCGIPort := 0
-		if route.Kind == site.KIND_PHP {
+		if route.Kind == project.KIND_PHP {
 			executable := filepath.Clean(strings.TrimSpace(route.PHP))
 			item, found := pools[executable]
 			if !found {
-				return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "PHP 站点没有可用的 FastCGI 进程")
+				return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "PHP 项目没有可用的 FastCGI 进程")
 			}
 			fastCGIPort = item.port
 		}
@@ -456,9 +456,9 @@ func (n *Nginx) writeConfig(nginxHome string, port int, routes []ports.Route, po
 		if err != nil {
 			return err
 		}
-		name := paths.NginxSiteConfigName(route.ID, route.Name)
+		name := paths.NginxProjectConfigName(route.ID, route.Name)
 		if err := os.WriteFile(filepath.Join(hosts, name), []byte(content), 0o644); err != nil {
-			return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "写入 Nginx 站点配置失败")
+			return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "写入 Nginx 项目配置失败")
 		}
 	}
 	return nil
@@ -512,7 +512,7 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
 		}
 	}
 	if len(hosts) == 0 {
-		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "站点域名不能为空")
+		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "项目域名不能为空")
 	}
 	root := nginxQuote(nginxPath(route.Path))
 	accessLog := nginxQuote(nginxPath(route.Log))
@@ -520,7 +520,7 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
 
 	var body string
 	switch route.Kind {
-	case site.KIND_PHP:
+	case project.KIND_PHP:
 		body = fmt.Sprintf(`    root %s;
     index index.php index.html index.htm;
 
@@ -560,7 +560,7 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
         fastcgi_param REDIRECT_STATUS 200;
     }
 `, root, NGINX_PHP_CONCURRENCY, PHP_REQUEST_TIMEOUT, paths.LOOPBACK, fastCGIPort)
-	case site.KIND_NODE, site.KIND_PYTHON, site.KIND_GO, site.KIND_RUST, site.KIND_JAVA:
+	case project.KIND_NODE, project.KIND_PYTHON, project.KIND_GO, project.KIND_RUST, project.KIND_JAVA:
 		body = fmt.Sprintf(`    location / {
         proxy_pass http://%s:%d;
         proxy_http_version 1.1;
@@ -572,7 +572,7 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
         proxy_set_header Connection $connection_upgrade;
     }
 `, paths.LOOPBACK, route.Port)
-	case site.KIND_STATIC:
+	case project.KIND_STATIC:
 		body = fmt.Sprintf(`    root %s;
     index index.html index.htm;
 
@@ -581,7 +581,7 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
     }
 `, root)
 	default:
-		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "站点类型无效: "+route.Kind)
+		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "项目类型无效: "+route.Kind)
 	}
 
 	advanced := strings.TrimSpace(route.Nginx)
@@ -622,9 +622,9 @@ func indentNginx(config string) string {
 
 func renderOverview(routes []ports.Route) string {
 	var builder strings.Builder
-	builder.WriteString("<!doctype html><html lang='zh-CN'><head><meta charset='utf-8'><title>DevEnv</title></head><body><h1>DevEnv 站点列表</h1>")
+	builder.WriteString("<!doctype html><html lang='zh-CN'><head><meta charset='utf-8'><title>DevEnv</title></head><body><h1>DevEnv 项目列表</h1>")
 	if len(routes) == 0 {
-		builder.WriteString("<p>当前没有运行中的站点</p>")
+		builder.WriteString("<p>当前没有运行中的项目</p>")
 	} else {
 		builder.WriteString("<ul>")
 		for _, route := range routes {

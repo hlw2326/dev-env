@@ -1,4 +1,4 @@
 export * from './win'
-export * from './sites'
+export * from './projects'
 export * from './software'
 export * from './system'

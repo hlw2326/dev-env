@@ -46,7 +46,7 @@ type SoftwareView struct {
 type SoftwareService struct {
 	base      string
 	repo      ports.SoftwareRepository
-	sites     ports.SiteRepository
+	projects  ports.ProjectRepository
 	catalog   ports.Catalog
 	installer ports.Installer
 	runner    ports.Runner
@@ -64,7 +64,7 @@ type SoftwareService struct {
 func NewSoftwareService(
 	base string,
 	repo ports.SoftwareRepository,
-	sites ports.SiteRepository,
+	projects ports.ProjectRepository,
 	catalog ports.Catalog,
 	inst ports.Installer,
 	runner ports.Runner,
@@ -77,7 +77,7 @@ func NewSoftwareService(
 	return &SoftwareService{
 		base:      base,
 		repo:      repo,
-		sites:     sites,
+		projects:  projects,
 		catalog:   catalog,
 		installer: inst,
 		runner:    runner,
@@ -474,6 +474,21 @@ func (s *SoftwareService) List(ctx context.Context) ([]SoftwareView, error) {
 	if s.settings != nil {
 		currentSettings, _ = s.settings.Load(ctx)
 	}
+	portsToFind := make([]int, 0)
+	for _, item := range list {
+		if software.IsDaemon(item.Kind) && item.Port > 0 {
+			portsToFind = append(portsToFind, item.Port)
+		}
+	}
+	listenerSnapshot, hasListenerSnapshot := s.probe.(interface {
+		ListeningPIDs([]int) map[int]int
+	})
+	listenerPIDs := make(map[int]int)
+	imageNames := map[int]string{}
+	if hasListenerSnapshot && len(portsToFind) > 0 {
+		listenerPIDs = listenerSnapshot.ListeningPIDs(portsToFind)
+		imageNames = process.ImageNames()
+	}
 	for _, item := range list {
 		if !software.IsValidKind(item.Kind) {
 			continue
@@ -482,7 +497,14 @@ func (s *SoftwareService) List(ctx context.Context) ([]SoftwareView, error) {
 		if software.IsDaemon(item.Kind) {
 			status := s.runner.Status(daemonKey(item.ID))
 			if !status.Running {
-				status = s.externalStatus(item)
+				if hasListenerSnapshot {
+					pid := listenerPIDs[item.Port]
+					if matchesServiceProcess(imageNames[pid], item.Kind) {
+						status = ports.Status{Running: true, PID: pid}
+					}
+				} else {
+					status = s.externalStatus(item)
+				}
 			}
 			view.Running = status.Running
 			view.PID = status.PID
@@ -496,6 +518,15 @@ func (s *SoftwareService) List(ctx context.Context) ([]SoftwareView, error) {
 		views = append(views, view)
 	}
 	return views, nil
+}
+
+func matchesServiceProcess(imageName, kind string) bool {
+	for _, name := range serviceProcessNames(kind) {
+		if strings.EqualFold(imageName, name) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *SoftwareService) Versions(ctx context.Context, kind string) ([]software.Version, error) {
@@ -723,13 +754,13 @@ func (s *SoftwareService) Remove(ctx context.Context, id int64) error {
 		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "移除系统自启动失败")
 	}
 
-	boundSites, err := s.sites.ListBySoftware(ctx, item.ID)
+	boundProjects, err := s.projects.ListBySoftware(ctx, item.ID)
 	if err != nil {
 		return err
 	}
-	if len(boundSites) > 0 {
-		names := make([]string, 0, len(boundSites))
-		for _, bound := range boundSites {
+	if len(boundProjects) > 0 {
+		names := make([]string, 0, len(boundProjects))
+		for _, bound := range boundProjects {
 			names = append(names, bound.Name)
 		}
 		return appErrors.New(

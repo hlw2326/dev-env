@@ -8,7 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"devenv/internal/domain/site"
+	"devenv/internal/domain/project"
 	"devenv/internal/domain/software"
 	appErrors "devenv/internal/shared/errors"
 )
@@ -37,7 +37,7 @@ func TestRepositories(t *testing.T) {
 
 	ctx := context.Background()
 	softwareRepo := NewSoftwareRepository(db.DB)
-	siteRepo := NewSiteRepository(db.DB)
+	projectRepo := NewProjectRepository(db.DB)
 	settingRepo := NewSettingRepository(db.DB)
 
 	settings, err := settingRepo.Load(ctx)
@@ -59,27 +59,27 @@ func TestRepositories(t *testing.T) {
 		t.Fatalf("create software: %v", err)
 	}
 
-	firstSite := &site.Site{
+	firstProject := &project.Project{
 		Name:      "blog",
-		Kind:      site.KIND_PHP,
+		Kind:      project.KIND_PHP,
 		Hosts:     []string{"blog.localhost"},
 		Root:      `C:\www\blog`,
 		Run:       "public",
 		Software:  &php.ID,
 		Autostart: true,
 	}
-	if err := siteRepo.Create(ctx, firstSite); err != nil {
-		t.Fatalf("create site: %v", err)
+	if err := projectRepo.Create(ctx, firstProject); err != nil {
+		t.Fatalf("create project: %v", err)
 	}
 
-	secondSite := &site.Site{
+	secondProject := &project.Project{
 		Name:      "blog2",
-		Kind:      site.KIND_STATIC,
+		Kind:      project.KIND_STATIC,
 		Hosts:     []string{"blog.localhost"},
 		Root:      `C:\www\blog2`,
 		Autostart: true,
 	}
-	if err := siteRepo.Create(ctx, secondSite); err == nil {
+	if err := projectRepo.Create(ctx, secondProject); err == nil {
 		t.Fatalf("expected duplicate domain error")
 	}
 
@@ -87,11 +87,11 @@ func TestRepositories(t *testing.T) {
 		t.Fatalf("expected ON DELETE RESTRICT error when deleting bound software")
 	}
 
-	if err := siteRepo.Delete(ctx, firstSite.ID); err != nil {
-		t.Fatalf("delete site: %v", err)
+	if err := projectRepo.Delete(ctx, firstProject.ID); err != nil {
+		t.Fatalf("delete project: %v", err)
 	}
 	if err := softwareRepo.Delete(ctx, php.ID); err != nil {
-		t.Fatalf("delete software after site deletion: %v", err)
+		t.Fatalf("delete software after project deletion: %v", err)
 	}
 }
 

@@ -11,22 +11,22 @@ import (
 )
 
 const (
-	APP_FOLDER      = "DevEnv"
-	DATA_FOLDER     = "data"
-	BACKUP_FOLDER   = "backups"
-	SOFTWARE_FOLDER = "software"
-	DBDATA_FOLDER   = "dbdata"
-	CACHE_FOLDER    = "cache"
-	LOG_FOLDER      = "logs"
-	SITE_LOG_FOLDER = "sites"
-	NGINX_FOLDER    = "nginx"
-	VHOST_FOLDER    = "vhosts"
-	TEMP_FOLDER     = "temp"
-	SERVICE_FOLDER  = "services"
-	DB_FILE         = "devenv.db"
-	NGINX_CONFIG    = "nginx.conf"
-	NGINX_PID       = "nginx.pid"
-	LOOPBACK        = "127.0.0.1"
+	APP_FOLDER         = "DevEnv"
+	DATA_FOLDER        = "data"
+	BACKUP_FOLDER      = "backups"
+	SOFTWARE_FOLDER    = "software"
+	DBDATA_FOLDER      = "dbdata"
+	CACHE_FOLDER       = "cache"
+	LOG_FOLDER         = "logs"
+	PROJECT_LOG_FOLDER = "projects"
+	NGINX_FOLDER       = "nginx"
+	VHOST_FOLDER       = "vhosts"
+	TEMP_FOLDER        = "temp"
+	SERVICE_FOLDER     = "services"
+	DB_FILE            = "devenv.db"
+	NGINX_CONFIG       = "nginx.conf"
+	NGINX_PID          = "nginx.pid"
+	LOOPBACK           = "127.0.0.1"
 )
 
 func Base() string {
@@ -57,8 +57,8 @@ func Cache(base, kind, version string) string {
 	return filepath.Join(base, CACHE_FOLDER, fmt.Sprintf("%s-%s.zip.part", kind, version))
 }
 
-func SiteLog(base, name, file string) string {
-	return filepath.Join(base, LOG_FOLDER, SITE_LOG_FOLDER, name, file)
+func ProjectLog(base, name, file string) string {
+	return filepath.Join(base, LOG_FOLDER, PROJECT_LOG_FOLDER, name, file)
 }
 
 func SoftwareLog(base, kind, version string) string {
@@ -89,11 +89,11 @@ func NginxConfig(base string) string {
 	return filepath.Join(Nginx(base), NGINX_CONFIG)
 }
 
-func NginxSiteConfig(base string, id int64, name string) string {
-	return filepath.Join(NginxHosts(base), NginxSiteConfigName(id, name))
+func NginxProjectConfig(base string, id int64, name string) string {
+	return filepath.Join(NginxHosts(base), NginxProjectConfigName(id, name))
 }
 
-func NginxSiteConfigName(id int64, name string) string {
+func NginxProjectConfigName(id int64, name string) string {
 	var builder strings.Builder
 	separator := false
 	for _, char := range strings.TrimSpace(name) {

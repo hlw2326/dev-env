@@ -242,6 +242,32 @@ func ImageName(pid int) string {
 	return strings.TrimSpace(record[0])
 }
 
+// ImageNames returns executable names for all visible Windows processes in one
+// system query. It is used when several external service PIDs must be checked.
+func ImageNames() map[int]string {
+	command := exec.Command("tasklist", "/FO", "CSV", "/NH")
+	output, err := command.Output()
+	if err != nil {
+		return map[int]string{}
+	}
+	reader := csv.NewReader(strings.NewReader(string(output)))
+	result := make(map[int]string)
+	for {
+		record, err := reader.Read()
+		if err != nil {
+			break
+		}
+		if len(record) < 2 {
+			continue
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(record[1]))
+		if err == nil && pid > 0 {
+			result[pid] = strings.TrimSpace(record[0])
+		}
+	}
+	return result
+}
+
 // MatchesImageName reports whether a process belongs to one of the expected executables.
 func MatchesImageName(pid int, names ...string) bool {
 	imageName := ImageName(pid)
