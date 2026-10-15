@@ -12,24 +12,26 @@ type ConfigResult struct {
 }
 
 type ProjectDTO struct {
-	ID        int64    `json:"id"`
-	Name      string   `json:"name"`
-	Kind      string   `json:"kind"`
-	Hosts     []string `json:"hosts"`
-	Root      string   `json:"root"`
-	Run       string   `json:"run"`
-	Path      string   `json:"path"`
-	Software  *int64   `json:"software"`
-	Version   string   `json:"version"`
-	Command   string   `json:"command"`
-	Nginx     string   `json:"nginx"`
-	Port      int      `json:"port"`
-	Autostart bool     `json:"autostart"`
-	State     string   `json:"state"`
-	URL       string   `json:"url"`
-	Need      string   `json:"need"`
-	Created   string   `json:"created"`
-	Updated   string   `json:"updated"`
+	ID               int64    `json:"id"`
+	Name             string   `json:"name"`
+	Kind             string   `json:"kind"`
+	Hosts            []string `json:"hosts"`
+	Root             string   `json:"root"`
+	Run              string   `json:"run"`
+	Path             string   `json:"path"`
+	Software         *int64   `json:"software"`
+	Version          string   `json:"version"`
+	Command          string   `json:"command"`
+	Nginx            string   `json:"nginx"`
+	EnvironmentFile  string   `json:"environmentFile"`
+	EnvironmentFiles []string `json:"environmentFiles"`
+	Port             int      `json:"port"`
+	Autostart        bool     `json:"autostart"`
+	State            string   `json:"state"`
+	URL              string   `json:"url"`
+	Need             string   `json:"need"`
+	Created          string   `json:"created"`
+	Updated          string   `json:"updated"`
 }
 
 type ProjectTemplateDTO struct {
@@ -55,14 +57,15 @@ type ProjectCreateInput struct {
 }
 
 type ProjectUpdateInput struct {
-	ID        int64    `json:"id"`
-	Hosts     []string `json:"hosts"`
-	Root      string   `json:"root"`
-	Run       string   `json:"run"`
-	Software  *int64   `json:"software"`
-	Command   string   `json:"command"`
-	Nginx     string   `json:"nginx"`
-	Autostart bool     `json:"autostart"`
+	ID              int64    `json:"id"`
+	Hosts           []string `json:"hosts"`
+	Root            string   `json:"root"`
+	Run             string   `json:"run"`
+	Software        *int64   `json:"software"`
+	Command         string   `json:"command"`
+	Nginx           string   `json:"nginx"`
+	EnvironmentFile string   `json:"environmentFile"`
+	Autostart       bool     `json:"autostart"`
 }
 
 type ProjectPluginActionInput struct {

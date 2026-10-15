@@ -101,6 +101,25 @@ func TestMiniProgramProjectKind(t *testing.T) {
 	}
 }
 
+func TestEnvironmentFilesPreferDevelopmentAndStayInProjectRoot(t *testing.T) {
+	folder := t.TempDir()
+	for _, name := range []string{".env.prod", ".env.dev", ".env.example"} {
+		if err := os.WriteFile(filepath.Join(folder, name), []byte("APP_ENV=test"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	files := FindEnvironmentFiles(folder)
+	if len(files) != 2 || DefaultEnvironmentFile(folder) != ".env.dev" {
+		t.Fatalf("unexpected environment files: %#v", files)
+	}
+	if got, err := NormalizeEnvironmentFile(folder, ".env.dev"); err != nil || got != ".env.dev" {
+		t.Fatalf("expected normalized environment file, got %q, err=%v", got, err)
+	}
+	if _, err := NormalizeEnvironmentFile(folder, "../.env.dev"); err == nil {
+		t.Fatal("expected environment file traversal error")
+	}
+}
+
 func TestProjectTemplatesExposeSharedCapabilities(t *testing.T) {
 	phpTemplate, ok := ProjectTemplateForKind(KIND_PHP)
 	if !ok {

@@ -329,6 +329,8 @@ export namespace wails {
 	    version: string;
 	    command: string;
 	    nginx: string;
+	    environmentFile: string;
+	    environmentFiles: string[];
 	    port: number;
 	    autostart: boolean;
 	    state: string;
@@ -354,6 +356,8 @@ export namespace wails {
 	        this.version = source["version"];
 	        this.command = source["command"];
 	        this.nginx = source["nginx"];
+	        this.environmentFile = source["environmentFile"];
+	        this.environmentFiles = source["environmentFiles"];
 	        this.port = source["port"];
 	        this.autostart = source["autostart"];
 	        this.state = source["state"];
@@ -603,6 +607,7 @@ export namespace wails {
 	    software?: number;
 	    command: string;
 	    nginx: string;
+	    environmentFile: string;
 	    autostart: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -618,6 +623,7 @@ export namespace wails {
 	        this.software = source["software"];
 	        this.command = source["command"];
 	        this.nginx = source["nginx"];
+	        this.environmentFile = source["environmentFile"];
 	        this.autostart = source["autostart"];
 	    }
 	}

@@ -521,6 +521,10 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
 	var body string
 	switch route.Kind {
 	case project.KIND_PHP:
+		environmentParameters, err := renderEnvironmentParameters(route.EnvironmentFile)
+		if err != nil {
+			return "", err
+		}
 		body = fmt.Sprintf(`    root %s;
     index index.php index.html index.htm;
 
@@ -558,8 +562,8 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
         fastcgi_param SERVER_NAME $server_name;
         fastcgi_param HTTP_HOST $http_host;
         fastcgi_param REDIRECT_STATUS 200;
-    }
-`, root, NGINX_PHP_CONCURRENCY, PHP_REQUEST_TIMEOUT, paths.LOOPBACK, fastCGIPort)
+%s    }
+`, root, NGINX_PHP_CONCURRENCY, PHP_REQUEST_TIMEOUT, paths.LOOPBACK, fastCGIPort, environmentParameters)
 	case project.KIND_NODE, project.KIND_PYTHON, project.KIND_GO, project.KIND_RUST, project.KIND_JAVA:
 		body = fmt.Sprintf(`    location / {
         proxy_pass http://%s:%d;
@@ -618,6 +622,69 @@ func indentNginx(config string) string {
 		lines[index] = "    " + trimmed
 	}
 	return strings.Join(lines, "\n")
+}
+
+func renderEnvironmentParameters(file string) (string, error) {
+	if strings.TrimSpace(file) == "" {
+		return "", nil
+	}
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "读取 PHP 环境变量文件失败")
+	}
+	values := make(map[string]string)
+	for lineNumber, line := range strings.Split(strings.TrimPrefix(string(content), "\ufeff"), "\n") {
+		line = strings.TrimSpace(strings.TrimSuffix(line, "\r"))
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		separator := strings.IndexByte(line, '=')
+		if separator < 1 {
+			return "", appErrors.New(appErrors.INVALID_ARGUMENT, fmt.Sprintf("PHP 环境变量文件第 %d 行格式无效", lineNumber+1))
+		}
+		key := strings.TrimSpace(line[:separator])
+		if !validEnvironmentKey(key) {
+			return "", appErrors.New(appErrors.INVALID_ARGUMENT, fmt.Sprintf("PHP 环境变量名称无效: %s", key))
+		}
+		value := strings.TrimSpace(line[separator+1:])
+		if len(value) >= 2 {
+			first := value[0]
+			last := value[len(value)-1]
+			if (first == '\'' && last == '\'') || (first == '"' && last == '"') {
+				value = value[1 : len(value)-1]
+			}
+		}
+		values[key] = value
+	}
+
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var builder strings.Builder
+	for _, key := range keys {
+		builder.WriteString("        fastcgi_param ")
+		builder.WriteString(key)
+		builder.WriteByte(' ')
+		builder.WriteString(nginxQuote(values[key]))
+		builder.WriteString(";\n")
+	}
+	return builder.String(), nil
+}
+
+func validEnvironmentKey(value string) bool {
+	if value == "" {
+		return false
+	}
+	for index, character := range value {
+		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || character == '_' || (index > 0 && character >= '0' && character <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func renderOverview(routes []ports.Route) string {

@@ -125,6 +125,7 @@ function saveForm(): void {
 		software: softwareId.value,
 		command: command.value,
 		nginx: props.project.nginx,
+		environmentFile: props.project.environmentFile,
 		autostart: autostart.value,
 	})
 }

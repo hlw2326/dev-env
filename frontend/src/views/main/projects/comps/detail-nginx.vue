@@ -13,6 +13,17 @@
 				@click="openConfig"
 			/>
 		</div>
+		<div v-if="project.kind === 'php'" class="environment-field">
+			<label for="php-environment-file">PHP 环境变量文件</label>
+			<p-select
+				id="php-environment-file"
+				v-model="environmentFile"
+				:options="environmentFileOptions"
+				placeholder="自动使用 .env.dev"
+				:disabled="environmentFileOptions.length === 0"
+			/>
+			<span class="hint">启动 PHP 项目时，DevEnv 会将文件内容作为 FastCGI 环境变量传给应用；优先自动读取 .env.dev。</span>
+		</div>
 		<comp-nginx-preview :project-id="project.id" />
 		<div class="editor-toolbar">
 			<label for="nginx-snippet">插入常用指令</label>
@@ -67,6 +78,7 @@ const props = defineProps<{ project: Project }>()
 const emit = defineEmits<{ save: [input: ProjectUpdateInput] }>()
 
 const nginx = ref('')
+const environmentFile = ref('')
 const selectedSnippet = ref('')
 const editor = ref<HTMLTextAreaElement | null>(null)
 const lineNumbers = ref<HTMLDivElement | null>(null)
@@ -82,6 +94,14 @@ const snippetOptions = computed(() => [
 	{ label: '选择指令模板', value: '' },
 	...snippets,
 ])
+
+const environmentFileOptions = computed(() => {
+	const options = [...props.project.environmentFiles]
+	if (environmentFile.value !== '' && !options.includes(environmentFile.value)) {
+		options.unshift(environmentFile.value)
+	}
+	return options
+})
 
 const lineCount = computed(() => Math.max(1, nginx.value.split('\n').length))
 const validationMessage = computed(() => validateNginxConfig(nginx.value))
@@ -196,6 +216,7 @@ function saveForm(): void {
 		software: props.project.software,
 		command: props.project.command,
 		nginx: nginx.value,
+		environmentFile: environmentFile.value,
 		autostart: props.project.autostart,
 	})
 }
@@ -206,6 +227,7 @@ watch(
 	() => props.project,
 	(item) => {
 		nginx.value = item.nginx
+		environmentFile.value = item.environmentFile
 	},
 	{ immediate: true },
 )
@@ -223,6 +245,12 @@ watch(
 	align-items: center;
 	justify-content: space-between;
 	gap: 0.75rem;
+}
+
+.environment-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
 }
 
 .hint {

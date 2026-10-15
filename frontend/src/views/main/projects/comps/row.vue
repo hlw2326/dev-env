@@ -234,6 +234,14 @@ function confirmDelete(event: MouseEvent): void {
 	gap: 0.75rem;
 	flex-wrap: wrap;
 }
+.top-line > .status-pill {
+	gap: 0.25rem;
+	padding: 0.05rem 0.35rem;
+}
+.top-line > .status-pill .dot {
+	width: 0.3rem;
+	height: 0.3rem;
+}
 .name {
 	font-size: var(--font-lg);
 	color: var(--text-primary);

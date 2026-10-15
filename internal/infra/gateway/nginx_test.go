@@ -61,6 +61,29 @@ func TestRenderPHPRouteUsesPathInfoFallback(t *testing.T) {
 	}
 }
 
+func TestRenderPHPRouteIncludesEnvironmentFile(t *testing.T) {
+	file := filepath.Join(t.TempDir(), ".env.dev")
+	if err := os.WriteFile(file, []byte("APP_ENV=dev\nDB_HOST=127.0.0.1\n# ignored\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config, err := renderRoute(80, ports.Route{
+		ID:              5,
+		Hosts:           []string{"env.localhost"},
+		Kind:            project.KIND_PHP,
+		Path:            `C:\projects\env\public`,
+		EnvironmentFile: file,
+		Log:             `C:\logs\env\access.log`,
+	}, 9001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"fastcgi_param APP_ENV \"dev\";", "fastcgi_param DB_HOST \"127.0.0.1\";"} {
+		if !strings.Contains(config, expected) {
+			t.Fatalf("expected generated config to contain %q\n%s", expected, config)
+		}
+	}
+}
+
 func TestRenderNodeRouteSupportsWebSocket(t *testing.T) {
 	config, err := renderRoute(8080, ports.Route{
 		ID:    2,

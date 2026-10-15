@@ -66,14 +66,15 @@ func (a *ProjectAPI) Create(in ProjectCreateInput) (*ProjectDTO, error) {
 
 func (a *ProjectAPI) Update(in ProjectUpdateInput) (*ProjectDTO, error) {
 	item, err := a.service.Update(a.ctx, project.UpdateInput{
-		ID:        in.ID,
-		Hosts:     in.Hosts,
-		Root:      in.Root,
-		Run:       in.Run,
-		Software:  in.Software,
-		Command:   in.Command,
-		Nginx:     in.Nginx,
-		Autostart: in.Autostart,
+		ID:              in.ID,
+		Hosts:           in.Hosts,
+		Root:            in.Root,
+		Run:             in.Run,
+		Software:        in.Software,
+		Command:         in.Command,
+		Nginx:           in.Nginx,
+		EnvironmentFile: in.EnvironmentFile,
+		Autostart:       in.Autostart,
 	})
 	if err != nil {
 		return nil, err
@@ -240,24 +241,26 @@ func convertProject(view app.ProjectView) ProjectDTO {
 		hosts = make([]string, 0)
 	}
 	return ProjectDTO{
-		ID:        view.ID,
-		Name:      view.Name,
-		Kind:      view.Kind,
-		Hosts:     hosts,
-		Root:      view.Root,
-		Run:       view.Run,
-		Path:      view.Path,
-		Software:  view.Software,
-		Version:   view.Version,
-		Command:   view.Command,
-		Nginx:     view.Nginx,
-		Port:      view.Port,
-		Autostart: view.Autostart,
-		State:     view.State,
-		URL:       view.URL,
-		Need:      view.Need,
-		Created:   view.Created,
-		Updated:   view.Updated,
+		ID:               view.ID,
+		Name:             view.Name,
+		Kind:             view.Kind,
+		Hosts:            hosts,
+		Root:             view.Root,
+		Run:              view.Run,
+		Path:             view.Path,
+		Software:         view.Software,
+		Version:          view.Version,
+		Command:          view.Command,
+		Nginx:            view.Nginx,
+		EnvironmentFile:  view.EnvironmentFile,
+		EnvironmentFiles: append([]string{}, view.EnvironmentFiles...),
+		Port:             view.Port,
+		Autostart:        view.Autostart,
+		State:            view.State,
+		URL:              view.URL,
+		Need:             view.Need,
+		Created:          view.Created,
+		Updated:          view.Updated,
 	}
 }
 

@@ -28,20 +28,20 @@ const (
 )
 
 type Project struct {
-	ID        int64    `json:"id"`
-	Name      string   `json:"name"`
-	Kind      string   `json:"kind"`
-	Hosts     []string `json:"hosts"`
-	Root      string   `json:"root"`
-	Run       string   `json:"run"`
-	Software  *int64   `json:"software"`
-	Command   string   `json:"command"`
-	Nginx     string   `json:"nginx"`
-	EnvironmentFile string `json:"environmentFile"`
-	Port      int      `json:"port"`
-	Autostart bool     `json:"autostart"`
-	Created   string   `json:"created"`
-	Updated   string   `json:"updated"`
+	ID              int64    `json:"id"`
+	Name            string   `json:"name"`
+	Kind            string   `json:"kind"`
+	Hosts           []string `json:"hosts"`
+	Root            string   `json:"root"`
+	Run             string   `json:"run"`
+	Software        *int64   `json:"software"`
+	Command         string   `json:"command"`
+	Nginx           string   `json:"nginx"`
+	EnvironmentFile string   `json:"environmentFile"`
+	Port            int      `json:"port"`
+	Autostart       bool     `json:"autostart"`
+	Created         string   `json:"created"`
+	Updated         string   `json:"updated"`
 }
 
 type CreateInput struct {
@@ -54,15 +54,15 @@ type CreateInput struct {
 }
 
 type UpdateInput struct {
-	ID        int64    `json:"id"`
-	Hosts     []string `json:"hosts"`
-	Root      string   `json:"root"`
-	Run       string   `json:"run"`
-	Software  *int64   `json:"software"`
-	Command   string   `json:"command"`
-	Nginx     string   `json:"nginx"`
-	EnvironmentFile string `json:"environmentFile"`
-	Autostart bool     `json:"autostart"`
+	ID              int64    `json:"id"`
+	Hosts           []string `json:"hosts"`
+	Root            string   `json:"root"`
+	Run             string   `json:"run"`
+	Software        *int64   `json:"software"`
+	Command         string   `json:"command"`
+	Nginx           string   `json:"nginx"`
+	EnvironmentFile string   `json:"environmentFile"`
+	Autostart       bool     `json:"autostart"`
 }
 
 func IsValidKind(kind string) bool {

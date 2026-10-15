@@ -32,12 +32,12 @@ const (
 
 type ProjectView struct {
 	project.Project
-	Path    string
+	Path             string
 	EnvironmentFiles []string
-	Version string
-	State   string
-	URL     string
-	Need    string
+	Version          string
+	State            string
+	URL              string
+	Need             string
 }
 
 type ProjectService struct {
@@ -329,16 +329,16 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 	}
 
 	created := &project.Project{
-		Name:      name,
-		Kind:      kind,
-		Hosts:     make([]string, 0),
-		Root:      root,
-		Run:       runFolder,
-		Software:  softwareID,
-		Command:   command,
+		Name:            name,
+		Kind:            kind,
+		Hosts:           make([]string, 0),
+		Root:            root,
+		Run:             runFolder,
+		Software:        softwareID,
+		Command:         command,
 		EnvironmentFile: environmentFile,
-		Port:      port,
-		Autostart: !isLocal,
+		Port:            port,
+		Autostart:       !isLocal,
 	}
 	if !isLocal {
 		created.Hosts = []string{host}
@@ -949,16 +949,16 @@ func (s *ProjectService) syncRoutes(ctx context.Context) error {
 			}
 		}
 		routes = append(routes, ports.Route{
-			ID:    item.ID,
-			Name:  item.Name,
-			Hosts: item.Hosts,
-			Kind:  item.Kind,
-			Path:  project.ResolvePath(item.Root, item.Run),
-			PHP:   phpBinary,
-			Nginx: item.Nginx,
+			ID:              item.ID,
+			Name:            item.Name,
+			Hosts:           item.Hosts,
+			Kind:            item.Kind,
+			Path:            project.ResolvePath(item.Root, item.Run),
+			PHP:             phpBinary,
+			Nginx:           item.Nginx,
 			EnvironmentFile: environmentFile,
-			Port:  item.Port,
-			Log:   paths.ProjectLog(s.base, item.Name, "access.log"),
+			Port:            item.Port,
+			Log:             paths.ProjectLog(s.base, item.Name, "access.log"),
 		})
 	}
 	return s.nginx.SetRoutes(routes)
@@ -1043,12 +1043,12 @@ func (s *ProjectService) buildView(item project.Project, softwareMap map[int64]s
 	}
 
 	return ProjectView{
-		Project: item,
-		Path:    docPath,
-		Version: version,
-		State:   state,
-		URL:     projectURL,
-		Need:    need,
+		Project:          item,
+		Path:             docPath,
+		Version:          version,
+		State:            state,
+		URL:              projectURL,
+		Need:             need,
 		EnvironmentFiles: project.FindEnvironmentFiles(item.Root),
 	}
 }

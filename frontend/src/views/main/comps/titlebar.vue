@@ -28,7 +28,6 @@
 				<i v-if="theme.mode === 'dark'" class="pi pi-sun toggle-icon"></i>
 				<i v-else class="pi pi-moon toggle-icon"></i>
 			</p-button>
-			<span class="badge font-mono">Win64 · Go & Wails</span>
 			<comp-window />
 		</div>
 	</header>
