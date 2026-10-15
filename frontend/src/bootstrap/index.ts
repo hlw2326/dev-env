@@ -6,14 +6,16 @@ import { definePreset } from '@primevue/themes'
 import Aura from '@primevue/themes/aura'
 import { router } from '@/router'
 import { pinia } from '@/store'
-import { initTheme, setThemeMode } from '@/composables/theme'
+import { initTheme, setMode } from '@/composables/theme'
 import { loadSettings } from '@/api'
+import { toast, formatError } from '@/utils'
 
 import 'primeicons/primeicons.css'
 import '@/assets/css/style.css'
 import '@/assets/css/primevue.css'
 
-export const DevEnvPreset = definePreset(Aura, {
+// PrimeVue Aura 主题预设
+export const AuraPreset = definePreset(Aura, {
 	semantic: {
 		primary: {
 			50: '{slate.50}',
@@ -49,13 +51,14 @@ export const DevEnvPreset = definePreset(Aura, {
 	},
 })
 
-export function bootstrap(app: App) {
+// 启动引导注册插件与主题
+export function bootstrap(app: App): void {
 	app.use(pinia)
 	app.use(router)
 	app.use(PrimeVue, {
 		ripple: false,
 		theme: {
-			preset: DevEnvPreset,
+			preset: AuraPreset,
 			options: {
 				darkModeSelector: '.dark',
 			},
@@ -66,10 +69,12 @@ export function bootstrap(app: App) {
 
 	initTheme()
 	loadSettings()
-		.then((cfg) => {
-			if (cfg.theme === 'light' || cfg.theme === 'dark' || cfg.theme === 'system') {
-				setThemeMode(cfg.theme)
+		.then((settings) => {
+			if (settings.theme === 'light' || settings.theme === 'dark' || settings.theme === 'system') {
+				setMode(settings.theme)
 			}
 		})
-		.catch(() => {})
+		.catch((err: unknown) => {
+			toast.error('加载设置失败', formatError(err))
+		})
 }

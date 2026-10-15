@@ -1,42 +1,31 @@
 import * as SiteAPI from '../../wailsjs/go/wails/SiteAPI'
-import type { Site, CreateSiteInput, UpdateSiteInput, Result } from '@/types'
 
-export async function listSites(): Promise<Site[]> {
-	return await SiteAPI.List()
-}
+// 获取站点列表
+export const listSites = SiteAPI.List
 
-export async function getSite(id: number): Promise<Site> {
-	return await SiteAPI.Get(id)
-}
+// 获取单个站点详情
+export const getSite = SiteAPI.Get
 
-export async function createSite(input: CreateSiteInput): Promise<Site> {
-	return await SiteAPI.Create(input)
-}
+// 创建站点
+export const createSite = SiteAPI.Create
 
-export async function updateSite(input: UpdateSiteInput): Promise<Site> {
-	return await SiteAPI.Update(input)
-}
+// 更新站点配置
+export const updateSite = SiteAPI.Update
 
-export async function findRun(root: string, kind: string): Promise<string> {
-	return await SiteAPI.FindRun(root, kind)
-}
+// 自动探测运行目录
+export const findRun = SiteAPI.FindRun
 
-export async function startSite(id: number): Promise<Result> {
-	return await SiteAPI.Start(id)
-}
+// 启动站点
+export const startSite = SiteAPI.Start
 
-export async function stopSite(id: number): Promise<Result> {
-	return await SiteAPI.Stop(id)
-}
+// 停止站点
+export const stopSite = SiteAPI.Stop
 
-export async function restartSite(id: number): Promise<Result> {
-	return await SiteAPI.Restart(id)
-}
+// 重启站点
+export const restartSite = SiteAPI.Restart
 
-export async function deleteSite(id: number): Promise<Result> {
-	return await SiteAPI.Delete(id)
-}
+// 删除站点记录
+export const deleteSite = SiteAPI.Delete
 
-export async function loadSiteLogs(id: number, kind: string, limit: number): Promise<string[]> {
-	return await SiteAPI.Logs(id, kind, limit)
-}
+// 读取站点日志
+export const readLogs = SiteAPI.Logs

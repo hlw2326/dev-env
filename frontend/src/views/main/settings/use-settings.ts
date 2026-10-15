@@ -1,25 +1,35 @@
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useToast } from 'primevue/usetoast'
-import { loadSettings, saveSettings, pickFolder, openFolder, loadDataFolder } from '@/api'
+import { ref, reactive, computed } from 'vue'
+import { loadSettings, saveSettings, pickFolder, openFolder, loadFolder } from '@/api'
 import { useTheme, type ThemeMode } from '@/composables/theme'
+import { toast, formatError } from '@/utils'
 
+// 设置表单状态
+const form = reactive({
+	theme: 'light',
+	root: '',
+	port: 80,
+	hosts: false,
+})
+
+// 网关监听状态
+const listening = ref(false)
+
+// 网关错误消息
+const gatewayError = ref('')
+
+// 应用数据目录路径
+const dataFolder = ref('')
+
+// 保存中状态
+const saving = ref(false)
+
+// 全局设置组合式函数
 export function useSettings() {
-	const toast = useToast()
-	const { theme, setThemeMode, setThemeColor, THEME_COLORS } = useTheme()
+	// 主题状态与操作函数
+	const { theme, setMode, setColor, THEME_COLORS } = useTheme()
 
-	const form = reactive({
-		theme: 'light',
-		root: '',
-		port: 80,
-		hosts: false,
-		autostart: false,
-	})
-	const listening = ref(false)
-	const gatewayError = ref('')
-	const dataFolder = ref('')
-	const saving = ref(false)
-
-	const currentColorName = computed(() => {
+	// 当前强调色显示名称
+	const colorName = computed(() => {
 		const matched = THEME_COLORS.find((item) => item.value.toLowerCase() === theme.color.toLowerCase())
 		if (matched) {
 			return matched.name
@@ -27,105 +37,119 @@ export function useSettings() {
 		return theme.color
 	})
 
-	async function fetchSettings() {
+	// 加载后端全局设置与数据目录
+	async function fetchData(): Promise<void> {
 		try {
-			const [cfg, folder] = await Promise.all([loadSettings(), loadDataFolder()])
-			form.theme = cfg.theme
-			form.root = cfg.root
-			form.port = cfg.port
-			form.hosts = cfg.hosts
-			form.autostart = cfg.autostart
-			listening.value = cfg.listening
-			gatewayError.value = cfg.error
+			const [settings, folder] = await Promise.all([loadSettings(), loadFolder()])
+			form.theme = settings.theme
+			form.root = settings.root
+			form.port = settings.port
+			form.hosts = settings.hosts
+			listening.value = settings.listening
+			gatewayError.value = settings.error
 			dataFolder.value = folder
-			if (cfg.theme === 'dark' || cfg.theme === 'system') {
-				setThemeMode(cfg.theme)
+			if (settings.theme === 'dark' || settings.theme === 'system') {
+				setMode(settings.theme)
 			} else {
-				setThemeMode('light')
+				setMode('light')
 			}
-		} catch (err) {
-			toast.add({ severity: 'error', summary: '读取设置失败', detail: String(err), life: 3000 })
+		} catch (err: unknown) {
+			toast.error('读取设置失败', formatError(err))
 		}
 	}
 
-	async function selectTheme(mode: ThemeMode) {
+	// 切换主题色彩模式并即时持久化
+	async function selectTheme(mode: ThemeMode): Promise<void> {
 		form.theme = mode
-		setThemeMode(mode)
+		setMode(mode)
 		if (form.root !== '') {
-			await saveSettings({
-				theme: mode,
-				root: form.root,
-				port: Number(form.port),
-				hosts: form.hosts,
-				autostart: form.autostart,
-			})
+			try {
+				await saveSettings({
+					theme: mode,
+					root: form.root,
+					port: Number(form.port),
+					hosts: form.hosts,
+				})
+			} catch (err: unknown) {
+				toast.error('保存主题失败', formatError(err))
+			}
 		}
 	}
 
-	function selectColor(color: string) {
-		setThemeColor(color)
+	// 切换主题强调色
+	function selectColor(color: string): void {
+		setColor(color)
 	}
 
-	async function pickRoot() {
-		const picked = await pickFolder('选择默认站点父目录')
-		if (picked !== '') {
-			form.root = picked
+	// 选择默认站点父目录
+	async function pickRoot(): Promise<void> {
+		try {
+			const picked = await pickFolder('选择默认站点父目录')
+			if (picked !== '') {
+				form.root = picked
+			}
+		} catch (err: unknown) {
+			toast.error('选择目录失败', formatError(err))
 		}
 	}
 
-	async function save() {
+	// 保存全部全局设置
+	async function saveAll(): Promise<void> {
 		saving.value = true
 		try {
-			const res = await saveSettings({
+			const result = await saveSettings({
 				theme: form.theme,
 				root: form.root,
 				port: Number(form.port),
 				hosts: form.hosts,
-				autostart: form.autostart,
 			})
 			if (form.theme === 'dark' || form.theme === 'system') {
-				setThemeMode(form.theme)
+				setMode(form.theme)
 			} else {
-				setThemeMode('light')
+				setMode('light')
 			}
-			await fetchSettings()
-			if (!res.ok) {
-				toast.add({ severity: 'error', summary: '保存设置存在问题', detail: res.message, life: 4500 })
+			await fetchData()
+			if (!result.ok) {
+				toast.error('保存设置存在问题', result.message, 4500)
 				return
 			}
-			toast.add({ severity: 'success', summary: '设置已保存', detail: res.message, life: 2000 })
+			toast.success('设置已保存', result.message)
+		} catch (err: unknown) {
+			toast.error('保存设置失败', formatError(err))
 		} finally {
 			saving.value = false
 		}
 	}
 
-	async function openData() {
+	// 打开应用数据目录
+	async function openData(): Promise<void> {
 		if (dataFolder.value === '') {
 			return
 		}
-		const res = await openFolder(dataFolder.value)
-		if (!res.ok) {
-			toast.add({ severity: 'error', summary: '打开目录失败', detail: res.message, life: 3000 })
+		try {
+			const result = await openFolder(dataFolder.value)
+			if (!result.ok) {
+				toast.error('打开目录失败', result.message)
+			}
+		} catch (err: unknown) {
+			toast.error('打开目录失败', formatError(err))
 		}
 	}
-
-	onMounted(() => {
-		fetchSettings()
-	})
 
 	return {
 		form,
 		theme,
 		THEME_COLORS,
-		currentColorName,
+		colorName,
 		listening,
 		gatewayError,
 		dataFolder,
 		saving,
+		fetchData,
 		selectTheme,
 		selectColor,
 		pickRoot,
-		save,
+		saveAll,
 		openData,
 	}
 }

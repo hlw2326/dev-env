@@ -1,282 +1,288 @@
-/* ===== 扁平化 Button ===== */
+/* 扁平化 Button */
 .p-button {
-  font-weight: 400 !important;
-  box-shadow: none !important;
-  border-radius: var(--radius-md) !important;
-  font-size: var(--font-sm) !important;
-  transition: none !important;
-  animation: none !important;
-  transform: none !important;
+	font-weight: 400 !important;
+	box-shadow: none !important;
+	border-radius: var(--radius-md) !important;
+	font-size: var(--font-sm) !important;
+	transition: none !important;
+	animation: none !important;
+	transform: none !important;
 }
 
 .p-button:hover,
 .p-button:focus,
 .p-button:active {
-  transition: none !important;
-  animation: none !important;
-  transform: none !important;
+	transition: none !important;
+	animation: none !important;
+	transform: none !important;
 }
 
 .p-button .p-button-label {
-  font-weight: 400 !important;
+	font-weight: 400 !important;
 }
 
-/* ===== 扁平化 Tag 徽章 ===== */
+/* 扁平化 Tag 徽章 */
 .p-tag {
-  box-shadow: none !important;
-  font-weight: 400 !important;
-  border: 1px solid var(--border-color) !important;
-  background: var(--bg-app) !important;
-  color: var(--text-secondary) !important;
-  border-radius: var(--radius-sm) !important;
-  font-size: var(--font-xs) !important;
+	box-shadow: none !important;
+	font-weight: 400 !important;
+	border: 1px solid var(--border-color) !important;
+	background: var(--bg-app) !important;
+	color: var(--text-secondary) !important;
+	border-radius: var(--radius-sm) !important;
+	font-size: var(--font-xs) !important;
 }
 
-/* ===== 精简 DataTable ===== */
+/* 精简 DataTable */
 .p-datatable .p-datatable-thead > tr > th {
-  background: var(--bg-card) !important;
-  border-bottom: 1px solid var(--border-color) !important;
-  font-size: var(--font-sm) !important;
-  font-weight: 400 !important;
-  color: var(--text-secondary) !important;
-  padding: 0.75rem 1rem !important;
+	background: var(--bg-card) !important;
+	border-bottom: 1px solid var(--border-color) !important;
+	font-size: var(--font-sm) !important;
+	font-weight: 400 !important;
+	color: var(--text-secondary) !important;
+	padding: 0.75rem 1rem !important;
 }
 
 .p-datatable .p-datatable-tbody > tr > td {
-  padding: 0.75rem 1rem !important;
-  font-size: var(--font-sm) !important;
-  border-bottom: 1px solid var(--border-color) !important;
-  font-weight: 400 !important;
+	padding: 0.75rem 1rem !important;
+	font-size: var(--font-sm) !important;
+	border-bottom: 1px solid var(--border-color) !important;
+	font-weight: 400 !important;
 }
 
-/* ===== 精简 Dialog ===== */
+/* 精简 Dialog */
 .p-dialog {
-  border-radius: var(--h-radius) !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-  border: 1px solid var(--border-color) !important;
-  background-color: var(--bg-card) !important;
-  color: var(--text-primary) !important;
-  overflow: hidden !important;
+	border-radius: var(--h-radius) !important;
+	border: 1px solid var(--border-color) !important;
+	background-color: var(--bg-card) !important;
+	color: var(--text-primary) !important;
+	overflow: hidden !important;
 }
 
 .p-dialog .p-dialog-header {
-  padding: 12px 18px !important;
-  border-bottom: 1px solid var(--border-color) !important;
-  background-color: var(--bg-card) !important;
-  color: var(--text-primary) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
+	padding: 0.75rem 1.125rem !important;
+	border-bottom: 1px solid var(--border-color) !important;
+	background-color: var(--bg-card) !important;
+	color: var(--text-primary) !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: space-between !important;
 }
 
 .p-dialog .p-dialog-title {
-  font-size: var(--font-lg) !important;
-  font-weight: 400 !important;
-  color: var(--text-primary) !important;
-  line-height: var(--leading-snug) !important;
+	font-size: var(--font-lg) !important;
+	font-weight: 400 !important;
+	color: var(--text-primary) !important;
+	line-height: var(--leading-snug) !important;
 }
 
 .p-dialog .p-dialog-header-actions .p-dialog-close-button,
 .p-dialog .p-dialog-close-button,
 .p-dialog .p-dialog-header-action {
-  width: 26px !important;
-  height: 26px !important;
-  min-width: 26px !important;
-  min-height: 26px !important;
-  padding: 0 !important;
-  border-radius: 4px !important;
-  color: var(--text-secondary) !important;
-  background: transparent !important;
-  border: none !important;
-  outline: none !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+	width: 1.625rem !important;
+	height: 1.625rem !important;
+	min-width: 1.625rem !important;
+	min-height: 1.625rem !important;
+	padding: 0 !important;
+	border-radius: var(--radius-sm) !important;
+	color: var(--text-secondary) !important;
+	background: transparent !important;
+	border: none !important;
+	outline: none !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
 }
 
 .p-dialog .p-dialog-header-actions .p-dialog-close-button:hover,
 .p-dialog .p-dialog-close-button:hover,
 .p-dialog .p-dialog-header-action:hover {
-  background-color: var(--bg-hover) !important;
-  color: var(--text-primary) !important;
+	background-color: var(--bg-hover) !important;
+	color: var(--text-primary) !important;
 }
 
 .p-dialog .p-dialog-content {
-  padding: 1.25rem 1.25rem !important;
-  background-color: var(--bg-card) !important;
-  color: var(--text-primary) !important;
+	padding: 1.25rem !important;
+	background-color: var(--bg-card) !important;
+	color: var(--text-primary) !important;
 }
 
 .p-dialog .p-dialog-footer {
-  padding: 10px 18px !important;
-  border-top: 1px solid var(--border-color) !important;
-  background-color: var(--bg-card) !important;
-  display: flex !important;
-  justify-content: flex-end !important;
-  gap: 0.5rem !important;
+	padding: 0.625rem 1.125rem !important;
+	border-top: 1px solid var(--border-color) !important;
+	background-color: var(--bg-card) !important;
+	display: flex !important;
+	justify-content: flex-end !important;
+	gap: 0.5rem !important;
 }
 
-/* ===== 扁平化 Card ===== */
+/* 扁平化 Card */
 .p-card {
-  box-shadow: none !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: var(--h-radius) !important;
-  background-color: var(--bg-card) !important;
+	box-shadow: none !important;
+	border: 1px solid var(--border-color) !important;
+	border-radius: var(--h-radius) !important;
+	background-color: var(--bg-card) !important;
 }
 
-/* ===== InputText & Select ===== */
-.p-inputtext, .p-select {
-  border-radius: var(--radius-md) !important;
-  border-color: var(--border-color) !important;
-  background-color: var(--bg-app) !important;
-  color: var(--text-primary) !important;
-  font-size: var(--font-sm) !important;
-  font-weight: 400 !important;
+/* InputText & Select */
+.p-inputtext,
+.p-select {
+	border-radius: var(--radius-md) !important;
+	border-color: var(--border-color) !important;
+	background-color: var(--bg-app) !important;
+	color: var(--text-primary) !important;
+	font-size: var(--font-sm) !important;
+	font-weight: 400 !important;
 }
-.p-inputtext:hover, .p-select:hover {
-  border-color: var(--text-secondary) !important;
+
+.p-inputtext:hover,
+.p-select:hover {
+	border-color: var(--text-secondary) !important;
 }
-.p-inputtext:focus, .p-select:focus {
-  border-color: var(--p-primary-color) !important;
-  box-shadow: 0 0 0 2px rgba(51, 65, 85, 0.1) !important;
+
+.p-inputtext:focus,
+.p-select:focus {
+	border-color: var(--p-primary-color) !important;
 }
 
 .p-select-overlay,
 .p-confirmpopup {
-  background-color: var(--bg-card) !important;
-  border-color: var(--border-color) !important;
-  color: var(--text-primary) !important;
+	background-color: var(--bg-card) !important;
+	border-color: var(--border-color) !important;
+	color: var(--text-primary) !important;
 }
 
 .p-select-overlay .p-select-option,
 .p-confirmpopup .p-confirmpopup-message {
-  font-size: var(--font-sm) !important;
-  color: var(--text-primary) !important;
+	font-size: var(--font-sm) !important;
+	color: var(--text-primary) !important;
 }
 
-/* ===== Toast 提示 ===== */
+/* Toast 提示 */
 .p-toast {
-  width: auto !important;
-  max-width: 80vw !important;
-  min-width: 0 !important;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 9999 !important;
+	width: auto !important;
+	max-width: 80vw !important;
+	min-width: 0 !important;
+	pointer-events: none;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	z-index: 9999 !important;
 }
 
 .p-toast.p-toast-top-center {
-  top: 48px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
+	top: 3rem !important;
+	left: 50% !important;
+	transform: translateX(-50%) !important;
 }
 
 .p-toast .p-toast-message {
-  width: auto !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
-  border-radius: var(--h-radius) !important;
-  pointer-events: auto;
-  margin: 0 !important;
-  border: 1px solid var(--border-color) !important;
-  background-color: var(--bg-card) !important;
+	width: auto !important;
+	min-width: 0 !important;
+	max-width: 100% !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	border-radius: var(--h-radius) !important;
+	pointer-events: auto;
+	margin: 0 !important;
+	border: 1px solid var(--border-color) !important;
+	background-color: var(--bg-card) !important;
 }
 
 .p-toast .p-toast-message-content {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  padding: 10px 20px !important;
-  width: auto !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	gap: 0.625rem !important;
+	padding: 0.625rem 1.25rem !important;
+	width: auto !important;
 }
 
 .p-toast .p-toast-message-text {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  flex: 0 1 auto !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	gap: 0.5rem !important;
+	flex: 0 1 auto !important;
 }
 
 .p-toast .p-toast-summary {
-  font-size: var(--font-base) !important;
-  font-weight: 400 !important;
-  margin: 0 !important;
-  line-height: var(--leading-snug) !important;
-  white-space: nowrap !important;
-  color: var(--text-primary) !important;
+	font-size: var(--font-base) !important;
+	font-weight: 400 !important;
+	margin: 0 !important;
+	line-height: var(--leading-snug) !important;
+	white-space: nowrap !important;
+	color: var(--text-primary) !important;
 }
 
 .p-toast .p-toast-detail {
-  font-size: var(--font-sm) !important;
-  font-weight: 400 !important;
-  margin: 0 !important;
-  line-height: var(--leading-snug) !important;
-  color: var(--text-secondary) !important;
+	font-size: var(--font-sm) !important;
+	font-weight: 400 !important;
+	margin: 0 !important;
+	line-height: var(--leading-snug) !important;
+	color: var(--text-secondary) !important;
 }
 
 .p-toast .p-toast-message-icon {
-  font-size: var(--icon-lg) !important;
-  flex-shrink: 0 !important;
+	font-size: var(--icon-lg) !important;
+	flex-shrink: 0 !important;
 }
 
 .p-toast .p-toast-close-button {
-  display: none !important;
+	display: none !important;
 }
 
 .p-toast .p-toast-message:not(:last-child),
 .p-toast .p-toast-message.p-toast-message-leave-active {
-  display: none !important;
+	display: none !important;
 }
 
 .p-toast .p-toast-message-info {
-  background-color: #f0f7ff !important;
-  border-color: #bfdbfe !important;
+	background-color: var(--info-bg) !important;
+	border-color: var(--info-border) !important;
 }
+
 .p-toast .p-toast-message-info .p-toast-message-icon {
-  color: #2563eb !important;
+	color: var(--info) !important;
 }
 
 .p-toast .p-toast-message-success {
-  background-color: #f0fdf4 !important;
-  border-color: #bbf7d0 !important;
+	background-color: var(--ok-bg) !important;
+	border-color: var(--ok-border) !important;
 }
+
 .p-toast .p-toast-message-success .p-toast-message-icon {
-  color: #16a34a !important;
+	color: var(--ok) !important;
 }
 
 .p-toast .p-toast-message-warn {
-  background-color: #fffbeb !important;
-  border-color: #fde68a !important;
+	background-color: var(--warn-bg) !important;
+	border-color: var(--warn-border) !important;
 }
+
 .p-toast .p-toast-message-warn .p-toast-message-icon {
-  color: #d97706 !important;
+	color: var(--warn) !important;
 }
 
 .p-toast .p-toast-message-error {
-  background-color: #fef2f2 !important;
-  border-color: #fecaca !important;
+	background-color: var(--err-bg) !important;
+	border-color: var(--err-border) !important;
 }
+
 .p-toast .p-toast-message-error .p-toast-message-icon {
-  color: #dc2626 !important;
+	color: var(--err) !important;
 }
 
-/* ===== ProgressBar ===== */
+/* ProgressBar */
 .p-progressbar {
-  border-radius: 9999px !important;
-  background: var(--border-color) !important;
+	border-radius: var(--radius-full) !important;
+	background: var(--border-color) !important;
 }
 
-/* ===== 彻底禁用弹窗与浮层淡入淡出动画 ===== */
+/* 禁用弹窗与浮层淡入淡出动画 */
 .p-dialog-enter-active,
 .p-dialog-leave-active,
 .p-dialog-mask-enter-active,
 .p-dialog-mask-leave-active,
 .p-overlay-enter-active,
 .p-overlay-leave-active {
-  transition: none !important;
-  animation: none !important;
+	transition: none !important;
+	animation: none !important;
 }

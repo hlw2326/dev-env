@@ -5,7 +5,7 @@ type Result struct {
 	Message string `json:"message"`
 }
 
-type SaveConfigResult struct {
+type ConfigResult struct {
 	OK      bool   `json:"ok"`
 	Message string `json:"message"`
 	Restart bool   `json:"restart"`
@@ -31,7 +31,7 @@ type SiteDTO struct {
 	Updated   string   `json:"updated"`
 }
 
-type CreateSiteInput struct {
+type CreateInput struct {
 	Kind    string `json:"kind"`
 	Name    string `json:"name"`
 	Host    string `json:"host"`
@@ -40,7 +40,7 @@ type CreateSiteInput struct {
 	Command string `json:"command"`
 }
 
-type UpdateSiteInput struct {
+type UpdateInput struct {
 	ID        int64    `json:"id"`
 	Hosts     []string `json:"hosts"`
 	Root      string   `json:"root"`
@@ -83,7 +83,7 @@ type VersionDTO struct {
 	Note        string `json:"note"`
 }
 
-type ConfigItemDTO struct {
+type ConfigItem struct {
 	Key         string `json:"key"`
 	Label       string `json:"label"`
 	Value       string `json:"value"`
@@ -91,11 +91,11 @@ type ConfigItemDTO struct {
 }
 
 type ConfigDTO struct {
-	Items []ConfigItemDTO `json:"items"`
-	File  string          `json:"file"`
+	Items []ConfigItem `json:"items"`
+	File  string       `json:"file"`
 }
 
-type SaveConfigInput struct {
+type ConfigInput struct {
 	ID    int64             `json:"id"`
 	Items map[string]string `json:"items"`
 }
@@ -115,15 +115,13 @@ type SettingsDTO struct {
 	Root      string `json:"root"`
 	Port      int    `json:"port"`
 	Hosts     bool   `json:"hosts"`
-	Autostart bool   `json:"autostart"`
 	Listening bool   `json:"listening"`
 	Error     string `json:"error"`
 }
 
-type SaveSettingsInput struct {
-	Theme     string `json:"theme"`
-	Root      string `json:"root"`
-	Port      int    `json:"port"`
-	Hosts     bool   `json:"hosts"`
-	Autostart bool   `json:"autostart"`
+type SettingsInput struct {
+	Theme string `json:"theme"`
+	Root  string `json:"root"`
+	Port  int    `json:"port"`
+	Hosts bool   `json:"hosts"`
 }

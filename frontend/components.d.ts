@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     HCard: typeof import('./src/components/h-card/h-card.vue')['default']
+    HEmpty: typeof import('./src/components/h-empty/h-empty.vue')['default']
     HLogo: typeof import('./src/components/h-logo/h-logo.vue')['default']
     HModal: typeof import('./src/components/h-modal/h-modal.vue')['default']
     HPage: typeof import('./src/components/h-page/h-page.vue')['default']
@@ -22,6 +23,7 @@ declare module 'vue' {
     PProgressBar: typeof import('primevue/progressbar')['default']
     PSelect: typeof import('primevue/select')['default']
     PTag: typeof import('primevue/tag')['default']
+    PTextarea: typeof import('primevue/textarea')['default']
     PToast: typeof import('primevue/toast')['default']
     PToggleSwitch: typeof import('primevue/toggleswitch')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

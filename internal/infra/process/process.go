@@ -1,7 +1,6 @@
 package process
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -15,8 +14,10 @@ import (
 	appErrors "devenv/internal/shared/errors"
 )
 
+const EXIT_TAIL_LINES = 5
+
 type entry struct {
-	cmd      *exec.Cmd
+	command  *exec.Cmd
 	pid      int
 	running  bool
 	stopping bool
@@ -33,17 +34,7 @@ type Manager struct {
 func NewManager() *Manager {
 	return &Manager{
 		entries: make(map[string]*entry),
-		job:     newJobObject(),
-	}
-}
-
-func (m *Manager) Adopt(key string, pid int, log string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.entries[key] = &entry{
-		pid:     pid,
-		running: true,
-		log:     log,
+		job:     newJob(),
 	}
 }
 
@@ -57,93 +48,102 @@ func (m *Manager) Start(key string, options ports.Options) (int, error) {
 	m.mu.Unlock()
 
 	if options.Binary == "" {
-		return 0, appErrors.New(appErrors.CodeProcessStartFailed, "可执行文件路径为空")
+		return 0, appErrors.New(appErrors.PROCESS_START_FAILED, "可执行文件路径为空")
 	}
 	if filepath.IsAbs(options.Binary) {
 		if info, err := os.Stat(options.Binary); err != nil || info.IsDir() {
-			return 0, appErrors.New(appErrors.CodeProcessStartFailed, "可执行文件不存在: "+options.Binary)
+			return 0, appErrors.New(appErrors.PROCESS_START_FAILED, "可执行文件不存在: "+options.Binary)
 		}
 	} else {
 		if _, err := exec.LookPath(options.Binary); err != nil {
-			return 0, appErrors.Wrap(err, appErrors.CodeProcessStartFailed, "找不到可执行文件: "+options.Binary)
+			return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "找不到可执行文件: "+options.Binary)
 		}
 	}
 
 	var logFile *os.File
 	if options.Log != "" {
-		if err := os.MkdirAll(filepath.Dir(options.Log), 0755); err != nil {
-			return 0, appErrors.Wrap(err, appErrors.CodeProcessStartFailed, "创建日志目录失败")
+		if err := os.MkdirAll(filepath.Dir(options.Log), 0o755); err != nil {
+			return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "创建日志目录失败")
 		}
-		f, err := os.OpenFile(options.Log, os.O_CREATE|os.O_RDWR, 0644)
+		file, err := os.OpenFile(options.Log, os.O_CREATE|os.O_RDWR, 0o644)
 		if err != nil {
-			return 0, appErrors.Wrap(err, appErrors.CodeProcessStartFailed, "打开日志文件失败")
+			return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "打开日志文件失败")
 		}
-		_, _ = f.Seek(0, io.SeekEnd)
-		logFile = f
+		if _, err := file.Seek(0, io.SeekEnd); err != nil {
+			if closeErr := file.Close(); closeErr != nil {
+				return 0, appErrors.Wrap(closeErr, appErrors.PROCESS_START_FAILED, "关闭日志文件失败")
+			}
+			return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "定位日志文件失败")
+		}
+		logFile = file
 	}
 
-	cmd := exec.Command(options.Binary, options.Args...)
+	command := exec.Command(options.Binary, options.Args...)
 	if options.Directory != "" {
-		cmd.Dir = options.Directory
+		command.Dir = options.Directory
 	}
 	if len(options.Environment) > 0 {
-		cmd.Env = append(os.Environ(), options.Environment...)
+		command.Env = append(os.Environ(), options.Environment...)
 	}
 	if logFile != nil {
-		cmd.Stdout = logFile
-		cmd.Stderr = logFile
+		command.Stdout = logFile
+		command.Stderr = logFile
 	}
-	cmd.SysProcAttr = &syscall.SysProcAttr{
+	command.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow: true,
 	}
 
-	if err := cmd.Start(); err != nil {
+	if err := command.Start(); err != nil {
 		if logFile != nil {
-			_ = logFile.Close()
+			if closeErr := logFile.Close(); closeErr != nil {
+				return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "进程启动失败")
+			}
 		}
-		return 0, appErrors.Wrap(err, appErrors.CodeProcessStartFailed, "进程启动失败")
+		return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "进程启动失败")
 	}
 
-	m.job.assign(cmd.Process)
+	m.job.assign(command.Process)
 
-	pid := cmd.Process.Pid
-	ent := &entry{
-		cmd:     cmd,
+	pid := command.Process.Pid
+	item := &entry{
+		command: command,
 		pid:     pid,
 		running: true,
 		log:     options.Log,
 	}
 
 	m.mu.Lock()
-	m.entries[key] = ent
+	m.entries[key] = item
 	m.mu.Unlock()
 
 	go func() {
-		waitErr := cmd.Wait()
+		waitErr := command.Wait()
 		if logFile != nil {
-			_ = logFile.Close()
+			if closeErr := logFile.Close(); closeErr != nil {
+				logFile = nil
+			}
 		}
 
 		m.mu.Lock()
-		ent.running = false
-		wasStopping := ent.stopping
-		if waitErr != nil && !wasStopping {
-			tailLines := readTailLines(ent.log, 5)
-			if len(tailLines) > 0 {
-				ent.message = strings.Join(tailLines, " | ")
+		item.running = false
+		stopping := item.stopping
+		if waitErr != nil && !stopping {
+			lines := readTail(item.log, EXIT_TAIL_LINES)
+			if len(lines) > 0 {
+				item.message = strings.Join(lines, " | ")
 			} else {
-				ent.message = waitErr.Error()
+				item.message = waitErr.Error()
 			}
-		} else if !wasStopping {
-			ent.message = "进程已退出"
+		} else if !stopping {
+			item.message = "进程已退出"
 		} else {
-			ent.message = ""
+			item.message = ""
 		}
-		msg := ent.message
+		message := item.message
 		m.mu.Unlock()
 
-		if !wasStopping && options.OnExit != nil {
-			options.OnExit(key, msg)
+		if !stopping && options.OnExit != nil {
+			options.OnExit(key, message)
 		}
 	}()
 
@@ -152,29 +152,36 @@ func (m *Manager) Start(key string, options ports.Options) (int, error) {
 
 func (m *Manager) Stop(key string) error {
 	m.mu.Lock()
-	ent, ok := m.entries[key]
+	item, ok := m.entries[key]
 	if !ok {
 		m.mu.Unlock()
 		return nil
 	}
-	if !ent.running || ent.cmd == nil || ent.cmd.Process == nil {
-		ent.running = false
+	if !item.running || item.command == nil || item.command.Process == nil {
+		item.running = false
 		m.mu.Unlock()
 		return nil
 	}
-	ent.stopping = true
-	pid := ent.pid
-	proc := ent.cmd.Process
+	item.stopping = true
+	pid := item.pid
+	proc := item.command.Process
 	m.mu.Unlock()
 
-	killCmd := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(pid))
-	killCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	_ = killCmd.Run()
-	_ = proc.Kill()
+	killer := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(pid))
+	killer.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	if err := killer.Run(); err != nil {
+		if killErr := proc.Kill(); killErr != nil {
+			m.mu.Lock()
+			item.running = false
+			item.message = ""
+			m.mu.Unlock()
+			return nil
+		}
+	}
 
 	m.mu.Lock()
-	ent.running = false
-	ent.message = ""
+	item.running = false
+	item.message = ""
 	m.mu.Unlock()
 	return nil
 }
@@ -182,41 +189,41 @@ func (m *Manager) Stop(key string) error {
 func (m *Manager) Status(key string) ports.Status {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	ent, ok := m.entries[key]
+	item, ok := m.entries[key]
 	if !ok {
 		return ports.Status{}
 	}
 	pid := 0
-	if ent.running {
-		pid = ent.pid
+	if item.running {
+		pid = item.pid
 	}
 	return ports.Status{
-		Running: ent.running,
+		Running: item.running,
 		PID:     pid,
-		Message: ent.message,
+		Message: item.message,
 	}
 }
 
 func (m *Manager) Tail(key string, limit int) []string {
 	m.mu.RLock()
-	ent, ok := m.entries[key]
+	item, ok := m.entries[key]
 	logPath := ""
 	if ok {
-		logPath = ent.log
+		logPath = item.log
 	}
 	m.mu.RUnlock()
 
 	if logPath == "" {
 		return make([]string, 0)
 	}
-	return readTailLines(logPath, limit)
+	return readTail(logPath, limit)
 }
 
-func ReadLogTail(path string, limit int) []string {
-	return readTailLines(path, limit)
+func ReadTail(path string, limit int) []string {
+	return readTail(path, limit)
 }
 
-func readTailLines(path string, limit int) []string {
+func readTail(path string, limit int) []string {
 	if path == "" {
 		return make([]string, 0)
 	}
@@ -229,7 +236,7 @@ func readTailLines(path string, limit int) []string {
 	lines := make([]string, 0, len(parts))
 	for _, line := range parts {
 		if strings.TrimSpace(line) != "" {
-			lines = append(lines, fmt.Sprintf("%s", line))
+			lines = append(lines, line)
 		}
 	}
 	if limit > 0 && len(lines) > limit {

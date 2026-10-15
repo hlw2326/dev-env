@@ -6,8 +6,11 @@ export type ToastType = 'info' | 'success' | 'warn' | 'error' | 'secondary' | 'c
 
 // Toast 全局配置
 export interface ToastConfig {
+	// 持续时长
 	duration?: number
+	// 分组标识
 	group?: string
+	// 是否单条覆盖
 	single?: boolean
 }
 
@@ -15,12 +18,12 @@ export interface ToastConfig {
 let config: ToastConfig = { duration: 2500, single: true }
 
 // 设置 Toast 全局配置
-export function setupToast(options: ToastConfig = {}) {
+export function setupToast(options: ToastConfig): void {
 	config = { ...config, ...options }
 }
 
 // 清除所有或指定分组提示
-export function clearToast(group?: string) {
+export function clearToast(group?: string): void {
 	if (group) {
 		ToastEventBus.emit('remove-group', group)
 	} else {
@@ -29,7 +32,7 @@ export function clearToast(group?: string) {
 }
 
 // 发送一条 Toast 提示
-function show(options: ToastMessageOptions) {
+function show(options: ToastMessageOptions): void {
 	let group = config.group
 	if (options.group) {
 		group = options.group
@@ -50,31 +53,37 @@ function show(options: ToastMessageOptions) {
 		...options,
 		severity,
 		life,
-		group
+		group,
 	})
 }
 
 // 生成快捷级别函数
-const level = (severity: ToastType) => (message: string, detail?: string, life?: number) => {
-	show({ severity, summary: message, detail, life })
+function makeLevel(severity: ToastType) {
+	return (message: string, detail?: string, life?: number): void => {
+		show({ severity, summary: message, detail, life })
+	}
 }
 
 // 全局统一 Toast 调用函数
 export const toast = Object.assign(
-	(msgOrOpts: string | ToastMessageOptions, type: ToastType = 'info') => {
-		if (typeof msgOrOpts === 'string') {
-			show({ severity: type, summary: msgOrOpts })
+	(input: string | ToastMessageOptions, type?: ToastType): void => {
+		if (typeof input === 'string') {
+			let severity: ToastType = 'info'
+			if (type) {
+				severity = type
+			}
+			show({ severity, summary: input })
 		} else {
-			show(msgOrOpts)
+			show(input)
 		}
 	},
 	{
-		info: level('info'),
-		success: level('success'),
-		warn: level('warn'),
-		error: level('error'),
-		clear: clearToast
-	}
+		info: makeLevel('info'),
+		success: makeLevel('success'),
+		warn: makeLevel('warn'),
+		error: makeLevel('error'),
+		clear: clearToast,
+	},
 )
 
 export default toast

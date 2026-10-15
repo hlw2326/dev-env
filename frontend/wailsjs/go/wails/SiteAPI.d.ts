@@ -3,7 +3,7 @@
 import {wails} from '../models';
 import {context} from '../models';
 
-export function Create(arg1:wails.CreateSiteInput):Promise<wails.SiteDTO>;
+export function Create(arg1:wails.CreateInput):Promise<wails.SiteDTO>;
 
 export function Delete(arg1:number):Promise<wails.Result>;
 
@@ -23,4 +23,4 @@ export function Start(arg1:number):Promise<wails.Result>;
 
 export function Stop(arg1:number):Promise<wails.Result>;
 
-export function Update(arg1:wails.UpdateSiteInput):Promise<wails.SiteDTO>;
+export function Update(arg1:wails.UpdateInput):Promise<wails.SiteDTO>;

@@ -11,16 +11,15 @@ import (
 	"devenv/internal/ports"
 )
 
-func TestRunnerLifecycleAndSelfExit(t *testing.T) {
-	mgr := process.NewManager()
-	tmp := t.TempDir()
-	logPath := filepath.Join(tmp, "runner.log")
+func TestLifecycle(t *testing.T) {
+	manager := process.NewManager()
+	folder := t.TempDir()
+	logPath := filepath.Join(folder, "runner.log")
 
-	// Start a long-running ping process
-	pid, err := mgr.Start("test:ping", ports.Options{
+	pid, err := manager.Start("test:ping", ports.Options{
 		Binary:    "cmd.exe",
 		Args:      []string{"/C", "echo", "hello-runner", "&&", "ping", "-n", "30", "127.0.0.1"},
-		Directory: tmp,
+		Directory: folder,
 		Log:       logPath,
 	})
 	if err != nil {
@@ -30,93 +29,89 @@ func TestRunnerLifecycleAndSelfExit(t *testing.T) {
 		t.Fatalf("expected positive pid, got %d", pid)
 	}
 
-	st := mgr.Status("test:ping")
-	if !st.Running || st.PID != pid {
-		t.Fatalf("expected running status with pid %d, got %+v", pid, st)
+	status := manager.Status("test:ping")
+	if !status.Running || status.PID != pid {
+		t.Fatalf("expected running status with pid %d, got %+v", pid, status)
 	}
 
-	// Wait briefly for echo output
 	time.Sleep(250 * time.Millisecond)
-	lines := mgr.Tail("test:ping", 50)
+	lines := manager.Tail("test:ping", 50)
 	joined := strings.Join(lines, "\n")
 	if !strings.Contains(joined, "hello-runner") {
 		t.Fatalf("expected tail to contain 'hello-runner', got: %q", joined)
 	}
 
-	// Stop the process tree
-	if err := mgr.Stop("test:ping"); err != nil {
+	if err := manager.Stop("test:ping"); err != nil {
 		t.Fatalf("Stop failed: %v", err)
 	}
 
-	stAfter := mgr.Status("test:ping")
-	if stAfter.Running || stAfter.PID != 0 {
-		t.Fatalf("expected stopped status, got %+v", stAfter)
+	stopped := manager.Status("test:ping")
+	if stopped.Running || stopped.PID != 0 {
+		t.Fatalf("expected stopped status, got %+v", stopped)
 	}
 
-	// Start a process that exits immediately with non-zero code
-	selfExitLog := filepath.Join(tmp, "exit.log")
-	_, err = mgr.Start("test:exit", ports.Options{
+	exitLog := filepath.Join(folder, "exit.log")
+	if _, err := manager.Start("test:exit", ports.Options{
 		Binary:    "cmd.exe",
 		Args:      []string{"/C", "exit", "2"},
-		Directory: tmp,
-		Log:       selfExitLog,
-	})
-	if err != nil {
+		Directory: folder,
+		Log:       exitLog,
+	}); err != nil {
 		t.Fatalf("Start exit process failed: %v", err)
 	}
 
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		s := mgr.Status("test:exit")
-		if !s.Running {
-			if s.Message == "" {
+		current := manager.Status("test:exit")
+		if !current.Running {
+			if current.Message == "" {
 				t.Fatalf("expected exit message when process exits on its own, got empty message")
 			}
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	if mgr.Status("test:exit").Running {
-		_ = os.Remove(selfExitLog)
+	if manager.Status("test:exit").Running {
 		t.Fatalf("expected test:exit to have exited")
 	}
 }
 
-func TestRedisStartupIfInstalled(t *testing.T) {
-	localAppData := os.Getenv("LOCALAPPDATA")
-	if localAppData == "" {
+func TestRedis(t *testing.T) {
+	base := os.Getenv("LOCALAPPDATA")
+	if base == "" {
 		t.Skip("LOCALAPPDATA not set")
 	}
-	redisDir := filepath.Join(localAppData, "DevEnv", "software", "redis", "8.10.2")
-	redisBin := filepath.Join(redisDir, "redis-server.exe")
-	if _, err := os.Stat(redisBin); err != nil {
+	folder := filepath.Join(base, "DevEnv", "software", "redis", "8.10.2")
+	binary := filepath.Join(folder, "redis-server.exe")
+	if _, err := os.Stat(binary); err != nil {
 		t.Skip("redis 8.10.2 not installed locally")
 	}
 
-	mgr := process.NewManager()
+	manager := process.NewManager()
 	logPath := filepath.Join(t.TempDir(), "redis.log")
-	pid, err := mgr.Start("software:redis", ports.Options{
-		Binary:    redisBin,
+	pid, err := manager.Start("software:redis", ports.Options{
+		Binary:    binary,
 		Args:      []string{"redis.conf", "--port", "16389"},
-		Directory: redisDir,
+		Directory: folder,
 		Log:       logPath,
 	})
 	if err != nil {
 		t.Fatalf("Start redis failed: %v", err)
 	}
 	defer func() {
-		_ = mgr.Stop("software:redis")
+		if stopErr := manager.Stop("software:redis"); stopErr != nil {
+			t.Log(stopErr)
+		}
 	}()
 
 	time.Sleep(800 * time.Millisecond)
-	st := mgr.Status("software:redis")
-	if !st.Running || st.PID != pid {
-		t.Fatalf("expected redis running with pid %d, got %+v", pid, st)
+	status := manager.Status("software:redis")
+	if !status.Running || status.PID != pid {
+		t.Fatalf("expected redis running with pid %d, got %+v", pid, status)
 	}
-	lines := mgr.Tail("software:redis", 20)
+	lines := manager.Tail("software:redis", 20)
 	joined := strings.Join(lines, "\n")
 	if !strings.Contains(joined, "Ready to accept connections") {
 		t.Fatalf("expected redis log to contain 'Ready to accept connections', got:\n%s", joined)
 	}
 }
-

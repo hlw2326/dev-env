@@ -30,7 +30,9 @@ func (p *Publisher) Emit(event string, payload interface{}) {
 		return
 	}
 	defer func() {
-		_ = recover()
+		if recovered := recover(); recovered != nil {
+			return
+		}
 	}()
 	runtime.EventsEmit(ctx, event, payload)
 }

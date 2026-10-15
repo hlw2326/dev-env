@@ -1,5 +1,7 @@
 <template>
+	<!-- 已安装软件版本行 -->
 	<div class="installed-row surface-card">
+		<!-- 左侧图标与版本状态 -->
 		<div class="left">
 			<h-logo :kind="item.kind" size="medium" />
 			<div class="info">
@@ -34,12 +36,12 @@
 				</div>
 
 				<div class="sub-line">
-					<div v-if="item.state === 'installing'" class="row-progress-box">
-						<div class="row-progress-info">
-							<span class="progress-msg">{{ activeProgress.message }}</span>
-							<span class="progress-pct font-mono">{{ activeProgress.progress }}%</span>
+					<div v-if="item.state === 'installing'" class="progress-box">
+						<div class="progress-info">
+							<span class="progress-text">{{ activeProgress.message }}</span>
+							<span class="progress-num font-mono">{{ activeProgress.progress }}%</span>
 						</div>
-						<p-progress-bar :value="activeProgress.progress" :show-value="false" class="row-progress-bar" />
+						<p-progress-bar :value="activeProgress.progress" :show-value="false" class="progress-bar" />
 					</div>
 					<span v-else-if="item.state === 'failed'" class="error-text">{{ item.error }}</span>
 					<span v-else class="path-text font-mono">{{ item.path }}</span>
@@ -47,18 +49,17 @@
 			</div>
 		</div>
 
+		<!-- 右侧版本操作按钮组 -->
 		<div class="actions">
-			<template v-if="item.state === 'installing'">
-				<p-button
-					size="small"
-					severity="danger"
-					variant="outlined"
-					icon="pi pi-times"
-					label="取消"
-					@click="emit('cancel', item.kind, item.version)"
-				/>
-			</template>
-
+			<p-button
+				v-if="item.state === 'installing'"
+				size="small"
+				severity="danger"
+				variant="outlined"
+				icon="pi pi-times"
+				label="取消"
+				@click="emit('cancel', item.kind, item.version)"
+			/>
 			<template v-else-if="item.state === 'failed'">
 				<p-button
 					size="small"
@@ -75,36 +76,31 @@
 					@click="emit('remove', item)"
 				/>
 			</template>
-
 			<template v-else>
-				<template v-if="item.daemon">
-					<p-button
-						v-if="item.running"
-						size="small"
-						severity="secondary"
-						variant="outlined"
-						icon="pi pi-stop"
-						label="停止"
-						@click="emit('stop', item)"
-					/>
-					<p-button
-						v-else
-						size="small"
-						icon="pi pi-play"
-						label="启动"
-						@click="emit('start', item)"
-					/>
-				</template>
-
+				<p-button
+					v-if="item.daemon && item.running"
+					size="small"
+					severity="secondary"
+					variant="outlined"
+					icon="pi pi-stop"
+					label="停止"
+					@click="emit('stop', item)"
+				/>
+				<p-button
+					v-else-if="item.daemon"
+					size="small"
+					icon="pi pi-play"
+					label="启动"
+					@click="emit('start', item)"
+				/>
 				<p-button
 					v-if="!item.main"
 					size="small"
 					severity="secondary"
 					variant="outlined"
 					label="设为默认"
-					@click="emit('setMain', item)"
+					@click="emit('main', item)"
 				/>
-
 				<p-button
 					size="small"
 					severity="secondary"
@@ -113,14 +109,13 @@
 					label="设置"
 					@click="emit('config', item)"
 				/>
-
 				<p-button
 					size="small"
 					severity="danger"
 					variant="outlined"
 					icon="pi pi-trash"
 					label="卸载"
-					@click="onConfirmRemove($event)"
+					@click="confirmRemove($event)"
 				/>
 			</template>
 		</div>
@@ -130,41 +125,45 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useConfirm } from 'primevue/useconfirm'
-import { HLogo } from '@/components'
 import type { Software } from '@/types'
 
+// 接收软件版本与进度属性
 const props = defineProps<{
 	item: Software
 	progressMap?: Record<string, { progress: number; message: string }>
 }>()
 
-const activeProgress = computed(() => {
-	const key = `${props.item.kind}:${props.item.version}`
-	if (props.progressMap && props.progressMap[key]) {
-		return props.progressMap[key]
-	}
-	return {
-		progress: props.item.progress,
-		message: '正在安装...',
-	}
-})
-
+// 定义版本行操作事件
 const emit = defineEmits<{
 	start: [item: Software]
 	stop: [item: Software]
-	setMain: [item: Software]
+	main: [item: Software]
 	config: [item: Software]
 	remove: [item: Software]
 	cancel: [kind: string, version: string]
 	retry: [kind: string, version: string]
 }>()
 
+// 确认弹窗服务
 const confirm = useConfirm()
 
-function onConfirmRemove(event: MouseEvent) {
+// 当前实时安装进度信息
+const activeProgress = computed(() => {
+	const key = `${props.item.kind}:${props.item.version}`
+	if (props.progressMap && props.progressMap[key]) {
+		return props.progressMap[key]
+	}
+	return { progress: props.item.progress, message: '正在安装...' }
+})
+
+// 包含独立数据目录的数据库类型集合
+const DATA_KINDS = ['mysql', 'mariadb', 'postgresql', 'mongodb']
+
+// 弹出卸载软件确认框
+function confirmRemove(event: MouseEvent): void {
 	let message = `确认卸载 ${props.item.name} ${props.item.version} 吗？`
-	if (props.item.kind === 'mysql') {
-		message = `卸载只删除软件目录，数据库数据目录 dbdata\\mysql-${props.item.version} 将完整保留`
+	if (DATA_KINDS.includes(props.item.kind)) {
+		message = `卸载只删除软件目录，数据库数据目录 dbdata\\${props.item.kind}-${props.item.version} 将完整保留`
 	}
 	confirm.require({
 		target: event.currentTarget as HTMLElement,
@@ -174,14 +173,13 @@ function onConfirmRemove(event: MouseEvent) {
 		rejectLabel: '取消',
 		acceptProps: { severity: 'danger', size: 'small' },
 		rejectProps: { severity: 'secondary', variant: 'outlined', size: 'small' },
-		accept: () => {
-			emit('remove', props.item)
-		},
+		accept: () => emit('remove', props.item),
 	})
 }
 </script>
 
 <style scoped lang="scss">
+/* 版本行容器 */
 .installed-row {
 	display: flex;
 	align-items: center;
@@ -189,7 +187,7 @@ function onConfirmRemove(event: MouseEvent) {
 	padding: 0.875rem 1.125rem;
 	gap: 1rem;
 }
-
+/* 左侧信息组合 */
 .left {
 	display: flex;
 	align-items: center;
@@ -197,8 +195,7 @@ function onConfirmRemove(event: MouseEvent) {
 	min-width: 0;
 	flex: 1;
 }
-
-
+/* 文本列容器 */
 .info {
 	display: flex;
 	flex-direction: column;
@@ -206,100 +203,48 @@ function onConfirmRemove(event: MouseEvent) {
 	min-width: 0;
 	flex: 1;
 }
-
+/* 顶部标题与状态行 */
 .top-line {
 	display: flex;
 	align-items: center;
 	gap: 0.625rem;
 	flex-wrap: wrap;
 }
-
+/* 软件版本名称 */
 .item-name {
 	font-size: var(--font-base);
 	color: var(--text-primary);
 }
-
+/* 默认版本标签 */
 .main-tag {
 	font-size: var(--font-xs);
 	color: var(--info);
 	background: var(--info-bg);
 	border: 1px solid var(--info-border);
 	padding: 0.1rem 0.45rem;
-	border-radius: var(--radius-sm);
+	border-radius: var(--h-radius);
 }
-
-.status-pill {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.35rem;
-	font-size: var(--font-xs);
-	padding: 0.125rem 0.5rem;
-	border-radius: var(--radius-full);
-
-	.dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-	}
-
-	.status-icon {
-		font-size: var(--icon-xs);
-	}
-
-	&.running,
-	&.ok {
-		color: var(--ok);
-		background: var(--ok-bg);
-		border: 1px solid var(--ok-border);
-
-		.dot {
-			background: var(--ok);
-		}
-	}
-
-	&.stopped {
-		color: var(--text-secondary);
-		background: var(--bg-app);
-		border: 1px solid var(--border-color);
-
-		.dot {
-			background: var(--text-muted);
-		}
-	}
-
-	&.installing {
-		color: var(--info);
-		background: var(--info-bg);
-		border: 1px solid var(--info-border);
-	}
-
-	&.failed {
-		color: var(--err);
-		background: var(--err-bg);
-		border: 1px solid var(--err-border);
-
-		.dot {
-			background: var(--err);
-		}
-	}
+/* 状态加载图标 */
+.status-icon {
+	font-size: var(--icon-xs);
 }
-
+/* 端口徽标 */
 .port-badge {
 	font-size: var(--font-xs);
 	color: var(--text-secondary);
 	background: var(--bg-app);
 	border: 1px solid var(--border-color);
 	padding: 0.1rem 0.45rem;
-	border-radius: var(--radius-sm);
+	border-radius: var(--h-radius);
 }
-
+/* 次要信息行 */
 .sub-line {
 	display: flex;
 	align-items: center;
 	width: 100%;
 }
-
-.row-progress-box {
+/* 进度条容器 */
+.progress-box {
 	display: flex;
 	flex-direction: column;
 	gap: 0.35rem;
@@ -307,43 +252,42 @@ function onConfirmRemove(event: MouseEvent) {
 	max-width: 26rem;
 	margin-top: 0.25rem;
 }
-
-.row-progress-info {
+/* 进度说明与百分比 */
+.progress-info {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	font-size: var(--font-xs);
 	color: var(--text-secondary);
 }
-
-.progress-msg {
+/* 进度说明文本 */
+.progress-text {
 	color: var(--text-secondary);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-
-.progress-pct {
-	font-weight: 600;
+/* 进度百分比数值 */
+.progress-num {
 	color: var(--p-primary-color);
 	margin-left: 0.5rem;
 }
-
-.row-progress-bar {
+/* 进度条高度 */
+.progress-bar {
 	height: 0.45rem;
-	border-radius: var(--radius-full);
+	border-radius: 999rem;
 }
-
+/* 安装路径文本 */
 .path-text {
 	font-size: var(--font-xs);
 	color: var(--text-muted);
 }
-
+/* 失败错误消息 */
 .error-text {
 	font-size: var(--font-xs);
 	color: var(--err);
 }
-
+/* 右侧操作区 */
 .actions {
 	display: flex;
 	align-items: center;

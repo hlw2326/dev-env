@@ -26,11 +26,15 @@ func (r *SiteRepository) List(ctx context.Context) ([]site.Site, error) {
 		ORDER BY id DESC
 	`)
 	if err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "查询站点列表失败")
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "查询站点列表失败")
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return
+		}
+	}()
 
-	list, err := scanSiteRows(rows)
+	list, err := scanSites(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +54,7 @@ func (r *SiteRepository) Get(ctx context.Context, id int64) (*site.Site, error) 
 		FROM system_sites
 		WHERE id = ?
 	`, id)
-	item, err := scanSiteRow(row)
+	item, err := scanSite(row)
 	if err != nil || item == nil {
 		return item, err
 	}
@@ -68,7 +72,7 @@ func (r *SiteRepository) GetByName(ctx context.Context, name string) (*site.Site
 		FROM system_sites
 		WHERE name = ?
 	`, name)
-	item, err := scanSiteRow(row)
+	item, err := scanSite(row)
 	if err != nil || item == nil {
 		return item, err
 	}
@@ -88,11 +92,15 @@ func (r *SiteRepository) ListBySoftware(ctx context.Context, softwareID int64) (
 		ORDER BY id ASC
 	`, softwareID)
 	if err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "查询绑定版本的站点失败")
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "查询绑定版本的站点失败")
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return
+		}
+	}()
 
-	list, err := scanSiteRows(rows)
+	list, err := scanSites(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -114,11 +122,15 @@ func (r *SiteRepository) ListMissingSoftware(ctx context.Context, kind string) (
 		ORDER BY id ASC
 	`, kind)
 	if err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "查询缺少环境的站点失败")
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "查询缺少环境的站点失败")
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return
+		}
+	}()
 
-	list, err := scanSiteRows(rows)
+	list, err := scanSites(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -139,11 +151,11 @@ func (r *SiteRepository) Create(ctx context.Context, item *site.Site) error {
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "开启创建站点事务失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "开启创建站点事务失败")
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer rollbackTx(tx)
 
-	res, err := tx.ExecContext(ctx, `
+	result, err := tx.ExecContext(ctx, `
 		INSERT INTO system_sites (name, kind, root, run, software, command, port, autostart, created, updated)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
@@ -154,20 +166,20 @@ func (r *SiteRepository) Create(ctx context.Context, item *site.Site) error {
 		item.Software,
 		item.Command,
 		item.Port,
-		boolToInt(item.Autostart),
+		formatBool(item.Autostart),
 		item.Created,
 		item.Updated,
 	)
 	if err != nil {
-		if isUniqueConstraintError(err) {
-			return appErrors.New(appErrors.CodeAlreadyExists, "站点名称已存在")
+		if checkUnique(err) {
+			return appErrors.New(appErrors.ALREADY_EXISTS, "站点名称已存在")
 		}
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "写入站点记录失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "写入站点记录失败")
 	}
 
-	id, err := res.LastInsertId()
+	id, err := result.LastInsertId()
 	if err != nil {
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "读取站点主键失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "读取站点主键失败")
 	}
 	item.ID = id
 
@@ -177,15 +189,15 @@ func (r *SiteRepository) Create(ctx context.Context, item *site.Site) error {
 			INSERT INTO system_site_domains (site, host, created)
 			VALUES (?, ?, ?)
 		`, item.ID, cleanHost, now); err != nil {
-			if isUniqueConstraintError(err) {
-				return appErrors.New(appErrors.CodeAlreadyExists, "域名已被占用: "+cleanHost)
+			if checkUnique(err) {
+				return appErrors.New(appErrors.ALREADY_EXISTS, "域名已被占用: "+cleanHost)
 			}
-			return appErrors.Wrap(err, appErrors.CodeDatabaseError, "写入站点域名失败")
+			return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "写入站点域名失败")
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "提交创建站点事务失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "提交创建站点事务失败")
 	}
 	return nil
 }
@@ -196,9 +208,9 @@ func (r *SiteRepository) Update(ctx context.Context, item *site.Site) error {
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "开启更新站点事务失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "开启更新站点事务失败")
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer rollbackTx(tx)
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE system_sites
@@ -209,16 +221,16 @@ func (r *SiteRepository) Update(ctx context.Context, item *site.Site) error {
 		item.Run,
 		item.Software,
 		item.Command,
-		boolToInt(item.Autostart),
+		formatBool(item.Autostart),
 		item.Updated,
 		item.ID,
 	)
 	if err != nil {
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "更新站点记录失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "更新站点记录失败")
 	}
 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM system_site_domains WHERE site = ?`, item.ID); err != nil {
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "清理旧域名失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "清理旧域名失败")
 	}
 
 	for _, host := range item.Hosts {
@@ -227,15 +239,15 @@ func (r *SiteRepository) Update(ctx context.Context, item *site.Site) error {
 			INSERT INTO system_site_domains (site, host, created)
 			VALUES (?, ?, ?)
 		`, item.ID, cleanHost, now); err != nil {
-			if isUniqueConstraintError(err) {
-				return appErrors.New(appErrors.CodeAlreadyExists, "域名已被占用: "+cleanHost)
+			if checkUnique(err) {
+				return appErrors.New(appErrors.ALREADY_EXISTS, "域名已被占用: "+cleanHost)
 			}
-			return appErrors.Wrap(err, appErrors.CodeDatabaseError, "更新站点域名失败")
+			return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "更新站点域名失败")
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "提交更新站点事务失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "提交更新站点事务失败")
 	}
 	return nil
 }
@@ -248,7 +260,7 @@ func (r *SiteRepository) BindSoftware(ctx context.Context, siteID, softwareID in
 		WHERE id = ?
 	`, softwareID, now, siteID)
 	if err != nil {
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "绑定站点软件版本失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "绑定站点软件版本失败")
 	}
 	return nil
 }
@@ -256,7 +268,7 @@ func (r *SiteRepository) BindSoftware(ctx context.Context, siteID, softwareID in
 func (r *SiteRepository) Delete(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM system_sites WHERE id = ?`, id)
 	if err != nil {
-		return appErrors.Wrap(err, appErrors.CodeDatabaseError, "删除站点失败")
+		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "删除站点失败")
 	}
 	return nil
 }
@@ -266,69 +278,73 @@ func (r *SiteRepository) listHosts(ctx context.Context, siteID int64) ([]string,
 		SELECT host FROM system_site_domains WHERE site = ? ORDER BY id ASC
 	`, siteID)
 	if err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "查询站点域名失败")
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "查询站点域名失败")
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return
+		}
+	}()
 
 	hosts := make([]string, 0)
 	for rows.Next() {
-		var h string
-		if err := rows.Scan(&h); err != nil {
-			return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "读取站点域名失败")
+		var host string
+		if err := rows.Scan(&host); err != nil {
+			return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "读取站点域名失败")
 		}
-		hosts = append(hosts, h)
+		hosts = append(hosts, host)
 	}
 	return hosts, rows.Err()
 }
 
-func scanSiteRows(rows *sql.Rows) ([]site.Site, error) {
+func scanSites(rows *sql.Rows) ([]site.Site, error) {
 	list := make([]site.Site, 0)
 	for rows.Next() {
 		var item site.Site
-		var softID sql.NullInt64
-		var autostartInt int
+		var softwareID sql.NullInt64
+		var autostart int
 		if err := rows.Scan(
 			&item.ID,
 			&item.Name,
 			&item.Kind,
 			&item.Root,
 			&item.Run,
-			&softID,
+			&softwareID,
 			&item.Command,
 			&item.Port,
-			&autostartInt,
+			&autostart,
 			&item.Created,
 			&item.Updated,
 		); err != nil {
-			return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "解析站点行失败")
+			return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "解析站点行失败")
 		}
-		if softID.Valid {
-			v := softID.Int64
-			item.Software = &v
+		if softwareID.Valid {
+			val := softwareID.Int64
+			item.Software = &val
 		}
-		item.Autostart = autostartInt == 1
+		item.Autostart = autostart == 1
 		list = append(list, item)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "遍历站点列表失败")
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "遍历站点列表失败")
 	}
 	return list, nil
 }
 
-func scanSiteRow(row *sql.Row) (*site.Site, error) {
+func scanSite(row *sql.Row) (*site.Site, error) {
 	var item site.Site
-	var softID sql.NullInt64
-	var autostartInt int
+	var softwareID sql.NullInt64
+	var autostart int
 	err := row.Scan(
 		&item.ID,
 		&item.Name,
 		&item.Kind,
 		&item.Root,
 		&item.Run,
-		&softID,
+		&softwareID,
 		&item.Command,
 		&item.Port,
-		&autostartInt,
+		&autostart,
 		&item.Created,
 		&item.Updated,
 	)
@@ -336,20 +352,20 @@ func scanSiteRow(row *sql.Row) (*site.Site, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "查询单条站点记录失败")
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "查询单条站点记录失败")
 	}
-	if softID.Valid {
-		v := softID.Int64
-		item.Software = &v
+	if softwareID.Valid {
+		val := softwareID.Int64
+		item.Software = &val
 	}
-	item.Autostart = autostartInt == 1
+	item.Autostart = autostart == 1
 	return &item, nil
 }
 
-func isUniqueConstraintError(err error) bool {
+func checkUnique(err error) bool {
 	if err == nil {
 		return false
 	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "unique constraint failed")
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "unique constraint failed")
 }

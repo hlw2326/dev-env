@@ -1,47 +1,48 @@
+import { DEFAULT_DARK_COLOR, DEFAULT_LIGHT_COLOR } from './config'
 import type { ThemeState } from './types'
 
-let mediaQueryListener: ((e: MediaQueryListEvent) => void) | null = null
+// 主题关联的 CSS 变量列表
+const PRIMARY_VARS = [
+	'--p-primary-color',
+	'--primary-color',
+	'--p-primary-500',
+	'--p-primary-hover-color',
+	'--p-primary-active-color',
+	'--p-button-primary-background',
+	'--p-button-primary-border-color',
+	'--p-toggleswitch-checked-background',
+]
 
-/**
- * 将主题模式与强调色应用到 DOM 根节点与 CSS 变量
- */
+// 系统色彩模式监听器引用
+let mediaHandler: ((event: MediaQueryListEvent) => void) | null = null
+
+// 将主题模式与强调色应用到根节点与 CSS 变量
 export function applyTheme(state: ThemeState): void {
-  const root = document.documentElement
-  const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-  const isDark = state.mode === 'dark' || (state.mode === 'system' && isSystemDark)
+	const root = document.documentElement
+	const mediaList = window.matchMedia('(prefers-color-scheme: dark)')
+	const systemDark = mediaList.matches
+	const isDark = state.mode === 'dark' || (state.mode === 'system' && systemDark)
 
-  root.classList.toggle('dark', isDark)
+	root.classList.toggle('dark', isDark)
 
-  let effectiveColor = state.color
-  if (isDark && state.color.toLowerCase() === '#334155') {
-    effectiveColor = '#3b82f6'
-  }
+	let activeColor = state.color
+	if (isDark && state.color.toLowerCase() === DEFAULT_LIGHT_COLOR) {
+		activeColor = DEFAULT_DARK_COLOR
+	}
 
-  const vars = [
-    '--p-primary-color',
-    '--primary-color',
-    '--p-primary-500',
-    '--p-primary-hover-color',
-    '--p-primary-active-color',
-    '--p-button-primary-background',
-    '--p-button-primary-border-color',
-    '--p-toggleswitch-checked-background',
-  ]
-  for (const v of vars) {
-    root.style.setProperty(v, effectiveColor)
-  }
+	for (const key of PRIMARY_VARS) {
+		root.style.setProperty(key, activeColor)
+	}
 
-  // 监听操作系统色彩模式变化
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  if (mediaQueryListener) {
-    mediaQuery.removeEventListener('change', mediaQueryListener)
-    mediaQueryListener = null
-  }
+	if (mediaHandler) {
+		mediaList.removeEventListener('change', mediaHandler)
+		mediaHandler = null
+	}
 
-  if (state.mode === 'system') {
-    mediaQueryListener = (e: MediaQueryListEvent) => {
-      root.classList.toggle('dark', e.matches)
-    }
-    mediaQuery.addEventListener('change', mediaQueryListener)
-  }
+	if (state.mode === 'system') {
+		mediaHandler = (event: MediaQueryListEvent) => {
+			root.classList.toggle('dark', event.matches)
+		}
+		mediaList.addEventListener('change', mediaHandler)
+	}
 }

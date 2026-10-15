@@ -1,6 +1,11 @@
+// 页面容器属性
 export interface HPageProps {
-  title?: string
-  desc?: string
-  padding?: boolean
-  scroll?: boolean
+	// 页面标题
+	title?: string
+	// 页面副标题说明
+	description?: string
+	// 是否保留内边距
+	padding?: boolean
+	// 是否允许滚动
+	scroll?: boolean
 }

@@ -9,15 +9,15 @@ import (
 )
 
 const (
-	KindStatic = "static"
-	KindPHP    = "php"
-	KindNode   = "node"
+	KIND_STATIC = "static"
+	KIND_PHP    = "php"
+	KIND_NODE   = "node"
 )
 
 const (
-	StateRunning = "running"
-	StateStopped = "stopped"
-	StateError   = "error"
+	STATE_RUNNING = "running"
+	STATE_STOPPED = "stopped"
+	STATE_ERROR   = "error"
 )
 
 type Site struct {
@@ -55,7 +55,7 @@ type UpdateInput struct {
 }
 
 func IsValidKind(kind string) bool {
-	return kind == KindStatic || kind == KindPHP || kind == KindNode
+	return kind == KIND_STATIC || kind == KIND_PHP || kind == KIND_NODE
 }
 
 func NormalizeRun(root, run string) (string, error) {
@@ -110,7 +110,7 @@ func FindRun(root, kind string) string {
 		return ""
 	}
 	switch kind {
-	case KindPHP:
+	case KIND_PHP:
 		if fileExists(filepath.Join(cleanRoot, "public", "index.php")) {
 			return "public"
 		}
@@ -121,7 +121,7 @@ func FindRun(root, kind string) string {
 			return ""
 		}
 		return ""
-	case KindStatic:
+	case KIND_STATIC:
 		if fileExists(filepath.Join(cleanRoot, "index.html")) {
 			return ""
 		}
@@ -137,12 +137,12 @@ func FindRun(root, kind string) string {
 	}
 }
 
-func FindCommand(dir string) string {
-	cleanDir := filepath.Clean(strings.TrimSpace(dir))
-	if cleanDir == "" {
+func FindCommand(folder string) string {
+	cleanFolder := filepath.Clean(strings.TrimSpace(folder))
+	if cleanFolder == "" {
 		return ""
 	}
-	pkgPath := filepath.Join(cleanDir, "package.json")
+	pkgPath := filepath.Join(cleanFolder, "package.json")
 	if raw, err := os.ReadFile(pkgPath); err == nil {
 		var pkg struct {
 			Main    string            `json:"main"`
@@ -158,7 +158,7 @@ func FindCommand(dir string) string {
 		}
 	}
 	for _, entry := range []string{"server.js", "app.js", "index.js"} {
-		if fileExists(filepath.Join(cleanDir, entry)) {
+		if fileExists(filepath.Join(cleanFolder, entry)) {
 			return "node " + entry
 		}
 	}

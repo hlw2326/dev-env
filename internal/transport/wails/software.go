@@ -28,18 +28,18 @@ func (a *SoftwareAPI) Market() ([]ItemDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := make([]ItemDTO, 0, len(items))
-	for _, it := range items {
-		res = append(res, ItemDTO{
-			Kind:        it.Kind,
-			Name:        it.Name,
-			Description: it.Description,
-			Category:    it.Category,
-			Count:       it.Count,
-			Recommended: it.Recommended,
+	result := make([]ItemDTO, 0, len(items))
+	for _, item := range items {
+		result = append(result, ItemDTO{
+			Kind:        item.Kind,
+			Name:        item.Name,
+			Description: item.Description,
+			Category:    item.Category,
+			Count:       item.Count,
+			Recommended: item.Recommended,
 		})
 	}
-	return res, nil
+	return result, nil
 }
 
 func (a *SoftwareAPI) List() ([]SoftwareDTO, error) {
@@ -47,9 +47,9 @@ func (a *SoftwareAPI) List() ([]SoftwareDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := make([]SoftwareDTO, 0, len(list))
+	result := make([]SoftwareDTO, 0, len(list))
 	for _, item := range list {
-		res = append(res, SoftwareDTO{
+		result = append(result, SoftwareDTO{
 			ID:        item.ID,
 			Kind:      item.Kind,
 			Name:      software.Name(item.Kind),
@@ -66,7 +66,7 @@ func (a *SoftwareAPI) List() ([]SoftwareDTO, error) {
 			Daemon:    software.IsDaemon(item.Kind),
 		})
 	}
-	return res, nil
+	return result, nil
 }
 
 func (a *SoftwareAPI) Versions(kind string) ([]VersionDTO, error) {
@@ -74,48 +74,48 @@ func (a *SoftwareAPI) Versions(kind string) ([]VersionDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := make([]VersionDTO, 0, len(list))
-	for _, v := range list {
-		res = append(res, VersionDTO{
-			Version:     v.Version,
-			Recommended: v.Recommended,
-			Installed:   v.Installed,
-			Note:        v.Note,
+	result := make([]VersionDTO, 0, len(list))
+	for _, item := range list {
+		result = append(result, VersionDTO{
+			Version:     item.Version,
+			Recommended: item.Recommended,
+			Installed:   item.Installed,
+			Note:        item.Note,
 		})
 	}
-	return res, nil
+	return result, nil
 }
 
 func (a *SoftwareAPI) Config(id int64) (ConfigDTO, error) {
-	cfg, err := a.service.Config(a.ctx, id)
+	config, err := a.service.Config(a.ctx, id)
 	if err != nil {
-		return ConfigDTO{}, err
+		return ConfigDTO{Items: make([]ConfigItem, 0)}, err
 	}
-	items := make([]ConfigItemDTO, 0, len(cfg.Items))
-	for _, it := range cfg.Items {
-		items = append(items, ConfigItemDTO{
-			Key:         it.Key,
-			Label:       it.Label,
-			Value:       it.Value,
-			Description: it.Description,
+	items := make([]ConfigItem, 0, len(config.Items))
+	for _, item := range config.Items {
+		items = append(items, ConfigItem{
+			Key:         item.Key,
+			Label:       item.Label,
+			Value:       item.Value,
+			Description: item.Description,
 		})
 	}
 	return ConfigDTO{
 		Items: items,
-		File:  cfg.File,
+		File:  config.File,
 	}, nil
 }
 
-func (a *SoftwareAPI) SaveConfig(in SaveConfigInput) SaveConfigResult {
+func (a *SoftwareAPI) SaveConfig(in ConfigInput) ConfigResult {
 	restart, err := a.service.SaveConfig(a.ctx, in.ID, in.Items)
 	if err != nil {
-		return SaveConfigResult{OK: false, Message: err.Error(), Restart: false}
+		return ConfigResult{OK: false, Message: err.Error(), Restart: false}
 	}
-	msg := "配置已保存并立即生效"
+	message := "配置已保存并立即生效"
 	if restart {
-		msg = "配置已保存，重启服务后生效"
+		message = "配置已保存，重启服务后生效"
 	}
-	return SaveConfigResult{OK: true, Message: msg, Restart: restart}
+	return ConfigResult{OK: true, Message: message, Restart: restart}
 }
 
 func (a *SoftwareAPI) ReadConfig(id int64) (string, error) {
@@ -130,18 +130,18 @@ func (a *SoftwareAPI) WriteConfig(id int64, text string) Result {
 }
 
 func (a *SoftwareAPI) Extensions(id int64) ([]ExtensionDTO, error) {
-	exts, err := a.service.Extensions(a.ctx, id)
+	extensions, err := a.service.Extensions(a.ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	res := make([]ExtensionDTO, 0, len(exts))
-	for _, e := range exts {
-		res = append(res, ExtensionDTO{
-			Name:    e.Name,
-			Enabled: e.Enabled,
+	result := make([]ExtensionDTO, 0, len(extensions))
+	for _, item := range extensions {
+		result = append(result, ExtensionDTO{
+			Name:    item.Name,
+			Enabled: item.Enabled,
 		})
 	}
-	return res, nil
+	return result, nil
 }
 
 func (a *SoftwareAPI) SetExtension(id int64, name string, on bool) Result {

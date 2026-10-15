@@ -28,11 +28,11 @@ func (a *SiteAPI) List() ([]SiteDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := make([]SiteDTO, 0, len(list))
+	result := make([]SiteDTO, 0, len(list))
 	for _, item := range list {
-		res = append(res, toSiteDTO(item))
+		result = append(result, convertSite(item))
 	}
-	return res, nil
+	return result, nil
 }
 
 func (a *SiteAPI) Get(id int64) (*SiteDTO, error) {
@@ -40,11 +40,11 @@ func (a *SiteAPI) Get(id int64) (*SiteDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	dto := toSiteDTO(*item)
+	dto := convertSite(*item)
 	return &dto, nil
 }
 
-func (a *SiteAPI) Create(in CreateSiteInput) (*SiteDTO, error) {
+func (a *SiteAPI) Create(in CreateInput) (*SiteDTO, error) {
 	item, err := a.service.Create(a.ctx, site.CreateInput{
 		Kind:    in.Kind,
 		Name:    in.Name,
@@ -56,11 +56,11 @@ func (a *SiteAPI) Create(in CreateSiteInput) (*SiteDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	dto := toSiteDTO(*item)
+	dto := convertSite(*item)
 	return &dto, nil
 }
 
-func (a *SiteAPI) Update(in UpdateSiteInput) (*SiteDTO, error) {
+func (a *SiteAPI) Update(in UpdateInput) (*SiteDTO, error) {
 	item, err := a.service.Update(a.ctx, site.UpdateInput{
 		ID:        in.ID,
 		Hosts:     in.Hosts,
@@ -73,7 +73,7 @@ func (a *SiteAPI) Update(in UpdateSiteInput) (*SiteDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	dto := toSiteDTO(*item)
+	dto := convertSite(*item)
 	return &dto, nil
 }
 
@@ -113,24 +113,28 @@ func (a *SiteAPI) Logs(id int64, kind string, limit int) ([]string, error) {
 	return a.service.Logs(a.ctx, id, kind, limit)
 }
 
-func toSiteDTO(v app.SiteView) SiteDTO {
+func convertSite(view app.SiteView) SiteDTO {
+	hosts := view.Hosts
+	if hosts == nil {
+		hosts = make([]string, 0)
+	}
 	return SiteDTO{
-		ID:        v.ID,
-		Name:      v.Name,
-		Kind:      v.Kind,
-		Hosts:     v.Hosts,
-		Root:      v.Root,
-		Run:       v.Run,
-		Path:      v.Path,
-		Software:  v.Software,
-		Version:   v.Version,
-		Command:   v.Command,
-		Port:      v.Port,
-		Autostart: v.Autostart,
-		State:     v.State,
-		URL:       v.URL,
-		Need:      v.Need,
-		Created:   v.Created,
-		Updated:   v.Updated,
+		ID:        view.ID,
+		Name:      view.Name,
+		Kind:      view.Kind,
+		Hosts:     hosts,
+		Root:      view.Root,
+		Run:       view.Run,
+		Path:      view.Path,
+		Software:  view.Software,
+		Version:   view.Version,
+		Command:   view.Command,
+		Port:      view.Port,
+		Autostart: view.Autostart,
+		State:     view.State,
+		URL:       view.URL,
+		Need:      view.Need,
+		Created:   view.Created,
+		Updated:   view.Updated,
 	}
 }

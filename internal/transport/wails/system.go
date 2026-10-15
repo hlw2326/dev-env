@@ -25,28 +25,26 @@ func (a *SystemAPI) SetContext(ctx context.Context) {
 }
 
 func (a *SystemAPI) Settings() (SettingsDTO, error) {
-	v, err := a.service.Settings(a.ctx)
+	view, err := a.service.Settings(a.ctx)
 	if err != nil {
 		return SettingsDTO{}, err
 	}
 	return SettingsDTO{
-		Theme:     v.Theme,
-		Root:      v.Root,
-		Port:      v.Port,
-		Hosts:     v.Hosts,
-		Autostart: v.Autostart,
-		Listening: v.Listening,
-		Error:     v.Error,
+		Theme:     view.Theme,
+		Root:      view.Root,
+		Port:      view.Port,
+		Hosts:     view.Hosts,
+		Listening: view.Listening,
+		Error:     view.Error,
 	}, nil
 }
 
-func (a *SystemAPI) SaveSettings(in SaveSettingsInput) Result {
+func (a *SystemAPI) SaveSettings(in SettingsInput) Result {
 	err := a.service.SaveSettings(a.ctx, setting.Settings{
-		Theme:     in.Theme,
-		Root:      in.Root,
-		Port:      in.Port,
-		Hosts:     in.Hosts,
-		Autostart: in.Autostart,
+		Theme: in.Theme,
+		Root:  in.Root,
+		Port:  in.Port,
+		Hosts: in.Hosts,
 	})
 	if err != nil {
 		return Result{OK: false, Message: err.Error()}

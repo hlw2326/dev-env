@@ -1,18 +1,22 @@
 <template>
+	<!-- 顶部自定义标题栏 -->
 	<header class="titlebar">
+		<!-- 左侧品牌与当前路由名称 -->
 		<div class="left">
 			<div class="logo">
 				<i class="pi pi-box"></i>
 			</div>
 			<span class="brand">DevEnv</span>
-			<span class="sep">/</span>
+			<span class="separator">/</span>
 			<span class="page font-mono">{{ routeName }}</span>
 		</div>
 
-		<div class="center" @dblclick="toggleMaxWin">
+		<!-- 中间拖拽区与平台副标题 -->
+		<div class="center" @dblclick="onToggle">
 			<span class="title">本地集成开发环境管理平台</span>
 		</div>
 
+		<!-- 右侧主题切换与窗口控制 -->
 		<div class="right">
 			<button
 				type="button"
@@ -23,8 +27,8 @@
 				<i v-if="theme.mode === 'dark'" class="pi pi-sun toggle-icon"></i>
 				<i v-else class="pi pi-moon toggle-icon"></i>
 			</button>
-			<span class="env font-mono">Win64 · Go & Wails</span>
-			<win-btns />
+			<span class="badge font-mono">Win64 · Go & Wails</span>
+			<comp-window />
 		</div>
 	</header>
 </template>
@@ -32,14 +36,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { toggleMaxWin, loadSettings, saveSettings } from '@/api'
+import { toggleWin, loadSettings, saveSettings } from '@/api'
 import { useTheme } from '@/composables/theme'
+import { toast, formatError } from '@/utils'
+import CompWindow from './window.vue'
 import type { ThemeMode } from '@/composables/theme'
-import WinBtns from './win-btns.vue'
 
+// 当前路由对象
 const route = useRoute()
-const { theme, setThemeMode } = useTheme()
 
+// 主题状态与切换方法
+const { theme, setMode } = useTheme()
+
+// 当前页面名称
 const routeName = computed(() => {
 	if (route.meta.title) {
 		return String(route.meta.title)
@@ -47,6 +56,7 @@ const routeName = computed(() => {
 	return String(route.name)
 })
 
+// 主题切换提示文字
 const modeTip = computed(() => {
 	if (theme.mode === 'dark') {
 		return '切换到浅色模式'
@@ -54,28 +64,34 @@ const modeTip = computed(() => {
 	return '切换到深色模式'
 })
 
-async function toggleTheme() {
+// 双击标题栏切换窗口最大化
+function onToggle(): void {
+	toggleWin()
+}
+
+// 切换明暗主题并持久化
+async function toggleTheme(): Promise<void> {
 	let next: ThemeMode = 'light'
 	if (theme.mode === 'light') {
 		next = 'dark'
 	}
-	setThemeMode(next)
+	setMode(next)
 	try {
-		const cfg = await loadSettings()
+		const settings = await loadSettings()
 		await saveSettings({
 			theme: next,
-			root: cfg.root,
-			port: cfg.port,
-			hosts: cfg.hosts,
-			autostart: cfg.autostart,
+			root: settings.root,
+			port: settings.port,
+			hosts: settings.hosts,
 		})
-	} catch {
-		// ignore persistence error
+	} catch (err: unknown) {
+		toast.error('保存主题设置失败', formatError(err))
 	}
 }
 </script>
 
 <style scoped lang="scss">
+/* 标题栏容器 */
 .titlebar {
 	height: 2.375rem;
 	background: var(--bg-card);
@@ -90,16 +106,18 @@ async function toggleTheme() {
 	z-index: 1000;
 }
 
+/* 左侧品牌信息区 */
 .left {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
 	--wails-draggable: drag;
 
+	/* 品牌色块图标 */
 	.logo {
 		width: 1.375rem;
 		height: 1.375rem;
-		border-radius: var(--radius-sm);
+		border-radius: var(--h-radius);
 		background: var(--p-primary-color);
 		color: var(--on-primary);
 		display: flex;
@@ -108,22 +126,26 @@ async function toggleTheme() {
 		font-size: var(--icon-xs);
 	}
 
+	/* 品牌名称 */
 	.brand {
 		font-size: var(--font-base);
 		color: var(--text-primary);
 	}
 
-	.sep {
+	/* 分隔斜杠 */
+	.separator {
 		color: var(--border-hover);
 		font-size: var(--font-sm);
 	}
 
+	/* 当前页面标题 */
 	.page {
 		font-size: var(--font-sm);
 		color: var(--text-secondary);
 	}
 }
 
+/* 中间拖拽区域 */
 .center {
 	flex: 1;
 	height: 100%;
@@ -132,22 +154,25 @@ async function toggleTheme() {
 	justify-content: center;
 	--wails-draggable: drag;
 
+	/* 平台描述文本 */
 	.title {
 		font-size: var(--font-xs);
 		color: var(--text-muted);
 	}
 }
 
+/* 右侧工具与窗口按钮区 */
 .right {
 	display: flex;
 	align-items: center;
 	height: 100%;
 	gap: 0.5rem;
 
+	/* 主题切换按钮 */
 	.theme-toggle {
 		width: 1.625rem;
 		height: 1.625rem;
-		border-radius: var(--radius-sm);
+		border-radius: var(--h-radius);
 		border: 1px solid var(--border-color);
 		background: var(--bg-app);
 		color: var(--text-secondary);
@@ -157,22 +182,25 @@ async function toggleTheme() {
 		cursor: pointer;
 		--wails-draggable: no-drag;
 
+		/* 按钮悬停态 */
 		&:hover {
 			border-color: var(--border-hover);
 			color: var(--text-primary);
 		}
 
+		/* 切换图标 */
 		.toggle-icon {
 			font-size: var(--icon-xs);
 		}
 	}
 
-	.env {
+	/* 架构标识徽标 */
+	.badge {
 		font-size: var(--font-xs);
 		color: var(--text-secondary);
 		background: var(--bg-app);
 		padding: 0.125rem 0.5rem;
-		border-radius: var(--radius-sm);
+		border-radius: var(--h-radius);
 		border: 1px solid var(--border-color);
 		--wails-draggable: no-drag;
 	}

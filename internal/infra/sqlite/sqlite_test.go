@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,29 +13,33 @@ import (
 	appErrors "devenv/internal/shared/errors"
 )
 
-func TestMigrateAndRepositories(t *testing.T) {
-	tmp := t.TempDir()
-	dbPath := filepath.Join(tmp, "data", "devenv.db")
+func TestRepositories(t *testing.T) {
+	folder := t.TempDir()
+	dbPath := filepath.Join(folder, "data", "devenv.db")
 
 	db, err := Open(dbPath, Options{})
 	if err != nil {
 		t.Fatalf("first Open failed: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Log(closeErr)
+		}
+	}()
 
-	// Reopening same DB should succeed without drift
-	db2, err := Open(dbPath, Options{})
+	second, err := Open(dbPath, Options{})
 	if err != nil {
 		t.Fatalf("second Open failed: %v", err)
 	}
-	_ = db2.Close()
+	if err := second.Close(); err != nil {
+		t.Fatalf("close second db: %v", err)
+	}
 
 	ctx := context.Background()
-	softRepo := NewSoftwareRepository(db.DB)
+	softwareRepo := NewSoftwareRepository(db.DB)
 	siteRepo := NewSiteRepository(db.DB)
 	settingRepo := NewSettingRepository(db.DB)
 
-	// Verify seed settings
 	settings, err := settingRepo.Load(ctx)
 	if err != nil {
 		t.Fatalf("load settings: %v", err)
@@ -43,101 +48,95 @@ func TestMigrateAndRepositories(t *testing.T) {
 		t.Fatalf("unexpected default settings: %+v", settings)
 	}
 
-	// Software CRUD
 	php := &software.Software{
-		Kind:    software.KindPHP,
+		Kind:    software.KIND_PHP,
 		Version: "8.3.35",
 		Path:    `C:\DevEnv\software\php\8.3.35`,
-		State:   software.StateInstalled,
+		State:   software.STATE_INSTALLED,
 		Main:    true,
 	}
-	if err := softRepo.Create(ctx, php); err != nil {
+	if err := softwareRepo.Create(ctx, php); err != nil {
 		t.Fatalf("create software: %v", err)
 	}
 
-	// Site CRUD + unique domain + FK RESTRICT
-	s1 := &site.Site{
+	firstSite := &site.Site{
 		Name:      "blog",
-		Kind:      site.KindPHP,
+		Kind:      site.KIND_PHP,
 		Hosts:     []string{"blog.localhost"},
 		Root:      `C:\www\blog`,
 		Run:       "public",
 		Software:  &php.ID,
 		Autostart: true,
 	}
-	if err := siteRepo.Create(ctx, s1); err != nil {
+	if err := siteRepo.Create(ctx, firstSite); err != nil {
 		t.Fatalf("create site: %v", err)
 	}
 
-	// Duplicate domain must fail
-	s2 := &site.Site{
+	secondSite := &site.Site{
 		Name:      "blog2",
-		Kind:      site.KindStatic,
+		Kind:      site.KIND_STATIC,
 		Hosts:     []string{"blog.localhost"},
 		Root:      `C:\www\blog2`,
 		Autostart: true,
 	}
-	if err := siteRepo.Create(ctx, s2); err == nil {
+	if err := siteRepo.Create(ctx, secondSite); err == nil {
 		t.Fatalf("expected duplicate domain error")
 	}
 
-	// Deleting software while referenced by site must fail due to ON DELETE RESTRICT
-	if err := softRepo.Delete(ctx, php.ID); err == nil {
+	if err := softwareRepo.Delete(ctx, php.ID); err == nil {
 		t.Fatalf("expected ON DELETE RESTRICT error when deleting bound software")
 	}
 
-	// Deleting site cascades domains and allows deleting software
-	if err := siteRepo.Delete(ctx, s1.ID); err != nil {
+	if err := siteRepo.Delete(ctx, firstSite.ID); err != nil {
 		t.Fatalf("delete site: %v", err)
 	}
-	if err := softRepo.Delete(ctx, php.ID); err != nil {
+	if err := softwareRepo.Delete(ctx, php.ID); err != nil {
 		t.Fatalf("delete software after site deletion: %v", err)
 	}
 }
 
-func TestMigrationDriftAndReset(t *testing.T) {
-	tmp := t.TempDir()
-	dbPath := filepath.Join(tmp, "data", "devenv.db")
+func TestMigrationDrift(t *testing.T) {
+	folder := t.TempDir()
+	dbPath := filepath.Join(folder, "data", "devenv.db")
 
-	fs1 := fstest.MapFS{
+	initialFS := fstest.MapFS{
 		"000001_init.sql": &fstest.MapFile{
 			Data: []byte(`CREATE TABLE system_test (id INTEGER PRIMARY KEY, name TEXT NOT NULL);`),
 		},
 	}
 
-	db, err := Open(dbPath, Options{Migrations: fs1})
+	db, err := Open(dbPath, Options{Migrations: initialFS})
 	if err != nil {
 		t.Fatalf("initial open: %v", err)
 	}
-	_ = db.Close()
+	if err := db.Close(); err != nil {
+		t.Fatalf("close initial db: %v", err)
+	}
 
-	// Modify checksum of 000001_init.sql -> should trigger SchemaDriftError
-	fsModified := fstest.MapFS{
+	modifiedFS := fstest.MapFS{
 		"000001_init.sql": &fstest.MapFile{
 			Data: []byte(`CREATE TABLE system_test (id INTEGER PRIMARY KEY, title TEXT NOT NULL);`),
 		},
 	}
 
-	_, err = Open(dbPath, Options{Migrations: fsModified, ResetOnDrift: false})
+	_, err = Open(dbPath, Options{Migrations: modifiedFS, ResetOnDrift: false})
 	if err == nil {
 		t.Fatalf("expected drift error when checksum changes")
 	}
 	var appErr *appErrors.AppError
-	if !os.IsExist(err) {
-		appErr, _ = err.(*appErrors.AppError)
-		if appErr == nil || appErr.Code != appErrors.CodeDatabaseSchemaMismatch {
-			t.Fatalf("expected CodeDatabaseSchemaMismatch, got: %v", err)
-		}
+	if !errors.As(err, &appErr) || appErr.Code != appErrors.DATABASE_SCHEMA_MISMATCH {
+		t.Fatalf("expected DATABASE_SCHEMA_MISMATCH, got: %v", err)
 	}
 
-	// ResetOnDrift=true should backup and rebuild
-	dbReset, err := Open(dbPath, Options{Migrations: fsModified, ResetOnDrift: true})
+	resetDB, err := Open(dbPath, Options{Migrations: modifiedFS, ResetOnDrift: true})
 	if err != nil {
 		t.Fatalf("open with ResetOnDrift=true failed: %v", err)
 	}
-	_ = dbReset.Close()
+	if err := resetDB.Close(); err != nil {
+		t.Fatalf("close reset db: %v", err)
+	}
 
-	backups, err := os.ReadDir(filepath.Join(tmp, "data", "backups"))
+	backups, err := os.ReadDir(filepath.Join(folder, "data", "backups"))
 	if err != nil || len(backups) != 1 {
 		t.Fatalf("expected 1 backup file after reset, got %d (err=%v)", len(backups), err)
 	}

@@ -1,15 +1,18 @@
 <template>
+	<!-- 站点详情域名管理页签 -->
 	<div class="detail-domains">
+		<!-- 新增域名输入行 -->
 		<div class="add-row">
 			<p-input-text
 				v-model="newHost"
 				placeholder="输入新域名，如 api.localhost"
 				class="font-mono flex-input"
-				@keyup.enter="onAdd"
+				@keyup.enter="addHost"
 			/>
-			<p-button icon="pi pi-plus" label="添加域名" @click="onAdd" />
+			<p-button icon="pi pi-plus" label="添加域名" @click="addHost" />
 		</div>
 
+		<!-- 已绑定域名列表 -->
 		<div class="host-list">
 			<div v-for="host in site.hosts" :key="host" class="host-item">
 				<span class="host-name font-mono">{{ host }}</span>
@@ -20,7 +23,7 @@
 					icon="pi pi-trash"
 					label="移除"
 					:disabled="site.hosts.length <= 1"
-					@click="onRemove(host)"
+					@click="removeHost(host)"
 				/>
 			</div>
 		</div>
@@ -29,19 +32,23 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { Site, UpdateSiteInput } from '@/types'
+import type { Site, UpdateInput } from '@/types'
 
+// 接收站点属性
 const props = defineProps<{
 	site: Site
 }>()
 
+// 保存更新事件
 const emit = defineEmits<{
-	save: [input: UpdateSiteInput]
+	save: [input: UpdateInput]
 }>()
 
+// 新增域名输入值
 const newHost = ref('')
 
-function onAdd() {
+// 添加新域名并提交更新
+function addHost(): void {
 	const clean = newHost.value.trim().toLowerCase()
 	if (clean === '') {
 		return
@@ -63,11 +70,12 @@ function onAdd() {
 	})
 }
 
-function onRemove(target: string) {
+// 移除指定域名并提交更新
+function removeHost(target: string): void {
 	if (props.site.hosts.length <= 1) {
 		return
 	}
-	const nextHosts = props.site.hosts.filter((h) => h !== target)
+	const nextHosts = props.site.hosts.filter((item) => item !== target)
 	emit('save', {
 		id: props.site.id,
 		hosts: nextHosts,
@@ -81,28 +89,33 @@ function onRemove(target: string) {
 </script>
 
 <style scoped lang="scss">
+/* 域名管理容器 */
 .detail-domains {
 	display: flex;
 	flex-direction: column;
 	gap: 0.875rem;
 }
 
+/* 新增域名输入栏 */
 .add-row {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
 }
 
+/* 自适应输入框 */
 .flex-input {
 	flex: 1;
 }
 
+/* 域名列表容器 */
 .host-list {
 	display: flex;
 	flex-direction: column;
 	gap: 0.5rem;
 }
 
+/* 单个域名条目 */
 .host-item {
 	display: flex;
 	align-items: center;
@@ -110,9 +123,10 @@ function onRemove(target: string) {
 	padding: 0.625rem 0.875rem;
 	background: var(--bg-app);
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--h-radius);
 }
 
+/* 域名文本 */
 .host-name {
 	font-size: var(--font-base);
 	color: var(--text-primary);

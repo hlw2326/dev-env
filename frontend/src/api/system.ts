@@ -1,26 +1,19 @@
 import * as SystemAPI from '../../wailsjs/go/wails/SystemAPI'
-import type { Settings, SaveSettingsInput, Result } from '@/types'
 
-export async function loadSettings(): Promise<Settings> {
-	return await SystemAPI.Settings()
-}
+// 读取系统设置
+export const loadSettings = SystemAPI.Settings
 
-export async function saveSettings(input: SaveSettingsInput): Promise<Result> {
-	return await SystemAPI.SaveSettings(input)
-}
+// 保存系统设置
+export const saveSettings = SystemAPI.SaveSettings
 
-export async function pickFolder(title: string): Promise<string> {
-	return await SystemAPI.PickFolder(title)
-}
+// 打开系统文件夹选择对话框
+export const pickFolder = SystemAPI.PickFolder
 
-export async function openURL(url: string): Promise<Result> {
-	return await SystemAPI.OpenURL(url)
-}
+// 使用系统默认浏览器打开链接
+export const openURL = SystemAPI.OpenURL
 
-export async function openFolder(path: string): Promise<Result> {
-	return await SystemAPI.OpenFolder(path)
-}
+// 在资源管理器中打开目录
+export const openFolder = SystemAPI.OpenFolder
 
-export async function loadDataFolder(): Promise<string> {
-	return await SystemAPI.DataFolder()
-}
+// 获取应用数据根目录路径
+export const loadFolder = SystemAPI.DataFolder

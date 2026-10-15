@@ -19,6 +19,7 @@ declare global {
   const defineComponent: typeof import('vue').defineComponent
   const defineStore: typeof import('pinia').defineStore
   const effectScope: typeof import('vue').effectScope
+  const formatError: typeof import('./src/utils/path').formatError
   const getActivePinia: typeof import('pinia').getActivePinia
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
@@ -30,6 +31,7 @@ declare global {
   const isReadonly: typeof import('vue').isReadonly
   const isRef: typeof import('vue').isRef
   const isShallow: typeof import('vue').isShallow
+  const joinPath: typeof import('./src/utils/path').joinPath
   const mapActions: typeof import('pinia').mapActions
   const mapGetters: typeof import('pinia').mapGetters
   const mapState: typeof import('pinia').mapState
@@ -58,6 +60,7 @@ declare global {
   const readonly: typeof import('vue').readonly
   const ref: typeof import('vue').ref
   const resolveComponent: typeof import('vue').resolveComponent
+  const resolvePath: typeof import('./src/utils/path').resolvePath
   const setActivePinia: typeof import('pinia').setActivePinia
   const setMapStoreSuffix: typeof import('pinia').setMapStoreSuffix
   const setupToast: typeof import('./src/utils/toast').setupToast
@@ -71,6 +74,7 @@ declare global {
   const toValue: typeof import('vue').toValue
   const toast: typeof import('./src/utils/toast').toast
   const triggerRef: typeof import('vue').triggerRef
+  const trimSlash: typeof import('./src/utils/path').trimSlash
   const unref: typeof import('vue').unref
   const useAttrs: typeof import('vue').useAttrs
   const useCssModule: typeof import('vue').useCssModule

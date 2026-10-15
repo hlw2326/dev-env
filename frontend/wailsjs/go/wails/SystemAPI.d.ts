@@ -11,7 +11,7 @@ export function OpenURL(arg1:string):Promise<wails.Result>;
 
 export function PickFolder(arg1:string):Promise<string>;
 
-export function SaveSettings(arg1:wails.SaveSettingsInput):Promise<wails.Result>;
+export function SaveSettings(arg1:wails.SettingsInput):Promise<wails.Result>;
 
 export function SetContext(arg1:context.Context):Promise<void>;
 

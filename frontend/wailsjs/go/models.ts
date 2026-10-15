@@ -1,13 +1,13 @@
 export namespace wails {
 	
-	export class ConfigItemDTO {
+	export class ConfigItem {
 	    key: string;
 	    label: string;
 	    value: string;
 	    description: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new ConfigItemDTO(source);
+	        return new ConfigItem(source);
 	    }
 	
 	    constructor(source: any = {}) {
@@ -19,7 +19,7 @@ export namespace wails {
 	    }
 	}
 	export class ConfigDTO {
-	    items: ConfigItemDTO[];
+	    items: ConfigItem[];
 	    file: string;
 	
 	    static createFrom(source: any = {}) {
@@ -28,7 +28,7 @@ export namespace wails {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.items = this.convertValues(source["items"], ConfigItemDTO);
+	        this.items = this.convertValues(source["items"], ConfigItem);
 	        this.file = source["file"];
 	    }
 	
@@ -50,8 +50,38 @@ export namespace wails {
 		    return a;
 		}
 	}
+	export class ConfigInput {
+	    id: number;
+	    items: Record<string, string>;
 	
-	export class CreateSiteInput {
+	    static createFrom(source: any = {}) {
+	        return new ConfigInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.items = source["items"];
+	    }
+	}
+	
+	export class ConfigResult {
+	    ok: boolean;
+	    message: string;
+	    restart: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConfigResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.message = source["message"];
+	        this.restart = source["restart"];
+	    }
+	}
+	export class CreateInput {
 	    kind: string;
 	    name: string;
 	    host: string;
@@ -60,7 +90,7 @@ export namespace wails {
 	    command: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new CreateSiteInput(source);
+	        return new CreateInput(source);
 	    }
 	
 	    constructor(source: any = {}) {
@@ -137,62 +167,11 @@ export namespace wails {
 	        this.message = source["message"];
 	    }
 	}
-	export class SaveConfigInput {
-	    id: number;
-	    items: Record<string, string>;
-	
-	    static createFrom(source: any = {}) {
-	        return new SaveConfigInput(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.items = source["items"];
-	    }
-	}
-	export class SaveConfigResult {
-	    ok: boolean;
-	    message: string;
-	    restart: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new SaveConfigResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.ok = source["ok"];
-	        this.message = source["message"];
-	        this.restart = source["restart"];
-	    }
-	}
-	export class SaveSettingsInput {
-	    theme: string;
-	    root: string;
-	    port: number;
-	    hosts: boolean;
-	    autostart: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new SaveSettingsInput(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.theme = source["theme"];
-	        this.root = source["root"];
-	        this.port = source["port"];
-	        this.hosts = source["hosts"];
-	        this.autostart = source["autostart"];
-	    }
-	}
 	export class SettingsDTO {
 	    theme: string;
 	    root: string;
 	    port: number;
 	    hosts: boolean;
-	    autostart: boolean;
 	    listening: boolean;
 	    error: string;
 	
@@ -206,9 +185,26 @@ export namespace wails {
 	        this.root = source["root"];
 	        this.port = source["port"];
 	        this.hosts = source["hosts"];
-	        this.autostart = source["autostart"];
 	        this.listening = source["listening"];
 	        this.error = source["error"];
+	    }
+	}
+	export class SettingsInput {
+	    theme: string;
+	    root: string;
+	    port: number;
+	    hosts: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SettingsInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.theme = source["theme"];
+	        this.root = source["root"];
+	        this.port = source["port"];
+	        this.hosts = source["hosts"];
 	    }
 	}
 	export class SiteDTO {
@@ -293,7 +289,7 @@ export namespace wails {
 	        this.daemon = source["daemon"];
 	    }
 	}
-	export class UpdateSiteInput {
+	export class UpdateInput {
 	    id: number;
 	    hosts: string[];
 	    root: string;
@@ -303,7 +299,7 @@ export namespace wails {
 	    autostart: boolean;
 	
 	    static createFrom(source: any = {}) {
-	        return new UpdateSiteInput(source);
+	        return new UpdateInput(source);
 	    }
 	
 	    constructor(source: any = {}) {

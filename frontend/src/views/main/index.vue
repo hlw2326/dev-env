@@ -1,11 +1,12 @@
 <template>
+	<!-- 主界面布局外壳 -->
 	<div class="main-shell">
 		<!-- 顶部自定义标题栏 -->
-		<main-titlebar />
+		<comp-titlebar />
 
-		<!-- 主体区域：左侧导航 + 右侧内容 -->
+		<!-- 主体区域：左侧导航与右侧路由视图 -->
 		<div class="main-body">
-			<main-sidebar />
+			<comp-sidebar />
 			<main class="main-content">
 				<router-view />
 			</main>
@@ -14,8 +15,8 @@
 </template>
 
 <script setup lang="ts">
-import MainTitlebar from './comps/titlebar.vue'
-import MainSidebar from './comps/sidebar.vue'
+import CompTitlebar from './comps/titlebar.vue'
+import CompSidebar from './comps/sidebar.vue'
 </script>
 
 <style scoped lang="scss">

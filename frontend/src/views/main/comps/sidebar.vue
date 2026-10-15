@@ -1,8 +1,10 @@
 <template>
+	<!-- 左侧导航栏 -->
 	<aside class="sidebar">
-		<nav class="nav">
+		<!-- 导航菜单列表 -->
+		<nav class="menu">
 			<router-link
-				v-for="item in navItems"
+				v-for="item in menuItems"
 				:key="item.to"
 				:to="item.to"
 				class="item"
@@ -16,7 +18,8 @@
 </template>
 
 <script setup lang="ts">
-const navItems = [
+// 侧边栏导航项列表
+const menuItems = [
 	{ label: '环境概览', icon: 'pi pi-objects-column', to: '/' },
 	{ label: '网站管理', icon: 'pi pi-globe', to: '/sites' },
 	{ label: '软件商店', icon: 'pi pi-shopping-bag', to: '/software' },
@@ -25,6 +28,7 @@ const navItems = [
 </script>
 
 <style scoped lang="scss">
+/* 侧边栏容器 */
 .sidebar {
 	width: 11.875rem;
 	background: var(--bg-sidebar);
@@ -33,12 +37,14 @@ const navItems = [
 	flex-direction: column;
 }
 
-.nav {
+/* 菜单列表区域 */
+.menu {
 	display: flex;
 	flex-direction: column;
 	flex: 1;
 	padding: 0.375rem 0;
 
+	/* 单个导航项 */
 	.item {
 		display: flex;
 		align-items: center;
@@ -48,19 +54,22 @@ const navItems = [
 		color: var(--text-secondary);
 		text-decoration: none;
 		font-size: var(--font-sm);
-		border-right: 3px solid transparent;
+		border-right: 0.1875rem solid transparent;
 
+		/* 悬停态 */
 		&:hover {
 			background: var(--bg-app);
 			color: var(--text-primary);
 		}
 
+		/* 激活态 */
 		&.active {
 			background: var(--bg-app);
 			color: var(--text-primary);
 			border-right-color: var(--p-primary-color);
 		}
 
+		/* 导航图标 */
 		.icon {
 			font-size: var(--icon-md);
 		}

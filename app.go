@@ -39,11 +39,14 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	if a.bootError != nil {
-		_, _ = runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
+		if _, err := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
 			Type:    runtime.ErrorDialog,
 			Title:   "DevEnv 启动失败",
 			Message: a.bootError.Error() + "\n\n如需重置开发数据库，请设置环境变量 DEVENV_DB_RESET=1 后重新启动。",
-		})
+		}); err != nil {
+			runtime.Quit(ctx)
+			return
+		}
 		runtime.Quit(ctx)
 		return
 	}
@@ -55,7 +58,7 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
-	if a.container != nil {
+	if a.bootError == nil {
 		a.container.Shutdown()
 	}
 }

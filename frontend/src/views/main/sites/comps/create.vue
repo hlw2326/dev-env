@@ -1,39 +1,40 @@
 <template>
+	<!-- 创建网站弹窗 -->
 	<h-modal
 		v-model:visible="visible"
 		title="创建网站"
 		width="32rem"
 		ok-text="创建"
 		:loading="submitting"
-		@ok="onSubmit"
+		@ok="submitForm"
 	>
+		<!-- 创建网站表单 -->
 		<div class="create-form">
+			<!-- 站点类型选择 -->
 			<div class="form-field">
 				<label>站点类型</label>
 				<div class="kind-options">
 					<button
-						v-for="opt in kindOptions"
-						:key="opt.value"
+						v-for="item in kindOptions"
+						:key="item.value"
 						type="button"
 						class="kind-btn"
-						:class="{ active: form.kind === opt.value }"
-						@click="onSelectKind(opt.value)"
+						:class="{ active: form.kind === item.value }"
+						@click="selectKind(item.value)"
 					>
-						<i :class="[opt.icon, 'kind-icon']"></i>
-						<span>{{ opt.label }}</span>
+						<i :class="[item.icon, 'kind-icon']"></i>
+						<span>{{ item.label }}</span>
 					</button>
 				</div>
 			</div>
 
+			<!-- 网站名称输入 -->
 			<div class="form-field">
 				<label>网站名称</label>
-				<p-input-text
-					v-model="form.name"
-					placeholder="如 blog"
-					@input="onNameInput"
-				/>
+				<p-input-text v-model="form.name" placeholder="如 blog" @input="syncName" />
 			</div>
 
+			<!-- 域名输入 -->
 			<div class="form-field">
 				<label>域名</label>
 				<p-input-text
@@ -44,47 +45,31 @@
 				/>
 			</div>
 
+			<!-- 根目录选择 -->
 			<div class="form-field">
 				<label>根目录</label>
-				<div class="folder-row">
+				<div class="row-line">
 					<p-input-text
 						v-model="form.root"
 						placeholder="项目代码所在目录"
 						class="font-mono flex-input"
 						@input="rootTouched = true"
-						@blur="onDetectRun"
+						@blur="detectRun"
 					/>
 					<p-button
 						severity="secondary"
 						variant="outlined"
 						icon="pi pi-folder-open"
 						label="选择"
-						@click="onPickRoot"
+						@click="pickRoot"
 					/>
 				</div>
 			</div>
 
-			<div class="form-field">
-				<label>运行目录</label>
-				<div class="run-row">
-					<p-select
-						v-model="runPreset"
-						:options="runOptions"
-						option-label="label"
-						option-value="value"
-						class="flex-input"
-						@change="changePreset"
-					/>
-					<p-input-text
-						v-if="runPreset === 'custom'"
-						v-model="customRun"
-						placeholder="相对子目录，如 public"
-						class="font-mono flex-input"
-					/>
-				</div>
-				<span class="hint-text font-mono">文档根路径：{{ resolvedPreview }}</span>
-			</div>
+			<!-- 运行目录选择 -->
+			<comp-run-field v-model="form.run" :root="form.root" />
 
+			<!-- Node 更多设置折叠区 -->
 			<div v-if="form.kind === 'node'" class="more-box">
 				<button type="button" class="more-toggle" @click="moreOpen = !moreOpen">
 					<i class="pi" :class="{ 'pi-chevron-down': moreOpen, 'pi-chevron-right': !moreOpen }"></i>
@@ -106,35 +91,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { pickFolder, findRun } from '@/api'
-import type { CreateSiteInput } from '@/types'
+import { joinPath, trimSlash, toast, formatError } from '@/utils'
+import CompRunField from './run-field.vue'
+import type { CreateInput } from '@/types'
 
+// 接收默认站点父目录
 const props = defineProps<{
 	defaultRoot: string
 }>()
 
+// 弹窗显隐双向绑定
 const visible = defineModel<boolean>('visible', { default: false })
 
+// 提交创建事件
 const emit = defineEmits<{
-	submit: [input: CreateSiteInput]
+	submit: [input: CreateInput]
 }>()
 
+// 站点类型选项列表
 const kindOptions = [
 	{ value: 'php', label: 'PHP', icon: 'pi pi-code' },
 	{ value: 'node', label: 'Node.js', icon: 'pi pi-bolt' },
 	{ value: 'static', label: '静态', icon: 'pi pi-file' },
 ]
 
-const runOptions = [
-	{ value: '', label: '/ (根目录本身)' },
-	{ value: 'public', label: '/public' },
-	{ value: 'web', label: '/web' },
-	{ value: 'dist', label: '/dist' },
-	{ value: 'custom', label: '自定义子目录' },
-]
-
-const form = reactive<CreateSiteInput>({
+// 创建表单数据
+const form = reactive<CreateInput>({
 	kind: 'php',
 	name: '',
 	host: '',
@@ -143,53 +127,23 @@ const form = reactive<CreateSiteInput>({
 	command: '',
 })
 
-const runPreset = ref('')
-const customRun = ref('')
+// 域名是否已手动修改
 const hostTouched = ref(false)
+// 根目录是否已手动修改
 const rootTouched = ref(false)
+// 更多设置展开状态
 const moreOpen = ref(false)
+// 提交加载状态
 const submitting = ref(false)
 
-const effectiveRun = computed(() => {
-	if (runPreset.value === 'custom') {
-		return customRun.value.trim().replace(/^[/\\]+/, '')
-	}
-	return runPreset.value
-})
-
-const resolvedPreview = computed(() => {
-	const base = form.root.trim().replace(/[\\/]+$/, '')
-	if (base === '') {
-		return ''
-	}
-	if (effectiveRun.value === '') {
-		return base
-	}
-	return `${base}\\${effectiveRun.value.replace(/\//g, '\\')}`
-})
-
-watch(visible, (open) => {
-	if (open) {
-		form.kind = 'php'
-		form.name = ''
-		form.host = ''
-		form.root = props.defaultRoot
-		form.run = ''
-		form.command = ''
-		runPreset.value = ''
-		customRun.value = ''
-		hostTouched.value = false
-		rootTouched.value = false
-		moreOpen.value = false
-	}
-})
-
-function onSelectKind(kind: string) {
+// 切换站点类型并探测运行目录
+function selectKind(kind: string): void {
 	form.kind = kind
-	onDetectRun()
+	detectRun()
 }
 
-function onNameInput() {
+// 根据站点名称自动同步域名与目录
+function syncName(): void {
 	const clean = form.name.trim()
 	if (!hostTouched.value) {
 		if (clean === '') {
@@ -199,21 +153,21 @@ function onNameInput() {
 		}
 	}
 	if (!rootTouched.value && props.defaultRoot !== '') {
-		if (clean === '') {
-			form.root = props.defaultRoot
-		} else {
-			form.root = `${props.defaultRoot.replace(/[\\/]+$/, '')}\\${clean}`
-		}
+		form.root = joinPath(props.defaultRoot, clean)
 	}
 }
 
-async function onPickRoot() {
-	const picked = await pickFolder('选择站点根目录')
-	if (picked !== '') {
+// 选择站点根目录并自动回填名称
+async function pickRoot(): Promise<void> {
+	try {
+		const picked = await pickFolder('选择站点根目录')
+		if (picked === '') {
+			return
+		}
 		form.root = picked
 		rootTouched.value = true
 		if (form.name.trim() === '') {
-			const parts = picked.replace(/[\\/]+$/, '').split(/[\\/]/)
+			const parts = trimSlash(picked).split(/[\\/]/)
 			const folderName = parts[parts.length - 1]
 			if (folderName !== '') {
 				form.name = folderName
@@ -222,56 +176,56 @@ async function onPickRoot() {
 				}
 			}
 		}
-		await onDetectRun()
+		await detectRun()
+	} catch (err: unknown) {
+		toast.error('选择目录失败', formatError(err))
 	}
 }
 
-async function onDetectRun() {
+// 调用后端自动探测运行目录
+async function detectRun(): Promise<void> {
 	const root = form.root.trim()
 	if (root === '') {
 		return
 	}
-	const detected = await findRun(root, form.kind)
-	if (detected === '' || detected === 'public' || detected === 'web' || detected === 'dist') {
-		runPreset.value = detected
-		customRun.value = ''
-	} else {
-		runPreset.value = 'custom'
-		customRun.value = detected
+	try {
+		form.run = await findRun(root, form.kind)
+	} catch (err: unknown) {
+		toast.error('探测运行目录失败', formatError(err))
 	}
 }
 
-function changePreset() {
-	if (runPreset.value !== 'custom') {
-		customRun.value = ''
-	}
+// 提交创建表单
+function submitForm(): void {
+	emit('submit', { ...form })
 }
 
-function onSubmit() {
-	form.run = effectiveRun.value
-	emit('submit', {
-		kind: form.kind,
-		name: form.name,
-		host: form.host,
-		root: form.root,
-		run: form.run,
-		command: form.command,
-	})
-}
+// 打开弹窗时重置表单默认值
+watch(visible, (open) => {
+	if (open) {
+		Object.assign(form, { kind: 'php', name: '', host: '', root: props.defaultRoot, run: '', command: '' })
+		hostTouched.value = false
+		rootTouched.value = false
+		moreOpen.value = false
+	}
+})
 </script>
 
 <style scoped lang="scss">
+/* 表单外框 */
 .create-form {
 	display: flex;
 	flex-direction: column;
 }
 
+/* 三列类型按钮网格 */
 .kind-options {
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
 	gap: 0.625rem;
 }
 
+/* 类型选择按钮 */
 .kind-btn {
 	display: flex;
 	align-items: center;
@@ -279,48 +233,49 @@ function onSubmit() {
 	gap: 0.5rem;
 	height: 2.5rem;
 	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
+	border-radius: var(--h-radius);
 	background: var(--bg-app);
 	color: var(--text-secondary);
 	font-size: var(--font-sm);
 	cursor: pointer;
 
+	/* 悬停态 */
 	&:hover {
 		border-color: var(--border-hover);
 		color: var(--text-primary);
 	}
 
+	/* 选中态 */
 	&.active {
 		background: var(--p-primary-color);
 		color: var(--on-primary);
 		border-color: var(--p-primary-color);
 	}
 
+	/* 类型图标 */
 	.kind-icon {
 		font-size: var(--icon-md);
 	}
 }
 
-.folder-row,
-.run-row {
+/* 水平输入行 */
+.row-line {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
 }
 
+/* 自适应输入框 */
 .flex-input {
 	flex: 1;
 }
 
-.hint-text {
-	font-size: var(--font-xs);
-	color: var(--text-muted);
-}
-
+/* 更多设置容器 */
 .more-box {
 	margin-top: 0.25rem;
 }
 
+/* 更多设置折叠按钮 */
 .more-toggle {
 	display: inline-flex;
 	align-items: center;
@@ -332,11 +287,13 @@ function onSubmit() {
 	cursor: pointer;
 	padding: 0.25rem 0;
 
+	/* 折叠箭头图标 */
 	i {
 		font-size: var(--icon-xs);
 	}
 }
 
+/* 更多设置展开内容 */
 .more-body {
 	margin-top: 0.5rem;
 }

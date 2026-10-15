@@ -1,14 +1,19 @@
-# 软件 Logo 资源目录 (Software Logos Directory)
+# 软件图标目录
 
-请将各软件的品牌 Logo 图片（推荐 SVG 或透明背景 PNG 格式）放置于此目录中。
+请将软件的品牌图标（SVG 格式）放置于此目录中：
 
-### 推荐文件命名规范：
-- Nginx: `nginx.svg` 或 `nginx.png`
-- Apache: `apache.svg` 或 `apache.png`
-- PHP: `php.svg` 或 `php.png`
-- Node.js: `nodejs.svg` 或 `nodejs.png`
-- MySQL: `mysql.svg` 或 `mysql.png`
-- Redis: `redis.svg` 或 `redis.png`
+- PHP: `php.svg`
+- Node.js: `nodejs.svg`
+- MySQL: `mysql.svg`
+- Redis: `redis.svg`
+- OpenJDK: `java.svg`
+- .NET SDK: `dotnet.svg`
+- Deno: `deno.svg`
+- Bun: `bun.svg`
+- Nginx: `nginx.svg`
+- Caddy: `caddy.svg`
+- SQLite: `sqlite.svg`
+- Gradle: `gradle.svg`
+- Maven: `maven.svg`
 
-### 说明：
-当放置对应的 SVG/PNG 文件后，全局组件 `<h-logo :kind="kind" />` 将自动加载对应图标。如果未放置或图片不存在，系统将自动显示精致的品牌徽标缩写占位符，绝不显示破损图片。
+当对应图标文件不存在时，`<h-logo :kind="kind" />` 自动显示品牌缩写徽标。

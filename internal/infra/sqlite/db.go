@@ -26,30 +26,50 @@ type DB struct {
 }
 
 func Open(path string, options Options) (*DB, error) {
-	migrationsFS := options.Migrations
-	if migrationsFS == nil {
+	migrations := options.Migrations
+	if migrations == nil {
 		sub, err := fs.Sub(embeddedMigrations, "migrations")
 		if err != nil {
-			return nil, appErrors.Wrap(err, appErrors.CodeMigrationFailed, "读取内置迁移脚本失败")
+			return nil, appErrors.Wrap(err, appErrors.MIGRATION_FAILED, "读取内置迁移脚本失败")
 		}
-		migrationsFS = sub
+		migrations = sub
 	}
-	return openWithMigrations(path, migrationsFS, options.ResetOnDrift, true)
+	return openDB(path, migrations, options.ResetOnDrift, true)
 }
 
 func openRaw(path string) (*sql.DB, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "创建数据库目录失败")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "创建数据库目录失败")
 	}
 	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)", filepath.ToSlash(path))
 	raw, err := sql.Open("sqlite", dsn)
 	if err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "打开数据库失败")
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "打开数据库失败")
 	}
 	raw.SetMaxOpenConns(1)
 	if err := raw.Ping(); err != nil {
-		_ = raw.Close()
-		return nil, appErrors.Wrap(err, appErrors.CodeDatabaseError, "连接数据库失败")
+		if closeErr := raw.Close(); closeErr != nil {
+			return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "连接数据库失败")
+		}
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "连接数据库失败")
 	}
 	return raw, nil
+}
+
+func closeRaw(raw *sql.DB) {
+	if raw == nil {
+		return
+	}
+	if err := raw.Close(); err != nil {
+		return
+	}
+}
+
+func rollbackTx(tx *sql.Tx) {
+	if tx == nil {
+		return
+	}
+	if err := tx.Rollback(); err != nil {
+		return
+	}
 }

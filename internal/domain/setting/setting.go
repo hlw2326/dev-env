@@ -3,7 +3,6 @@ package setting
 type Settings struct {
 	Theme string `json:"theme"`
 	Root  string `json:"root"`
-	Port      int    `json:"port"`
-	Hosts     bool   `json:"hosts"`
-	Autostart bool   `json:"autostart"`
+	Port  int    `json:"port"`
+	Hosts bool   `json:"hosts"`
 }

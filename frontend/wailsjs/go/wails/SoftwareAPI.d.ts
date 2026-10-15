@@ -23,7 +23,7 @@ export function ReadConfig(arg1:number):Promise<string>;
 
 export function Remove(arg1:number):Promise<wails.Result>;
 
-export function SaveConfig(arg1:wails.SaveConfigInput):Promise<wails.SaveConfigResult>;
+export function SaveConfig(arg1:wails.ConfigInput):Promise<wails.ConfigResult>;
 
 export function SetAutostart(arg1:number,arg2:boolean):Promise<wails.Result>;
 

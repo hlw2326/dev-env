@@ -15,6 +15,16 @@ import (
 	"devenv/internal/infra/process"
 	"devenv/internal/ports"
 	appErrors "devenv/internal/shared/errors"
+	"devenv/internal/shared/paths"
+)
+
+const (
+	NODE_START_PORT = 3000
+	NODE_END_PORT   = 4000
+	DEFAULT_HTTP    = 80
+	START_TIMEOUT   = 30 * time.Second
+	POLL_INTERVAL   = 250 * time.Millisecond
+	LOG_TAIL_LIMIT  = 20
 )
 
 type SiteView struct {
@@ -27,7 +37,7 @@ type SiteView struct {
 }
 
 type SiteService struct {
-	baseDir  string
+	base     string
 	sites    ports.SiteRepository
 	software ports.SoftwareRepository
 	settings ports.SettingRepository
@@ -43,7 +53,7 @@ type SiteService struct {
 }
 
 func NewSiteService(
-	baseDir string,
+	base string,
 	sites ports.SiteRepository,
 	softwareRepo ports.SoftwareRepository,
 	settings ports.SettingRepository,
@@ -54,7 +64,7 @@ func NewSiteService(
 	bus ports.EventPublisher,
 ) *SiteService {
 	return &SiteService{
-		baseDir:  baseDir,
+		base:     base,
 		sites:    sites,
 		software: softwareRepo,
 		settings: settings,
@@ -68,27 +78,31 @@ func NewSiteService(
 	}
 }
 
-func (s *SiteService) ReconcileStartup(ctx context.Context) {
+func (s *SiteService) StartAuto(ctx context.Context) {
 	list, err := s.sites.List(ctx)
 	if err != nil {
 		return
 	}
 	for _, item := range list {
 		if item.Autostart {
-			_ = s.Start(ctx, item.ID)
+			if err := s.Start(ctx, item.ID); err != nil {
+				continue
+			}
 		}
 	}
-	s.syncGatewayRoutes(ctx)
-	_ = s.syncCustomHosts(ctx)
+	s.syncRoutes(ctx)
+	if err := s.syncHosts(ctx); err != nil {
+		return
+	}
 }
 
-func (s *SiteService) OnSoftwareInstalled(ctx context.Context, sw software.Software) {
+func (s *SiteService) BindInstalled(ctx context.Context, installed software.Software) {
 	var siteKind string
-	switch sw.Kind {
-	case software.KindPHP:
-		siteKind = site.KindPHP
-	case software.KindNode:
-		siteKind = site.KindNode
+	switch installed.Kind {
+	case software.KIND_PHP:
+		siteKind = site.KIND_PHP
+	case software.KIND_NODE:
+		siteKind = site.KIND_NODE
 	default:
 		return
 	}
@@ -96,12 +110,14 @@ func (s *SiteService) OnSoftwareInstalled(ctx context.Context, sw software.Softw
 	if err != nil {
 		return
 	}
-	for _, st := range missing {
-		if err := s.sites.BindSoftware(ctx, st.ID, sw.ID); err == nil {
-			_ = s.Start(ctx, st.ID)
+	for _, item := range missing {
+		if err := s.sites.BindSoftware(ctx, item.ID, installed.ID); err == nil {
+			if startErr := s.Start(ctx, item.ID); startErr != nil {
+				continue
+			}
 		}
 	}
-	s.syncGatewayRoutes(ctx)
+	s.syncRoutes(ctx)
 }
 
 func (s *SiteService) List(ctx context.Context) ([]SiteView, error) {
@@ -109,25 +125,25 @@ func (s *SiteService) List(ctx context.Context) ([]SiteView, error) {
 	if err != nil {
 		return nil, err
 	}
-	softList, err := s.software.List(ctx)
+	softwareList, err := s.software.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	softMap := make(map[int64]software.Software, len(softList))
-	for _, sw := range softList {
-		softMap[sw.ID] = sw
+	softwareMap := make(map[int64]software.Software, len(softwareList))
+	for _, item := range softwareList {
+		softwareMap[item.ID] = item
 	}
 
-	gwPort := s.gateway.Port()
-	if gwPort <= 0 {
-		if cfg, err := s.settings.Load(ctx); err == nil {
-			gwPort = cfg.Port
+	port := s.gateway.Port()
+	if port <= 0 {
+		if current, err := s.settings.Load(ctx); err == nil {
+			port = current.Port
 		}
 	}
 
 	views := make([]SiteView, 0, len(list))
 	for _, item := range list {
-		views = append(views, s.buildView(item, softMap, gwPort))
+		views = append(views, s.buildView(item, softwareMap, port))
 	}
 	return views, nil
 }
@@ -138,22 +154,22 @@ func (s *SiteService) Get(ctx context.Context, id int64) (*SiteView, error) {
 		return nil, err
 	}
 	if item == nil {
-		return nil, appErrors.New(appErrors.CodeNotFound, "站点不存在")
+		return nil, appErrors.New(appErrors.NOT_FOUND, "站点不存在")
 	}
-	softMap := make(map[int64]software.Software)
+	softwareMap := make(map[int64]software.Software)
 	if item.Software != nil {
-		if sw, err := s.software.Get(ctx, *item.Software); err == nil && sw != nil {
-			softMap[sw.ID] = *sw
+		if found, err := s.software.Get(ctx, *item.Software); err == nil && found != nil {
+			softwareMap[found.ID] = *found
 		}
 	}
-	gwPort := s.gateway.Port()
-	if gwPort <= 0 {
-		if cfg, err := s.settings.Load(ctx); err == nil {
-			gwPort = cfg.Port
+	port := s.gateway.Port()
+	if port <= 0 {
+		if current, err := s.settings.Load(ctx); err == nil {
+			port = current.Port
 		}
 	}
-	v := s.buildView(*item, softMap, gwPort)
-	return &v, nil
+	view := s.buildView(*item, softwareMap, port)
+	return &view, nil
 }
 
 func (s *SiteService) FindRun(root, kind string) string {
@@ -166,60 +182,60 @@ func (s *SiteService) Create(ctx context.Context, in site.CreateInput) (*SiteVie
 	host := strings.ToLower(strings.TrimSpace(in.Host))
 
 	if !site.IsValidKind(kind) {
-		return nil, appErrors.New(appErrors.CodeInvalidArgument, "不支持的站点类型")
+		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "不支持的站点类型")
 	}
 	if name == "" {
-		return nil, appErrors.New(appErrors.CodeInvalidArgument, "站点名称不能为空")
+		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "站点名称不能为空")
 	}
 	if host == "" {
-		return nil, appErrors.New(appErrors.CodeInvalidArgument, "站点域名不能为空")
+		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "站点域名不能为空")
 	}
 
 	root := strings.TrimSpace(in.Root)
 	if root == "" {
-		cfg, err := s.settings.Load(ctx)
+		current, err := s.settings.Load(ctx)
 		if err != nil {
 			return nil, err
 		}
-		root = filepath.Join(cfg.Root, name)
+		root = filepath.Join(current.Root, name)
 	}
 	root = filepath.Clean(root)
 	if !filepath.IsAbs(root) {
-		return nil, appErrors.New(appErrors.CodePathInvalid, "站点根目录必须是绝对路径")
+		return nil, appErrors.New(appErrors.PATH_INVALID, "站点根目录必须是绝对路径")
 	}
 
-	runDir, err := site.NormalizeRun(root, in.Run)
+	runFolder, err := site.NormalizeRun(root, in.Run)
 	if err != nil {
-		return nil, appErrors.New(appErrors.CodePathInvalid, err.Error())
+		return nil, appErrors.New(appErrors.PATH_INVALID, err.Error())
 	}
 
-	docPath := site.ResolvePath(root, runDir)
-	if err := os.MkdirAll(docPath, 0755); err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodePathNotAccessible, "创建站点目录失败")
+	docPath := site.ResolvePath(root, runFolder)
+	if err := os.MkdirAll(docPath, 0o755); err != nil {
+		return nil, appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建站点目录失败")
 	}
 
-	if err := writeSampleFilesIfEmpty(kind, name, docPath); err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodePathNotAccessible, "写入默认示例文件失败")
+	if err := writeSample(kind, name, docPath); err != nil {
+		return nil, appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "写入默认示例文件失败")
 	}
 
-	var softID *int64
+	var softwareID *int64
 	switch kind {
-	case site.KindPHP:
-		if mainSw, err := s.software.GetMain(ctx, software.KindPHP); err == nil && mainSw != nil {
-			id := mainSw.ID
-			softID = &id
+	case site.KIND_PHP:
+		if mainItem, err := s.software.GetMain(ctx, software.KIND_PHP); err == nil && mainItem != nil {
+			id := mainItem.ID
+			softwareID = &id
 		}
-	case site.KindNode:
-		if mainSw, err := s.software.GetMain(ctx, software.KindNode); err == nil && mainSw != nil {
-			id := mainSw.ID
-			softID = &id
+	case site.KIND_NODE:
+		if mainItem, err := s.software.GetMain(ctx, software.KIND_NODE); err == nil && mainItem != nil {
+			id := mainItem.ID
+			softwareID = &id
 		}
 	}
 
 	port := 0
 	command := strings.TrimSpace(in.Command)
-	if kind == site.KindNode {
-		port = s.allocateNodePort(ctx)
+	if kind == site.KIND_NODE {
+		port = s.findPort(ctx)
 		if command == "" {
 			command = site.FindCommand(docPath)
 			if command == "" && docPath != root {
@@ -228,215 +244,188 @@ func (s *SiteService) Create(ctx context.Context, in site.CreateInput) (*SiteVie
 		}
 	}
 
-	cur := &site.Site{
+	created := &site.Site{
 		Name:      name,
 		Kind:      kind,
 		Hosts:     []string{host},
 		Root:      root,
-		Run:       runDir,
-		Software:  softID,
+		Run:       runFolder,
+		Software:  softwareID,
 		Command:   command,
 		Port:      port,
 		Autostart: true,
 	}
 
-	if err := s.sites.Create(ctx, cur); err != nil {
+	if err := s.sites.Create(ctx, created); err != nil {
 		return nil, err
 	}
 
-	_ = s.syncCustomHosts(ctx)
-
-	canStart := kind == site.KindStatic || (kind == site.KindPHP && softID != nil) || (kind == site.KindNode && softID != nil && command != "")
-	if canStart {
-		_ = s.Start(ctx, cur.ID)
+	if err := s.syncHosts(ctx); err != nil {
+		return s.Get(ctx, created.ID)
 	}
 
-	return s.Get(ctx, cur.ID)
+	ready := kind == site.KIND_STATIC || (kind == site.KIND_PHP && softwareID != nil) || (kind == site.KIND_NODE && softwareID != nil && command != "")
+	if ready {
+		if err := s.Start(ctx, created.ID); err != nil {
+			return s.Get(ctx, created.ID)
+		}
+	}
+
+	return s.Get(ctx, created.ID)
 }
 
 func (s *SiteService) Update(ctx context.Context, in site.UpdateInput) (*SiteView, error) {
-	cur, err := s.sites.Get(ctx, in.ID)
+	current, err := s.sites.Get(ctx, in.ID)
 	if err != nil {
 		return nil, err
 	}
-	if cur == nil {
-		return nil, appErrors.New(appErrors.CodeNotFound, "站点不存在")
+	if current == nil {
+		return nil, appErrors.New(appErrors.NOT_FOUND, "站点不存在")
 	}
 
 	var cleanHosts []string
 	seen := make(map[string]bool)
-	for _, h := range in.Hosts {
-		trimmed := strings.ToLower(strings.TrimSpace(h))
+	for _, host := range in.Hosts {
+		trimmed := strings.ToLower(strings.TrimSpace(host))
 		if trimmed != "" && !seen[trimmed] {
 			seen[trimmed] = true
 			cleanHosts = append(cleanHosts, trimmed)
 		}
 	}
 	if len(cleanHosts) == 0 {
-		return nil, appErrors.New(appErrors.CodeInvalidArgument, "至少需要保留一个域名")
+		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "至少需要保留一个域名")
 	}
 
 	root := filepath.Clean(strings.TrimSpace(in.Root))
 	if !filepath.IsAbs(root) {
-		return nil, appErrors.New(appErrors.CodePathInvalid, "根目录必须是绝对路径")
+		return nil, appErrors.New(appErrors.PATH_INVALID, "根目录必须是绝对路径")
 	}
 
-	runDir, err := site.NormalizeRun(root, in.Run)
+	runFolder, err := site.NormalizeRun(root, in.Run)
 	if err != nil {
-		return nil, appErrors.New(appErrors.CodePathInvalid, err.Error())
+		return nil, appErrors.New(appErrors.PATH_INVALID, err.Error())
 	}
 
-	docPath := site.ResolvePath(root, runDir)
-	if err := os.MkdirAll(docPath, 0755); err != nil {
-		return nil, appErrors.Wrap(err, appErrors.CodePathNotAccessible, "创建运行目录失败")
+	docPath := site.ResolvePath(root, runFolder)
+	if err := os.MkdirAll(docPath, 0o755); err != nil {
+		return nil, appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建运行目录失败")
 	}
 
-	cur.Hosts = cleanHosts
-	cur.Root = root
-	cur.Run = runDir
-	cur.Software = in.Software
-	cur.Command = strings.TrimSpace(in.Command)
-	cur.Autostart = in.Autostart
+	current.Hosts = cleanHosts
+	current.Root = root
+	current.Run = runFolder
+	current.Software = in.Software
+	current.Command = strings.TrimSpace(in.Command)
+	current.Autostart = in.Autostart
 
-	if err := s.sites.Update(ctx, cur); err != nil {
+	if err := s.sites.Update(ctx, current); err != nil {
 		return nil, err
 	}
 
-	s.syncGatewayRoutes(ctx)
-	_ = s.syncCustomHosts(ctx)
+	s.syncRoutes(ctx)
+	if err := s.syncHosts(ctx); err != nil {
+		return nil, err
+	}
 
-	return s.Get(ctx, cur.ID)
+	return s.Get(ctx, current.ID)
 }
 
 func (s *SiteService) Start(ctx context.Context, id int64) error {
-	cur, err := s.sites.Get(ctx, id)
+	current, err := s.sites.Get(ctx, id)
 	if err != nil {
 		return err
 	}
-	if cur == nil {
-		return appErrors.New(appErrors.CodeNotFound, "站点不存在")
+	if current == nil {
+		return appErrors.New(appErrors.NOT_FOUND, "站点不存在")
 	}
 
-	switch cur.Kind {
-	case site.KindStatic:
+	switch current.Kind {
+	case site.KIND_STATIC:
 		s.mu.Lock()
-		s.active[cur.ID] = true
-		delete(s.failed, cur.ID)
+		s.active[current.ID] = true
+		delete(s.failed, current.ID)
 		s.mu.Unlock()
 
-	case site.KindPHP:
-		if cur.Software == nil {
-			return appErrors.New(appErrors.CodeRuntimeNotInstalled, "站点未绑定 PHP 运行环境")
+	case site.KIND_PHP:
+		if current.Software == nil {
+			return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "站点未绑定 PHP 运行环境")
 		}
-		sw, err := s.software.Get(ctx, *cur.Software)
+		found, err := s.software.Get(ctx, *current.Software)
 		if err != nil {
 			return err
 		}
-		if sw == nil || sw.State != software.StateInstalled {
-			return appErrors.New(appErrors.CodeRuntimeNotInstalled, "PHP 运行环境未安装")
+		if found == nil || found.State != software.STATE_INSTALLED {
+			return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "PHP 运行环境未安装")
 		}
-		phpCGI := filepath.Join(sw.Path, "php-cgi.exe")
-		if info, err := os.Stat(phpCGI); err != nil || info.IsDir() {
-			return appErrors.New(appErrors.CodeRuntimeNotInstalled, "找不到 php-cgi.exe: "+phpCGI)
-		}
-		phpPort := sw.Port
-		if phpPort <= 0 {
-			phpPort = 9000
-		}
-		phpKey := fmt.Sprintf("php:%d", sw.ID)
-		if !s.runner.Status(phpKey).Running && !s.probe.Listening(phpPort) {
-			logPath := filepath.Join(s.baseDir, "logs", "services", fmt.Sprintf("php-%s.log", sw.Version))
-			_ = os.MkdirAll(filepath.Dir(logPath), 0755)
-			_, err := s.runner.Start(phpKey, ports.Options{
-				Binary:    phpCGI,
-				Args:      []string{"-b", fmt.Sprintf("127.0.0.1:%d", phpPort), "-c", filepath.Join(sw.Path, "php.ini")},
-				Directory: sw.Path,
-				Log:       logPath,
-			})
-			if err != nil {
-				return err
-			}
+		phpBinary := filepath.Join(found.Path, "php-cgi.exe")
+		if info, err := os.Stat(phpBinary); err != nil || info.IsDir() {
+			return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "找不到 php-cgi.exe: "+phpBinary)
 		}
 		s.mu.Lock()
-		s.active[cur.ID] = true
-		delete(s.failed, cur.ID)
+		s.active[current.ID] = true
+		delete(s.failed, current.ID)
 		s.mu.Unlock()
 
-	case site.KindNode:
-		if cur.Software == nil {
-			return appErrors.New(appErrors.CodeRuntimeNotInstalled, "站点未绑定 Node.js 运行环境")
+	case site.KIND_NODE:
+		if current.Software == nil {
+			return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "站点未绑定 Node.js 运行环境")
 		}
-		sw, err := s.software.Get(ctx, *cur.Software)
+		found, err := s.software.Get(ctx, *current.Software)
 		if err != nil {
 			return err
 		}
-		if sw == nil || sw.State != software.StateInstalled {
-			return appErrors.New(appErrors.CodeRuntimeNotInstalled, "Node.js 运行环境未安装")
+		if found == nil || found.State != software.STATE_INSTALLED {
+			return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "Node.js 运行环境未安装")
 		}
-		if strings.TrimSpace(cur.Command) == "" {
-			return appErrors.New(appErrors.CodeInvalidArgument, "未配置 Node 启动命令")
+		if strings.TrimSpace(current.Command) == "" {
+			return appErrors.New(appErrors.INVALID_ARGUMENT, "未配置 Node 启动命令")
 		}
-		if err := s.startNodeProcess(*cur, *sw); err != nil {
+		if err := s.startNode(*current, *found); err != nil {
 			s.mu.Lock()
-			delete(s.active, cur.ID)
-			s.failed[cur.ID] = err.Error()
+			delete(s.active, current.ID)
+			s.failed[current.ID] = err.Error()
 			s.mu.Unlock()
 			return err
 		}
 		s.mu.Lock()
-		s.active[cur.ID] = true
-		delete(s.failed, cur.ID)
+		s.active[current.ID] = true
+		delete(s.failed, current.ID)
 		s.mu.Unlock()
 	}
 
-	s.syncGatewayRoutes(ctx)
+	s.syncRoutes(ctx)
 	s.bus.Emit("site:status-changed", map[string]interface{}{
-		"id":      cur.ID,
-		"state":   site.StateRunning,
+		"id":      current.ID,
+		"state":   site.STATE_RUNNING,
 		"message": "",
 	})
 	return nil
 }
 
 func (s *SiteService) Stop(ctx context.Context, id int64) error {
-	cur, err := s.sites.Get(ctx, id)
+	current, err := s.sites.Get(ctx, id)
 	if err != nil {
 		return err
 	}
-	if cur == nil {
-		return appErrors.New(appErrors.CodeNotFound, "站点不存在")
+	if current == nil {
+		return appErrors.New(appErrors.NOT_FOUND, "站点不存在")
 	}
 
-	if cur.Kind == site.KindNode {
-		_ = s.runner.Stop(siteKey(cur.ID))
-	} else if cur.Kind == site.KindPHP && cur.Software != nil {
-		otherUsing := false
-		s.mu.RLock()
-		for activeID := range s.active {
-			if activeID != cur.ID {
-				if otherSite, err := s.sites.Get(ctx, activeID); err == nil && otherSite != nil {
-					if otherSite.Kind == site.KindPHP && otherSite.Software != nil && *otherSite.Software == *cur.Software {
-						otherUsing = true
-						break
-					}
-				}
-			}
-		}
-		s.mu.RUnlock()
-		if !otherUsing {
-			_ = s.runner.Stop(fmt.Sprintf("php:%d", *cur.Software))
+	if current.Kind == site.KIND_NODE {
+		if err := s.runner.Stop(siteKey(current.ID)); err != nil {
+			return err
 		}
 	}
 
 	s.mu.Lock()
-	delete(s.active, cur.ID)
-	delete(s.failed, cur.ID)
+	delete(s.active, current.ID)
+	delete(s.failed, current.ID)
 	s.mu.Unlock()
 
-	s.syncGatewayRoutes(ctx)
+	s.syncRoutes(ctx)
 	s.bus.Emit("site:status-changed", map[string]interface{}{
-		"id":      cur.ID,
-		"state":   site.StateStopped,
+		"id":      current.ID,
+		"state":   site.STATE_STOPPED,
 		"message": "",
 	})
 	return nil
@@ -450,39 +439,41 @@ func (s *SiteService) Restart(ctx context.Context, id int64) error {
 }
 
 func (s *SiteService) Delete(ctx context.Context, id int64) error {
-	cur, err := s.sites.Get(ctx, id)
+	current, err := s.sites.Get(ctx, id)
 	if err != nil {
 		return err
 	}
-	if cur == nil {
-		return appErrors.New(appErrors.CodeNotFound, "站点不存在")
+	if current == nil {
+		return appErrors.New(appErrors.NOT_FOUND, "站点不存在")
 	}
 
-	_ = s.Stop(ctx, id)
+	if err := s.Stop(ctx, id); err != nil {
+		return err
+	}
 	if err := s.sites.Delete(ctx, id); err != nil {
 		return err
 	}
 
-	s.syncGatewayRoutes(ctx)
-	_ = s.syncCustomHosts(ctx)
+	s.syncRoutes(ctx)
+	if err := s.syncHosts(ctx); err != nil {
+		return nil
+	}
 	return nil
 }
 
 func (s *SiteService) Logs(ctx context.Context, id int64, kind string, limit int) ([]string, error) {
-	cur, err := s.sites.Get(ctx, id)
+	current, err := s.sites.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if cur == nil {
-		return nil, appErrors.New(appErrors.CodeNotFound, "站点不存在")
+	if current == nil {
+		return nil, appErrors.New(appErrors.NOT_FOUND, "站点不存在")
 	}
-	var logFile string
+	logFile := paths.SiteLog(s.base, current.Name, "access.log")
 	if kind == "run" {
-		logFile = s.siteLogPath(cur.Name, "run.log")
-	} else {
-		logFile = s.siteLogPath(cur.Name, "access.log")
+		logFile = paths.SiteLog(s.base, current.Name, "run.log")
 	}
-	return process.ReadLogTail(logFile, limit), nil
+	return process.ReadTail(logFile, limit), nil
 }
 
 func (s *SiteService) StopAll() {
@@ -491,41 +482,36 @@ func (s *SiteService) StopAll() {
 		return
 	}
 	for _, item := range list {
-		if item.Kind == site.KindNode {
-			_ = s.runner.Stop(siteKey(item.ID))
+		if item.Kind == site.KIND_NODE {
+			if stopErr := s.runner.Stop(siteKey(item.ID)); stopErr != nil {
+				continue
+			}
 		}
 	}
 }
 
-func (s *SiteService) startNodeProcess(cur site.Site, sw software.Software) error {
-	key := siteKey(cur.ID)
-	if st := s.runner.Status(key); st.Running {
+func (s *SiteService) startNode(current site.Site, runtimeItem software.Software) error {
+	key := siteKey(current.ID)
+	if status := s.runner.Status(key); status.Running {
 		return nil
 	}
-	if !s.probe.Available(cur.Port) {
-		return appErrors.New(appErrors.CodePortAlreadyInUse, fmt.Sprintf("Node 站点端口 %d 已被占用", cur.Port))
+	if !s.probe.Available(current.Port) {
+		return appErrors.New(appErrors.PORT_ALREADY_IN_USE, fmt.Sprintf("Node 站点端口 %d 已被占用", current.Port))
 	}
 
-	portStr := strconv.Itoa(cur.Port)
-	expandedCmd := strings.ReplaceAll(cur.Command, "%PORT%", portStr)
-	workDir := site.ResolvePath(cur.Root, cur.Run)
-	logPath := s.siteLogPath(cur.Name, "run.log")
+	portText := strconv.Itoa(current.Port)
+	commandText := strings.ReplaceAll(current.Command, "%PORT%", portText)
+	workFolder := site.ResolvePath(current.Root, current.Run)
+	logPath := paths.SiteLog(s.base, current.Name, "run.log")
+	envPath := runtimeItem.Path + ";" + os.Getenv("PATH")
+	siteID := current.ID
 
-	sysRoot := os.Getenv("SystemRoot")
-	if sysRoot == "" {
-		sysRoot = `C:\Windows`
-	}
-	cmdExe := filepath.Join(sysRoot, "System32", "cmd.exe")
-
-	envPath := sw.Path + ";" + os.Getenv("PATH")
-	siteID := cur.ID
-
-	opts := ports.Options{
-		Binary:    cmdExe,
-		Args:      []string{"/C", expandedCmd},
-		Directory: workDir,
+	options := ports.Options{
+		Binary:    paths.Shell(),
+		Args:      []string{"/C", commandText},
+		Directory: workFolder,
 		Environment: []string{
-			"PORT=" + portStr,
+			"PORT=" + portText,
 			"PATH=" + envPath,
 		},
 		Log: logPath,
@@ -534,54 +520,56 @@ func (s *SiteService) startNodeProcess(cur site.Site, sw software.Software) erro
 			delete(s.active, siteID)
 			s.failed[siteID] = message
 			s.mu.Unlock()
-			s.syncGatewayRoutes(context.Background())
+			s.syncRoutes(context.Background())
 			s.bus.Emit("site:status-changed", map[string]interface{}{
 				"id":      siteID,
-				"state":   site.StateError,
+				"state":   site.STATE_ERROR,
 				"message": message,
 			})
 		},
 	}
 
-	if _, err := s.runner.Start(key, opts); err != nil {
+	if _, err := s.runner.Start(key, options); err != nil {
 		return err
 	}
 
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(START_TIMEOUT)
 	for time.Now().Before(deadline) {
-		if s.probe.Listening(cur.Port) {
+		if s.probe.Listening(current.Port) {
 			return nil
 		}
-		st := s.runner.Status(key)
-		if !st.Running {
+		status := s.runner.Status(key)
+		if !status.Running {
 			break
 		}
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(POLL_INTERVAL)
 	}
 
-	_ = s.runner.Stop(key)
-	tail := process.ReadLogTail(logPath, 20)
-	return appErrors.New(appErrors.CodeProcessStartFailed, "Node 站点启动超时或退出:\n"+strings.Join(tail, "\n"))
+	if stopErr := s.runner.Stop(key); stopErr != nil {
+		return appErrors.Wrap(stopErr, appErrors.PROCESS_START_FAILED, "停止超时 Node 站点失败")
+	}
+	tail := process.ReadTail(logPath, LOG_TAIL_LIMIT)
+	return appErrors.New(appErrors.PROCESS_START_FAILED, "Node 站点启动超时或退出:\n"+strings.Join(tail, "\n"))
 }
 
-func (s *SiteService) syncGatewayRoutes(ctx context.Context) {
+func (s *SiteService) syncRoutes(ctx context.Context) {
 	list, err := s.sites.List(ctx)
 	if err != nil {
 		return
 	}
-	softList, err := s.software.List(ctx)
+	softwareList, err := s.software.List(ctx)
 	if err != nil {
 		return
 	}
-	softMap := make(map[int64]software.Software, len(softList))
-	for _, sw := range softList {
-		softMap[sw.ID] = sw
+	softwareMap := make(map[int64]software.Software, len(softwareList))
+	for _, item := range softwareList {
+		softwareMap[item.ID] = item
 	}
 
 	s.mu.RLock()
 	activeCopy := make(map[int64]bool, len(s.active))
-	for k, v := range s.active {
-		activeCopy[k] = v
+	for key, val := range s.active {
+		activeCopy[key] = val
 	}
 	s.mu.RUnlock()
 
@@ -590,16 +578,10 @@ func (s *SiteService) syncGatewayRoutes(ctx context.Context) {
 		if !activeCopy[item.ID] {
 			continue
 		}
-		phpDir := ""
-		port := item.Port
-		if item.Kind == site.KindPHP && item.Software != nil {
-			if sw, ok := softMap[*item.Software]; ok && sw.State == software.StateInstalled {
-				phpDir = sw.Path
-				if sw.Port > 0 {
-					port = sw.Port
-				} else {
-					port = 9000
-				}
+		phpBinary := ""
+		if item.Kind == site.KIND_PHP && item.Software != nil {
+			if found, ok := softwareMap[*item.Software]; ok && found.State == software.STATE_INSTALLED {
+				phpBinary = filepath.Join(found.Path, "php-cgi.exe")
 			}
 		}
 		routes = append(routes, ports.Route{
@@ -607,20 +589,20 @@ func (s *SiteService) syncGatewayRoutes(ctx context.Context) {
 			Hosts: item.Hosts,
 			Kind:  item.Kind,
 			Path:  site.ResolvePath(item.Root, item.Run),
-			PHP:   phpDir,
-			Port:  port,
-			Log:   s.siteLogPath(item.Name, "access.log"),
+			PHP:   phpBinary,
+			Port:  item.Port,
+			Log:   paths.SiteLog(s.base, item.Name, "access.log"),
 		})
 	}
 	s.gateway.SetRoutes(routes)
 }
 
-func (s *SiteService) syncCustomHosts(ctx context.Context) error {
-	cfg, err := s.settings.Load(ctx)
+func (s *SiteService) syncHosts(ctx context.Context) error {
+	current, err := s.settings.Load(ctx)
 	if err != nil {
 		return err
 	}
-	if !cfg.Hosts {
+	if !current.Hosts {
 		return nil
 	}
 	list, err := s.sites.List(ctx)
@@ -634,60 +616,59 @@ func (s *SiteService) syncCustomHosts(ctx context.Context) error {
 	return s.hosts.Sync(allHosts)
 }
 
-func (s *SiteService) buildView(item site.Site, softMap map[int64]software.Software, gwPort int) SiteView {
+func (s *SiteService) buildView(item site.Site, softwareMap map[int64]software.Software, port int) SiteView {
 	docPath := site.ResolvePath(item.Root, item.Run)
 	version := ""
 	need := ""
 
 	switch item.Kind {
-	case site.KindPHP:
+	case site.KIND_PHP:
 		if item.Software != nil {
-			if sw, ok := softMap[*item.Software]; ok && sw.State == software.StateInstalled {
-				version = sw.Version
+			if found, ok := softwareMap[*item.Software]; ok && found.State == software.STATE_INSTALLED {
+				version = found.Version
 			} else {
-				need = software.KindPHP
+				need = software.KIND_PHP
 			}
 		} else {
-			need = software.KindPHP
+			need = software.KIND_PHP
 		}
-	case site.KindNode:
+	case site.KIND_NODE:
 		if item.Software != nil {
-			if sw, ok := softMap[*item.Software]; ok && sw.State == software.StateInstalled {
-				version = sw.Version
+			if found, ok := softwareMap[*item.Software]; ok && found.State == software.STATE_INSTALLED {
+				version = found.Version
 			} else {
-				need = software.KindNode
+				need = software.KIND_NODE
 			}
 		} else {
-			need = software.KindNode
+			need = software.KIND_NODE
 		}
 	}
 
 	s.mu.RLock()
-	isActive := s.active[item.ID]
-	failMsg, hasFail := s.failed[item.ID]
+	active := s.active[item.ID]
+	_, hasFailed := s.failed[item.ID]
 	s.mu.RUnlock()
-	_ = failMsg
 
-	state := site.StateStopped
-	if hasFail {
-		state = site.StateError
-	} else if isActive {
-		if item.Kind == site.KindNode {
-			st := s.runner.Status(siteKey(item.ID))
-			if st.Running {
-				state = site.StateRunning
-			} else if st.Message != "" {
-				state = site.StateError
+	state := site.STATE_STOPPED
+	if hasFailed {
+		state = site.STATE_ERROR
+	} else if active {
+		if item.Kind == site.KIND_NODE {
+			status := s.runner.Status(siteKey(item.ID))
+			if status.Running {
+				state = site.STATE_RUNNING
+			} else if status.Message != "" {
+				state = site.STATE_ERROR
 			}
 		} else {
-			state = site.StateRunning
+			state = site.STATE_RUNNING
 		}
 	}
 
 	siteURL := ""
 	if len(item.Hosts) > 0 {
-		if gwPort > 0 && gwPort != 80 {
-			siteURL = fmt.Sprintf("http://%s:%d", item.Hosts[0], gwPort)
+		if port > 0 && port != DEFAULT_HTTP {
+			siteURL = fmt.Sprintf("http://%s:%d", item.Hosts[0], port)
 		} else {
 			siteURL = "http://" + item.Hosts[0]
 		}
@@ -703,32 +684,31 @@ func (s *SiteService) buildView(item site.Site, softMap map[int64]software.Softw
 	}
 }
 
-func (s *SiteService) allocateNodePort(ctx context.Context) int {
-	list, _ := s.sites.List(ctx)
+func (s *SiteService) findPort(ctx context.Context) int {
+	list, err := s.sites.List(ctx)
+	if err != nil {
+		list = nil
+	}
 	used := make(map[int]bool, len(list))
 	for _, item := range list {
 		if item.Port > 0 {
 			used[item.Port] = true
 		}
 	}
-	for port := 3000; port < 4000; port++ {
+	for port := NODE_START_PORT; port < NODE_END_PORT; port++ {
 		if !used[port] && s.probe.Available(port) {
 			return port
 		}
 	}
-	return 3000
-}
-
-func (s *SiteService) siteLogPath(name, file string) string {
-	return filepath.Join(s.baseDir, "logs", "sites", name, file)
+	return NODE_START_PORT
 }
 
 func siteKey(id int64) string {
 	return "site:" + strconv.FormatInt(id, 10)
 }
 
-func writeSampleFilesIfEmpty(kind, name, docPath string) error {
-	entries, err := os.ReadDir(docPath)
+func writeSample(kind, name, folder string) error {
+	entries, err := os.ReadDir(folder)
 	if err != nil {
 		return err
 	}
@@ -737,19 +717,19 @@ func writeSampleFilesIfEmpty(kind, name, docPath string) error {
 	}
 
 	switch kind {
-	case site.KindStatic:
-		html := fmt.Sprintf("<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head><meta charset=\"utf-8\"><title>%s</title></head>\n<body><h1>%s 运行正常</h1></body>\n</html>\n", name, name)
-		return os.WriteFile(filepath.Join(docPath, "index.html"), []byte(html), 0644)
-	case site.KindPHP:
-		phpCode := fmt.Sprintf("<?php\necho '<h1>%s (PHP ' . PHP_VERSION . ')</h1>';\n", name)
-		return os.WriteFile(filepath.Join(docPath, "index.php"), []byte(phpCode), 0644)
-	case site.KindNode:
+	case site.KIND_STATIC:
+		content := fmt.Sprintf("<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head><meta charset=\"utf-8\"><title>%s</title></head>\n<body><h1>%s 运行正常</h1></body>\n</html>\n", name, name)
+		return os.WriteFile(filepath.Join(folder, "index.html"), []byte(content), 0o644)
+	case site.KIND_PHP:
+		content := fmt.Sprintf("<?php\necho '<h1>%s (PHP ' . PHP_VERSION . ')</h1>';\n", name)
+		return os.WriteFile(filepath.Join(folder, "index.php"), []byte(content), 0o644)
+	case site.KIND_NODE:
 		pkg := fmt.Sprintf("{\n  \"name\": %q,\n  \"version\": \"1.0.0\",\n  \"main\": \"server.js\",\n  \"scripts\": {\n    \"start\": \"node server.js\"\n  }\n}\n", name)
-		if err := os.WriteFile(filepath.Join(docPath, "package.json"), []byte(pkg), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(folder, "package.json"), []byte(pkg), 0o644); err != nil {
 			return err
 		}
-		srv := fmt.Sprintf("const http = require('http');\nconst port = process.env.PORT || 3000;\nhttp.createServer((req, res) => {\n  res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});\n  res.end('<h1>%s (Node.js ' + process.version + ')</h1>');\n}).listen(port, '127.0.0.1');\n", name)
-		return os.WriteFile(filepath.Join(docPath, "server.js"), []byte(srv), 0644)
+		script := fmt.Sprintf("const http = require('http');\nconst port = process.env.PORT || 3000;\nhttp.createServer((request, response) => {\n  response.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});\n  response.end('<h1>%s (Node.js ' + process.version + ')</h1>');\n}).listen(port, '127.0.0.1');\n", name)
+		return os.WriteFile(filepath.Join(folder, "server.js"), []byte(script), 0o644)
 	}
 	return nil
 }

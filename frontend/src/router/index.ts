@@ -1,6 +1,7 @@
 import * as VueRouter from 'vue-router'
 import type { RouteRecordRaw, RouterHistory } from 'vue-router'
 
+// 全局路由配置表
 const routes: RouteRecordRaw[] = [
 	{
 		path: '/',
@@ -34,8 +35,10 @@ const routes: RouteRecordRaw[] = [
 	},
 ]
 
+// 构造 Hash 路由历史构建器
 const hashHistory = (VueRouter as unknown as Record<string, () => RouterHistory>)['createWeb' + 'HashHistory']
 
+// 全局路由实例
 export const router = VueRouter.createRouter({
 	history: hashHistory(),
 	routes,

@@ -3,24 +3,24 @@ package app
 import (
 	"context"
 	"os"
-	"path/filepath"
 
 	"devenv/internal/domain/software"
 	"devenv/internal/infra/catalog"
 	"devenv/internal/infra/events"
+	"devenv/internal/infra/gateway"
 	"devenv/internal/infra/hosts"
 	"devenv/internal/infra/installer"
 	"devenv/internal/infra/network"
-	"devenv/internal/infra/nginx"
 	"devenv/internal/infra/process"
 	"devenv/internal/infra/sqlite"
+	"devenv/internal/shared/paths"
 )
 
 type Container struct {
-	BaseDir  string
+	Base     string
 	DB       *sqlite.DB
 	Bus      *events.Publisher
-	Gateway  *nginx.Gateway
+	Gateway  *gateway.Server
 	Runner   *process.Manager
 	Site     *SiteService
 	Software *SoftwareService
@@ -28,13 +28,12 @@ type Container struct {
 }
 
 func Bootstrap() (*Container, error) {
-	localAppData := os.Getenv("LOCALAPPDATA")
-	baseDir := filepath.Join(localAppData, "DevEnv")
-	dbPath := filepath.Join(baseDir, "data", "devenv.db")
+	base := paths.Base()
+	dbPath := paths.Database(base)
 
-	resetOnDrift := os.Getenv("DEVENV_DB_RESET") == "1"
+	resetDrift := os.Getenv("DEVENV_DB_RESET") == "1"
 	db, err := sqlite.Open(dbPath, sqlite.Options{
-		ResetOnDrift: resetOnDrift,
+		ResetOnDrift: resetDrift,
 	})
 	if err != nil {
 		return nil, err
@@ -43,61 +42,46 @@ func Bootstrap() (*Container, error) {
 	bus := events.NewPublisher()
 	probe := network.NewChecker()
 	runner := process.NewManager()
-	gw := nginx.NewGateway(baseDir, runner, probe)
-	cat := catalog.NewClient()
-	inst := installer.NewManager()
+	gw := gateway.New()
+	catalogClient := catalog.NewClient()
+	installerManager := installer.NewManager()
 	hostsWriter := hosts.NewWriter()
 
-	softRepo := sqlite.NewSoftwareRepository(db.DB)
+	softwareRepo := sqlite.NewSoftwareRepository(db.DB)
 	siteRepo := sqlite.NewSiteRepository(db.DB)
 	settingRepo := sqlite.NewSettingRepository(db.DB)
 
-	softSvc := NewSoftwareService(baseDir, softRepo, siteRepo, cat, inst, runner, probe, bus)
-	siteSvc := NewSiteService(baseDir, siteRepo, softRepo, settingRepo, gw, runner, hostsWriter, probe, bus)
-	settingSvc := NewSettingService(baseDir, settingRepo, siteRepo, gw, hostsWriter)
-
-	softSvc.SetOnInstalled(func(ctx context.Context, sw software.Software) {
-		siteSvc.OnSoftwareInstalled(ctx, sw)
-		if sw.Kind == software.KindNginx {
-			settingSvc.StartGateway(ctx)
-		}
+	siteService := NewSiteService(base, siteRepo, softwareRepo, settingRepo, gw, runner, hostsWriter, probe, bus)
+	softwareService := NewSoftwareService(base, softwareRepo, siteRepo, catalogClient, installerManager, runner, probe, bus, func(ctx context.Context, item software.Software) {
+		siteService.BindInstalled(ctx, item)
 	})
+	settingService := NewSettingService(base, settingRepo, siteRepo, gw, hostsWriter)
 
 	return &Container{
-		BaseDir:  baseDir,
+		Base:     base,
 		DB:       db,
 		Bus:      bus,
 		Gateway:  gw,
 		Runner:   runner,
-		Site:     siteSvc,
-		Software: softSvc,
-		Setting:  settingSvc,
+		Site:     siteService,
+		Software: softwareService,
+		Setting:  settingService,
 	}, nil
 }
 
 func (c *Container) Start(ctx context.Context) {
-	if c == nil {
-		return
-	}
 	c.Setting.StartGateway(ctx)
-	c.Software.ReconcileStartup(ctx)
-	c.Site.ReconcileStartup(ctx)
+	c.Software.StartAuto(ctx)
+	c.Site.StartAuto(ctx)
 }
 
 func (c *Container) Shutdown() {
-	if c == nil {
+	c.Site.StopAll()
+	c.Software.StopAll()
+	if err := c.Gateway.Stop(); err != nil {
 		return
 	}
-	if c.Site != nil {
-		c.Site.StopAll()
-	}
-	if c.Software != nil {
-		c.Software.StopAll()
-	}
-	if c.Gateway != nil {
-		_ = c.Gateway.Stop()
-	}
-	if c.DB != nil {
-		_ = c.DB.Close()
+	if err := c.DB.Close(); err != nil {
+		return
 	}
 }

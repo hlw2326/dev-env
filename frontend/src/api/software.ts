@@ -1,84 +1,55 @@
 import * as SoftwareAPI from '../../wailsjs/go/wails/SoftwareAPI'
-import type {
-	MarketItem,
-	Software,
-	SoftwareVersion,
-	SoftwareConfig,
-	SaveConfigInput,
-	SaveConfigResult,
-	Extension,
-	InstallInput,
-	Result,
-} from '@/types'
 
-export async function loadMarket(): Promise<MarketItem[]> {
-	return await SoftwareAPI.Market()
-}
+// 获取软件商店列表
+export const loadMarket = SoftwareAPI.Market
 
-export async function listSoftware(): Promise<Software[]> {
-	return await SoftwareAPI.List()
-}
+// 获取已安装软件列表
+export const listSoftware = SoftwareAPI.List
 
-export async function listVersions(kind: string): Promise<SoftwareVersion[]> {
-	return await SoftwareAPI.Versions(kind)
-}
+// 获取软件可安装版本列表
+export const listVersions = SoftwareAPI.Versions
 
-export async function loadConfig(id: number): Promise<SoftwareConfig> {
-	return await SoftwareAPI.Config(id)
-}
+// 读取软件常用配置项
+export const loadConfig = SoftwareAPI.Config
 
-export async function saveConfig(input: SaveConfigInput): Promise<SaveConfigResult> {
-	return await SoftwareAPI.SaveConfig(input)
-}
+// 保存软件常用配置项
+export const saveConfig = SoftwareAPI.SaveConfig
 
-export async function readConfig(id: number): Promise<string> {
-	return await SoftwareAPI.ReadConfig(id)
-}
+// 读取软件配置文件全文
+export const readConfig = SoftwareAPI.ReadConfig
 
-export async function writeConfig(id: number, text: string): Promise<Result> {
-	return await SoftwareAPI.WriteConfig(id, text)
-}
+// 写入软件配置文件全文
+export const writeConfig = SoftwareAPI.WriteConfig
 
-export async function listExtensions(id: number): Promise<Extension[]> {
-	return await SoftwareAPI.Extensions(id)
-}
+// 获取 PHP 扩展列表
+export const listExtensions = SoftwareAPI.Extensions
 
-export async function setExtension(id: number, name: string, on: boolean): Promise<Result> {
-	return await SoftwareAPI.SetExtension(id, name, on)
-}
+// 切换 PHP 扩展启用状态
+export const setExtension = SoftwareAPI.SetExtension
 
-export async function openSoftwareFolder(id: number): Promise<Result> {
-	return await SoftwareAPI.OpenFolder(id)
-}
+// 打开软件所在目录
+export const openSoftware = SoftwareAPI.OpenFolder
 
-export async function installSoftware(input: InstallInput): Promise<Result> {
-	return await SoftwareAPI.Install(input)
-}
+// 安装指定版本软件
+export const installSoftware = SoftwareAPI.Install
 
-export async function cancelInstall(kind: string, version: string): Promise<Result> {
-	return await SoftwareAPI.Cancel(kind, version)
-}
+// 取消正在进行的安装任务
+export const cancelInstall = SoftwareAPI.Cancel
 
-export async function removeSoftware(id: number): Promise<Result> {
-	return await SoftwareAPI.Remove(id)
-}
+// 卸载已安装软件版本
+export const removeSoftware = SoftwareAPI.Remove
 
-export async function setMainSoftware(id: number): Promise<Result> {
-	return await SoftwareAPI.SetMain(id)
-}
+// 设为该类型默认软件版本
+export const setMain = SoftwareAPI.SetMain
 
-export async function startSoftware(id: number): Promise<Result> {
-	return await SoftwareAPI.Start(id)
-}
+// 启动守护进程服务
+export const startSoftware = SoftwareAPI.Start
 
-export async function stopSoftware(id: number): Promise<Result> {
-	return await SoftwareAPI.Stop(id)
-}
+// 停止守护进程服务
+export const stopSoftware = SoftwareAPI.Stop
 
-export async function setSoftwareAutostart(id: number, on: boolean): Promise<Result> {
-	return await SoftwareAPI.SetAutostart(id, on)
-}
+// 设置守护进程随应用启动
+export const setAutostart = SoftwareAPI.SetAutostart
 
-export async function loadSoftwareLogs(id: number, limit: number): Promise<string[]> {
-	return await SoftwareAPI.Logs(id, limit)
-}
+// 读取软件运行日志
+export const listLogs = SoftwareAPI.Logs

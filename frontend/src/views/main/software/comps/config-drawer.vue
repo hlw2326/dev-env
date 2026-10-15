@@ -1,4 +1,5 @@
 <template>
+	<!-- 软件设置对话框 -->
 	<h-modal
 		v-if="item !== null"
 		v-model:visible="visible"
@@ -6,119 +7,55 @@
 		width="40rem"
 		:footer="false"
 	>
-		<component
-			:is="configComponents[item.kind]"
-			v-if="configComponents[item.kind]"
+		<!-- PHP 配置面板 -->
+		<comp-config-php
+			v-if="item.kind === 'php'"
+			:item="item"
+			@main="emit('main', $event)"
+			@folder="emit('folder', $event)"
+		/>
+
+		<!-- 守护进程服务配置面板 -->
+		<comp-config-daemon
+			v-else-if="item.daemon"
 			:item="item"
 			@start="emit('start', $event)"
 			@stop="emit('stop', $event)"
-			@set-main="emit('setMain', $event)"
-			@autostart="(sw: Software, on: boolean) => emit('autostart', sw, on)"
-			@open-folder="emit('openFolder', $event)"
+			@main="emit('main', $event)"
+			@autostart="(target, on) => emit('autostart', target, on)"
+			@folder="emit('folder', $event)"
 		/>
 
-		<div v-else class="node-overview">
-			<div class="kv-row">
-				<span class="kv-label">软件版本</span>
-				<span class="kv-val font-mono">{{ item.name }} {{ item.version }}</span>
-			</div>
-			<div class="kv-row">
-				<span class="kv-label">安装路径</span>
-				<div class="path-group">
-					<span class="kv-val font-mono">{{ item.path }}</span>
-					<p-button
-						size="small"
-						severity="secondary"
-						variant="outlined"
-						icon="pi pi-folder-open"
-						label="打开"
-						@click="emit('openFolder', item.id)"
-					/>
-				</div>
-			</div>
-			<div class="kv-row">
-				<span class="kv-label">默认版本</span>
-				<div>
-					<span v-if="item.main" class="main-text">当前已设为默认版本</span>
-					<p-button
-						v-else
-						size="small"
-						label="设为默认版本"
-						@click="emit('setMain', item)"
-					/>
-				</div>
-			</div>
-		</div>
+		<!-- 非守护进程软件概览面板 -->
+		<comp-config-overview
+			v-else
+			:item="item"
+			@main="emit('main', $event)"
+			@folder="emit('folder', $event)"
+		/>
 	</h-modal>
 </template>
 
 <script setup lang="ts">
-import type { Component } from 'vue'
-import CfgPhp from './cfg-php.vue'
-import CfgMysql from './cfg-mysql.vue'
-import CfgRedis from './cfg-redis.vue'
-import CfgNginx from './cfg-nginx.vue'
-import CfgApache from './cfg-apache.vue'
+import CompConfigPhp from './config-php.vue'
+import CompConfigDaemon from './config-daemon.vue'
+import CompConfigOverview from './config-overview.vue'
 import type { Software } from '@/types'
 
+// 接收当前软件属性
 defineProps<{
 	item: Software | null
 }>()
 
+// 弹窗显隐双向绑定
 const visible = defineModel<boolean>('visible', { default: false })
 
+// 定义设置弹窗操作事件
 const emit = defineEmits<{
 	start: [item: Software]
 	stop: [item: Software]
-	setMain: [item: Software]
+	main: [item: Software]
 	autostart: [item: Software, on: boolean]
-	openFolder: [id: number]
+	folder: [id: number]
 }>()
-
-const configComponents: Record<string, Component> = {
-	php: CfgPhp,
-	mysql: CfgMysql,
-	redis: CfgRedis,
-	nginx: CfgNginx,
-	apache: CfgApache,
-}
 </script>
-
-<style scoped lang="scss">
-.node-overview {
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
-}
-
-.kv-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0.75rem 0.875rem;
-	background: var(--bg-app);
-	border: 1px solid var(--border-color);
-	border-radius: var(--radius-md);
-}
-
-.kv-label {
-	font-size: var(--font-sm);
-	color: var(--text-secondary);
-}
-
-.kv-val {
-	font-size: var(--font-xs);
-	color: var(--text-primary);
-}
-
-.path-group {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-}
-
-.main-text {
-	font-size: var(--font-xs);
-	color: var(--ok);
-}
-</style>

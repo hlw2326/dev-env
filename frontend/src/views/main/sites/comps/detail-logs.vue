@@ -1,12 +1,14 @@
 <template>
+	<!-- 站点详情日志查看页签 -->
 	<div class="detail-logs">
+		<!-- 日志类型切换与刷新栏 -->
 		<div class="log-toolbar">
 			<div class="log-tabs">
 				<button
 					type="button"
 					class="tab-btn"
 					:class="{ active: logKind === 'access' }"
-					@click="onSwitchKind('access')"
+					@click="switchKind('access')"
 				>
 					访问日志
 				</button>
@@ -15,7 +17,7 @@
 					type="button"
 					class="tab-btn"
 					:class="{ active: logKind === 'run' }"
-					@click="onSwitchKind('run')"
+					@click="switchKind('run')"
 				>
 					运行日志
 				</button>
@@ -30,71 +32,94 @@
 			/>
 		</div>
 
+		<!-- 日志内容输出框 -->
 		<div class="log-box font-mono">
 			<div v-if="lines.length === 0" class="empty-log">暂无日志记录</div>
-			<div v-for="(line, idx) in lines" :key="idx" class="log-line">{{ line }}</div>
+			<div v-for="(line, index) in lines" :key="index" class="log-line">
+				{{ line }}
+			</div>
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { loadSiteLogs } from '@/api'
+import { readLogs } from '@/api'
+import { toast, formatError } from '@/utils'
 import type { Site } from '@/types'
 
+// 接收站点属性
 const props = defineProps<{
 	site: Site
 }>()
 
+// 单次读取最大日志行数
+const LOG_LIMIT = 200
+
+// 当前查看的日志类型
 const logKind = ref('access')
+
+// 日志文本行列表
 const lines = ref<string[]>([])
 
-async function fetchLogs() {
-	lines.value = await loadSiteLogs(props.site.id, logKind.value, 200)
+// 拉取站点日志末尾行
+async function fetchLogs(): Promise<void> {
+	try {
+		lines.value = await readLogs(props.site.id, logKind.value, LOG_LIMIT)
+	} catch (err: unknown) {
+		toast.error('读取日志失败', formatError(err))
+	}
 }
 
-function onSwitchKind(kind: string) {
+// 切换访问或运行日志
+function switchKind(kind: string): void {
 	logKind.value = kind
 	fetchLogs()
 }
 
+// 监听站点切换自动加载访问日志
 watch(
 	() => props.site.id,
 	() => {
 		logKind.value = 'access'
 		fetchLogs()
 	},
-	{ immediate: true }
+	{ immediate: true },
 )
 </script>
 
 <style scoped lang="scss">
+/* 日志面板容器 */
 .detail-logs {
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
 }
 
+/* 日志顶部工具栏 */
 .log-toolbar {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 }
 
+/* 日志类型页签组 */
 .log-tabs {
 	display: flex;
 	gap: 0.5rem;
 }
 
+/* 页签切换按钮 */
 .tab-btn {
 	border: 1px solid var(--border-color);
 	background: var(--bg-app);
 	color: var(--text-secondary);
 	font-size: var(--font-sm);
 	padding: 0.35rem 0.75rem;
-	border-radius: var(--radius-sm);
+	border-radius: var(--h-radius);
 	cursor: pointer;
 
+	/* 激活页签态 */
 	&.active {
 		background: var(--p-primary-color);
 		color: var(--on-primary);
@@ -102,10 +127,11 @@ watch(
 	}
 }
 
+/* 日志输出黑框 */
 .log-box {
 	background: var(--code-bg);
 	color: var(--code-text);
-	border-radius: var(--radius-md);
+	border-radius: var(--h-radius);
 	padding: 0.875rem;
 	height: 20rem;
 	overflow-y: auto;
@@ -115,10 +141,12 @@ watch(
 	gap: 0.25rem;
 }
 
+/* 空日志提示 */
 .empty-log {
 	color: var(--text-muted);
 }
 
+/* 单行日志文本 */
 .log-line {
 	white-space: pre-wrap;
 	word-break: break-all;

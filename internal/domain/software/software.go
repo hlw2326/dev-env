@@ -1,18 +1,32 @@
 package software
 
 const (
-	KindPHP   = "php"
-	KindNode  = "nodejs"
-	KindMySQL = "mysql"
-	KindRedis  = "redis"
-	KindNginx  = "nginx"
-	KindApache = "apache"
+	KIND_PHP        = "php"
+	KIND_NODE       = "nodejs"
+	KIND_GO         = "go"
+	KIND_PYTHON     = "python"
+	KIND_COMPOSER   = "composer"
+	KIND_MYSQL      = "mysql"
+	KIND_MARIADB    = "mariadb"
+	KIND_POSTGRESQL = "postgresql"
+	KIND_MONGODB    = "mongodb"
+	KIND_REDIS      = "redis"
+	KIND_MEMCACHED  = "memcached"
+	KIND_JAVA       = "java"
+	KIND_DOTNET     = "dotnet"
+	KIND_DENO       = "deno"
+	KIND_BUN        = "bun"
+	KIND_NGINX      = "nginx"
+	KIND_CADDY      = "caddy"
+	KIND_SQLITE     = "sqlite"
+	KIND_GRADLE     = "gradle"
+	KIND_MAVEN      = "maven"
 )
 
 const (
-	StateInstalling = "installing"
-	StateInstalled  = "installed"
-	StateFailed     = "failed"
+	STATE_INSTALLING = "installing"
+	STATE_INSTALLED  = "installed"
+	STATE_FAILED     = "failed"
 )
 
 type Software struct {
@@ -65,28 +79,98 @@ type Extension struct {
 	Enabled bool   `json:"enabled"`
 }
 
+func AllKinds() []string {
+	return []string{
+		KIND_PHP,
+		KIND_NODE,
+		KIND_GO,
+		KIND_PYTHON,
+		KIND_COMPOSER,
+		KIND_MYSQL,
+		KIND_MARIADB,
+		KIND_POSTGRESQL,
+		KIND_MONGODB,
+		KIND_REDIS,
+		KIND_MEMCACHED,
+		KIND_JAVA,
+		KIND_DOTNET,
+		KIND_DENO,
+		KIND_BUN,
+		KIND_NGINX,
+		KIND_CADDY,
+		KIND_SQLITE,
+		KIND_GRADLE,
+		KIND_MAVEN,
+	}
+}
+
 func IsDaemon(kind string) bool {
-	return kind == KindMySQL || kind == KindRedis || kind == KindNginx || kind == KindApache
+	return kind == KIND_MYSQL ||
+		kind == KIND_MARIADB ||
+		kind == KIND_POSTGRESQL ||
+		kind == KIND_MONGODB ||
+		kind == KIND_REDIS ||
+		kind == KIND_MEMCACHED
+}
+
+func HasData(kind string) bool {
+	return kind == KIND_MYSQL ||
+		kind == KIND_MARIADB ||
+		kind == KIND_POSTGRESQL ||
+		kind == KIND_MONGODB
 }
 
 func IsValidKind(kind string) bool {
-	return kind == KindPHP || kind == KindNode || kind == KindMySQL || kind == KindRedis || kind == KindNginx || kind == KindApache
+	for _, item := range AllKinds() {
+		if item == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func Name(kind string) string {
 	switch kind {
-	case KindNginx:
-		return "Nginx"
-	case KindApache:
-		return "Apache"
-	case KindPHP:
+	case KIND_PHP:
 		return "PHP"
-	case KindNode:
+	case KIND_NODE:
 		return "Node.js"
-	case KindMySQL:
+	case KIND_GO:
+		return "Go"
+	case KIND_PYTHON:
+		return "Python"
+	case KIND_COMPOSER:
+		return "Composer"
+	case KIND_MYSQL:
 		return "MySQL"
-	case KindRedis:
+	case KIND_MARIADB:
+		return "MariaDB"
+	case KIND_POSTGRESQL:
+		return "PostgreSQL"
+	case KIND_MONGODB:
+		return "MongoDB"
+	case KIND_REDIS:
 		return "Redis"
+	case KIND_MEMCACHED:
+		return "Memcached"
+	case KIND_JAVA:
+		return "OpenJDK"
+	case KIND_DOTNET:
+		return ".NET SDK"
+	case KIND_DENO:
+		return "Deno"
+	case KIND_BUN:
+		return "Bun"
+	case KIND_NGINX:
+		return "Nginx"
+	case KIND_CADDY:
+		return "Caddy"
+	case KIND_SQLITE:
+		return "SQLite"
+	case KIND_GRADLE:
+		return "Gradle"
+	case KIND_MAVEN:
+		return "Maven"
 	default:
 		return kind
 	}

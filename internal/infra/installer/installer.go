@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -11,13 +12,20 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"devenv/internal/domain/software"
 	"devenv/internal/ports"
 	appErrors "devenv/internal/shared/errors"
+	"devenv/internal/shared/paths"
+)
+
+const (
+	DOWNLOAD_TIMEOUT  = 30 * time.Minute
+	PROGRESS_INTERVAL = 500 * time.Millisecond
+	BUFFER_SIZE       = 64 * 1024
+	BYTE_UNIT         = 1024
 )
 
 type Manager struct {
@@ -26,264 +34,322 @@ type Manager struct {
 
 func NewManager() *Manager {
 	return &Manager{
-		http: &http.Client{Timeout: 30 * time.Minute},
+		http: &http.Client{Timeout: DOWNLOAD_TIMEOUT},
 	}
 }
 
-func NewManagerWithClient(client *http.Client) *Manager {
+func NewWithClient(client *http.Client) *Manager {
 	return &Manager{http: client}
 }
 
 func (m *Manager) Install(ctx context.Context, request ports.Request, report func(progress int, message string)) error {
 	partPath := request.Cache
-	tmpDir := request.Target + ".tmp"
+	tempFolder := request.Target + ".tmp"
 
 	cleanup := func() {
 		if partPath != "" {
-			_ = os.Remove(partPath)
+			if err := os.Remove(partPath); err != nil && !os.IsNotExist(err) {
+				partPath = ""
+			}
 		}
-		if tmpDir != "" {
-			_ = os.RemoveAll(tmpDir)
+		if tempFolder != "" {
+			if err := os.RemoveAll(tempFolder); err != nil {
+				tempFolder = ""
+			}
 		}
 	}
 
-	if err := os.RemoveAll(tmpDir); err != nil {
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "清理临时解压目录失败")
+	if err := os.RemoveAll(tempFolder); err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "清理临时解压目录失败")
 	}
-	if err := os.MkdirAll(filepath.Dir(partPath), 0755); err != nil {
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "创建下载缓存目录失败")
+	if err := os.MkdirAll(filepath.Dir(partPath), 0o755); err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "创建下载缓存目录失败")
 	}
-	if err := os.MkdirAll(filepath.Dir(request.Target), 0755); err != nil {
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "创建软件安装父目录失败")
+	if err := os.MkdirAll(filepath.Dir(request.Target), 0o755); err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "创建软件安装父目录失败")
 	}
 
 	report(2, "正在下载安装包...")
-	computedHash, err := m.downloadFile(ctx, request.URL, partPath, report)
+	hash, err := m.downloadFile(ctx, request.URL, partPath, report)
 	if err != nil {
 		cleanup()
 		return err
 	}
 
-	requiresChecksum := request.Kind == software.KindPHP || request.Kind == software.KindNode
-	if requiresChecksum && strings.TrimSpace(request.Checksum) == "" {
+	needHash := request.Kind == software.KIND_PHP || request.Kind == software.KIND_NODE || request.Kind == software.KIND_GO || request.Kind == software.KIND_JAVA || request.Kind == software.KIND_DOTNET
+	if needHash && strings.TrimSpace(request.Checksum) == "" {
 		cleanup()
-		return appErrors.New(appErrors.CodeDownloadFailed, "缺少安装包 SHA-256 校验值")
+		return appErrors.New(appErrors.DOWNLOAD_FAILED, "缺少安装包 SHA-256 校验值")
 	}
 	if strings.TrimSpace(request.Checksum) != "" {
 		expected := strings.ToLower(strings.TrimSpace(request.Checksum))
-		if !strings.EqualFold(computedHash, expected) {
+		actual := hash
+		if len(expected) == sha512.Size*2 {
+			actual, err = fileSHA512(partPath)
+			if err != nil {
+				cleanup()
+				return err
+			}
+		}
+		if !strings.EqualFold(actual, expected) {
 			cleanup()
-			return appErrors.New(appErrors.CodeDownloadFailed, fmt.Sprintf("安装包 SHA-256 校验失败: 期望 %s，实际 %s", expected, computedHash))
+			return appErrors.New(appErrors.DOWNLOAD_FAILED, fmt.Sprintf("安装包哈希校验失败: 期望 %s，实际 %s", expected, actual))
 		}
 	}
 
-	report(72, "正在解压安装包...")
-	if err := extractZipSafe(ctx, partPath, tmpDir, report); err != nil {
-		cleanup()
-		return err
+	if request.Kind == software.KIND_COMPOSER {
+		report(80, "正在部署 Composer...")
+		if err := placeComposer(partPath, tempFolder); err != nil {
+			cleanup()
+			return err
+		}
+	} else {
+		report(72, "正在解压安装包...")
+		if err := extractZip(ctx, partPath, tempFolder, report); err != nil {
+			cleanup()
+			return err
+		}
 	}
 
-	if err := verifyEntryBinary(request.Kind, tmpDir); err != nil {
+	if err := checkEntry(request.Kind, tempFolder); err != nil {
 		cleanup()
 		return err
 	}
 
 	report(92, "正在初始化配置...")
-	if err := postProcess(request.Kind, tmpDir, request.Target); err != nil {
+	if err := postProcess(request.Kind, tempFolder, request.Target); err != nil {
 		cleanup()
 		return err
 	}
 
 	if err := os.RemoveAll(request.Target); err != nil {
 		cleanup()
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "清理旧目标目录失败")
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "清理旧目标目录失败")
 	}
-	if err := os.Rename(tmpDir, request.Target); err != nil {
+	if err := os.Rename(tempFolder, request.Target); err != nil {
 		cleanup()
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "启用安装目录失败")
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "启用安装目录失败")
 	}
 
-	_ = os.Remove(partPath)
+	if err := os.Remove(partPath); err != nil && !os.IsNotExist(err) {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "清理下载缓存失败")
+	}
 	report(100, "安装完成")
 	return nil
 }
 
 func (m *Manager) downloadFile(ctx context.Context, url, partPath string, report func(progress int, message string)) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", appErrors.Wrap(err, appErrors.CodeDownloadFailed, "创建下载请求失败")
+		return "", appErrors.Wrap(err, appErrors.DOWNLOAD_FAILED, "创建下载请求失败")
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) DevEnv/2.0")
+	request.Header.Set("User-Agent", "curl/8.13.0")
 
-	resp, err := m.http.Do(req)
+	response, err := m.http.Do(request)
 	if err != nil {
-		return "", appErrors.Wrap(err, appErrors.CodeDownloadFailed, "下载请求失败")
+		return "", appErrors.Wrap(err, appErrors.DOWNLOAD_FAILED, "下载请求失败")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			return
+		}
+	}()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", appErrors.New(appErrors.CodeDownloadFailed, fmt.Sprintf("下载失败，HTTP 状态码 %d", resp.StatusCode))
+	if response.StatusCode != http.StatusOK {
+		return "", appErrors.New(appErrors.DOWNLOAD_FAILED, fmt.Sprintf("下载失败，HTTP 状态码 %d", response.StatusCode))
 	}
 
-	out, err := os.Create(partPath)
+	file, err := os.Create(partPath)
 	if err != nil {
-		return "", appErrors.Wrap(err, appErrors.CodeDownloadFailed, "创建缓存文件失败")
+		return "", appErrors.Wrap(err, appErrors.DOWNLOAD_FAILED, "创建缓存文件失败")
 	}
-	defer out.Close()
 
 	hasher := sha256.New()
-	total := resp.ContentLength
+	total := response.ContentLength
 	var downloaded int64
-	lastReport := time.Now()
-	buf := make([]byte, 64*1024)
+	lastTime := time.Now()
+	buffer := make([]byte, BUFFER_SIZE)
 
 	for {
 		if err := ctx.Err(); err != nil {
-			_ = out.Close()
-			return "", appErrors.Wrap(err, appErrors.CodeDownloadFailed, "下载已取消")
-		}
-		n, readErr := resp.Body.Read(buf)
-		if n > 0 {
-			if _, writeErr := out.Write(buf[:n]); writeErr != nil {
-				_ = out.Close()
-				return "", appErrors.Wrap(writeErr, appErrors.CodeDownloadFailed, "写入缓存文件失败")
+			if closeErr := file.Close(); closeErr != nil {
+				return "", appErrors.Wrap(err, appErrors.DOWNLOAD_FAILED, "下载已取消")
 			}
-			_, _ = hasher.Write(buf[:n])
-			downloaded += int64(n)
-
-			if time.Since(lastReport) >= 200*time.Millisecond {
-				lastReport = time.Now()
-				pct := 35
-				var msg string
-				if total > 0 {
-					pct = int(float64(downloaded) / float64(total) * 70)
-					if pct > 70 {
-						pct = 70
-					}
-					msg = fmt.Sprintf("正在下载安装包 (%s / %s)...", formatBytes(downloaded), formatBytes(total))
-				} else {
-					msg = fmt.Sprintf("正在下载安装包 (%s)...", formatBytes(downloaded))
+			return "", appErrors.Wrap(err, appErrors.DOWNLOAD_FAILED, "下载已取消")
+		}
+		count, readErr := response.Body.Read(buffer)
+		if count > 0 {
+			if _, writeErr := file.Write(buffer[:count]); writeErr != nil {
+				if closeErr := file.Close(); closeErr != nil {
+					return "", appErrors.Wrap(writeErr, appErrors.DOWNLOAD_FAILED, "写入缓存文件失败")
 				}
-				report(pct, msg)
+				return "", appErrors.Wrap(writeErr, appErrors.DOWNLOAD_FAILED, "写入缓存文件失败")
+			}
+			if _, hashErr := hasher.Write(buffer[:count]); hashErr != nil {
+				if closeErr := file.Close(); closeErr != nil {
+					return "", appErrors.Wrap(hashErr, appErrors.DOWNLOAD_FAILED, "计算哈希失败")
+				}
+				return "", appErrors.Wrap(hashErr, appErrors.DOWNLOAD_FAILED, "计算哈希失败")
+			}
+			downloaded += int64(count)
+
+			if time.Since(lastTime) >= PROGRESS_INTERVAL {
+				lastTime = time.Now()
+				progress := 35
+				var message string
+				if total > 0 {
+					progress = int(float64(downloaded) / float64(total) * 70)
+					if progress > 70 {
+						progress = 70
+					}
+					message = fmt.Sprintf("正在下载安装包 (%s / %s)...", formatBytes(downloaded), formatBytes(total))
+				} else {
+					message = fmt.Sprintf("正在下载安装包 (%s)...", formatBytes(downloaded))
+				}
+				report(progress, message)
 			}
 		}
 		if readErr == io.EOF {
 			break
 		}
 		if readErr != nil {
-			_ = out.Close()
-			return "", appErrors.Wrap(readErr, appErrors.CodeDownloadFailed, "读取下载流失败")
+			if closeErr := file.Close(); closeErr != nil {
+				return "", appErrors.Wrap(readErr, appErrors.DOWNLOAD_FAILED, "读取下载流失败")
+			}
+			return "", appErrors.Wrap(readErr, appErrors.DOWNLOAD_FAILED, "读取下载流失败")
 		}
 	}
 
-	if err := out.Close(); err != nil {
-		return "", appErrors.Wrap(err, appErrors.CodeDownloadFailed, "关闭缓存文件失败")
+	if err := file.Close(); err != nil {
+		return "", appErrors.Wrap(err, appErrors.DOWNLOAD_FAILED, "关闭缓存文件失败")
 	}
 	report(70, "下载完成，正在准备解压...")
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-func formatBytes(b int64) string {
-	const unit = 1024
-	if b < unit {
-		return fmt.Sprintf("%d B", b)
+func fileSHA512(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", appErrors.Wrap(err, appErrors.DOWNLOAD_FAILED, "读取缓存文件失败")
 	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
+	defer file.Close()
+	hasher := sha512.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", appErrors.Wrap(err, appErrors.DOWNLOAD_FAILED, "计算 SHA-512 失败")
 	}
-	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-func extractZipSafe(ctx context.Context, zipPath, destDir string, report func(progress int, message string)) error {
-	zr, err := zip.OpenReader(zipPath)
+func formatBytes(size int64) string {
+	if size < BYTE_UNIT {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(BYTE_UNIT), 0
+	for n := size / BYTE_UNIT; n >= BYTE_UNIT; n /= BYTE_UNIT {
+		div *= BYTE_UNIT
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+func extractZip(ctx context.Context, zipPath, targetFolder string, report func(progress int, message string)) error {
+	archive, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "打开压缩包失败")
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "打开压缩包失败")
 	}
-	defer zr.Close()
-
-	if len(zr.File) == 0 {
-		return appErrors.New(appErrors.CodeInstallFailed, "压缩包为空")
-	}
-
-	commonPrefix := detectSingleRootPrefix(zr.File)
-	if err := os.MkdirAll(destDir, 0755); err != nil {
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "创建解压目录失败")
-	}
-	absDest, err := filepath.Abs(destDir)
-	if err != nil {
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "解析解压目录路径失败")
-	}
-
-	total := len(zr.File)
-	for i, f := range zr.File {
-		if err := ctx.Err(); err != nil {
-			return appErrors.Wrap(err, appErrors.CodeInstallFailed, "解压已取消")
+	defer func() {
+		if closeErr := archive.Close(); closeErr != nil {
+			return
 		}
-		relName := strings.ReplaceAll(f.Name, `\`, "/")
-		if commonPrefix != "" {
-			relName = strings.TrimPrefix(relName, commonPrefix)
+	}()
+
+	if len(archive.File) == 0 {
+		return appErrors.New(appErrors.INSTALL_FAILED, "压缩包为空")
+	}
+
+	prefix := findPrefix(archive.File)
+	if err := os.MkdirAll(targetFolder, 0o755); err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "创建解压目录失败")
+	}
+	absTarget, err := filepath.Abs(targetFolder)
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "解析解压目录路径失败")
+	}
+
+	total := len(archive.File)
+	for i, item := range archive.File {
+		if err := ctx.Err(); err != nil {
+			return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "解压已取消")
+		}
+		relName := strings.ReplaceAll(item.Name, `\`, "/")
+		if prefix != "" {
+			relName = strings.TrimPrefix(relName, prefix)
 		}
 		relName = strings.TrimPrefix(relName, "/")
 		if relName == "" {
 			continue
 		}
 
-		// Check for zip-slip before joining
-		cleanedSlash := filepath.ToSlash(filepath.Clean(relName))
-		if cleanedSlash == ".." || strings.HasPrefix(cleanedSlash, "../") || strings.Contains(cleanedSlash, "/../") || filepath.IsAbs(relName) {
-			return appErrors.New(appErrors.CodeInstallFailed, "检测到非法压缩包路径: "+f.Name)
+		cleaned := filepath.ToSlash(filepath.Clean(relName))
+		if cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.Contains(cleaned, "/../") || filepath.IsAbs(relName) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "检测到非法压缩包路径: "+item.Name)
 		}
 
-		targetPath := filepath.Join(absDest, filepath.FromSlash(cleanedSlash))
-		relCheck, relErr := filepath.Rel(absDest, targetPath)
-		if relErr != nil || strings.HasPrefix(filepath.ToSlash(relCheck), "../") || relCheck == ".." {
-			return appErrors.New(appErrors.CodeInstallFailed, "检测到越界压缩包路径: "+f.Name)
+		destPath := filepath.Join(absTarget, filepath.FromSlash(cleaned))
+		if err := paths.CheckWithin(absTarget, destPath); err != nil {
+			return appErrors.New(appErrors.INSTALL_FAILED, "检测到越界压缩包路径: "+item.Name)
 		}
 
-		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(targetPath, 0755); err != nil {
-				return appErrors.Wrap(err, appErrors.CodeInstallFailed, "创建目录失败")
+		if item.FileInfo().IsDir() {
+			if err := os.MkdirAll(destPath, 0o755); err != nil {
+				return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "创建目录失败")
 			}
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-			return appErrors.Wrap(err, appErrors.CodeInstallFailed, "创建父目录失败")
+		if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+			return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "创建父目录失败")
 		}
 
-		rc, err := f.Open()
+		reader, err := item.Open()
 		if err != nil {
-			return appErrors.Wrap(err, appErrors.CodeInstallFailed, "读取压缩包条目失败")
+			return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "读取压缩包条目失败")
 		}
-		outFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+		writer, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 		if err != nil {
-			_ = rc.Close()
-			return appErrors.Wrap(err, appErrors.CodeInstallFailed, "创建目标文件失败")
+			if closeErr := reader.Close(); closeErr != nil {
+				return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "创建目标文件失败")
+			}
+			return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "创建目标文件失败")
 		}
-		_, copyErr := io.Copy(outFile, rc)
-		_ = outFile.Close()
-		_ = rc.Close()
+		_, copyErr := io.Copy(writer, reader)
+		closeWriteErr := writer.Close()
+		closeReadErr := reader.Close()
 		if copyErr != nil {
-			return appErrors.Wrap(copyErr, appErrors.CodeInstallFailed, "解压写入文件失败")
+			return appErrors.Wrap(copyErr, appErrors.INSTALL_FAILED, "解压写入文件失败")
+		}
+		if closeWriteErr != nil {
+			return appErrors.Wrap(closeWriteErr, appErrors.INSTALL_FAILED, "关闭目标文件失败")
+		}
+		if closeReadErr != nil {
+			return appErrors.Wrap(closeReadErr, appErrors.INSTALL_FAILED, "关闭压缩条目失败")
 		}
 
 		if total > 0 && i%25 == 0 {
-			pct := 70 + int(float64(i+1)/float64(total)*20)
-			if pct > 90 {
-				pct = 90
+			progress := 70 + int(float64(i+1)/float64(total)*20)
+			if progress > 90 {
+				progress = 90
 			}
-			report(pct, "正在解压安装包...")
+			report(progress, "正在解压安装包...")
 		}
 	}
 	return nil
 }
 
-func detectSingleRootPrefix(files []*zip.File) string {
+func findPrefix(files []*zip.File) string {
 	var root string
-	for _, f := range files {
-		name := strings.TrimPrefix(strings.ReplaceAll(f.Name, `\`, "/"), "/")
+	for _, item := range files {
+		name := strings.TrimPrefix(strings.ReplaceAll(item.Name, `\`, "/"), "/")
 		if name == "" {
 			continue
 		}
@@ -301,120 +367,149 @@ func detectSingleRootPrefix(files []*zip.File) string {
 	return root
 }
 
-func verifyEntryBinary(kind, dir string) error {
-	switch kind {
-	case software.KindPHP:
-		if !fileExists(filepath.Join(dir, "php-cgi.exe")) {
-			return appErrors.New(appErrors.CodeInstallFailed, "安装包中未找到 php-cgi.exe")
-		}
-	case software.KindNode:
-		if !fileExists(filepath.Join(dir, "node.exe")) {
-			return appErrors.New(appErrors.CodeInstallFailed, "安装包中未找到 node.exe")
-		}
-	case software.KindMySQL:
-		if !fileExists(filepath.Join(dir, "bin", "mysqld.exe")) {
-			return appErrors.New(appErrors.CodeInstallFailed, "安装包中未找到 bin\\mysqld.exe")
-		}
-	case software.KindRedis:
-		if FindRedisBinary(dir) == "" {
-			return appErrors.New(appErrors.CodeInstallFailed, "安装包中未找到 redis-server.exe")
-		}
-	case software.KindNginx:
-		if !fileExists(filepath.Join(dir, "nginx.exe")) {
-			return appErrors.New(appErrors.CodeInstallFailed, "安装包中未找到 nginx.exe")
-		}
-	case software.KindApache:
-		if FindApacheBinary(dir) == "" {
-			return appErrors.New(appErrors.CodeInstallFailed, "安装包中未找到 httpd.exe")
-		}
+func placeComposer(partPath, targetFolder string) error {
+	if err := os.MkdirAll(targetFolder, 0o755); err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "创建 Composer 目录失败")
+	}
+	raw, err := os.ReadFile(partPath)
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "读取 Composer 下载包失败")
+	}
+	pharPath := filepath.Join(targetFolder, "composer.phar")
+	if err := os.WriteFile(pharPath, raw, 0o755); err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "写入 composer.phar 失败")
+	}
+	batPath := filepath.Join(targetFolder, "composer.bat")
+	batContent := "@php \"%~dp0composer.phar\" %*\r\n"
+	if err := os.WriteFile(batPath, []byte(batContent), 0o755); err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "写入 composer.bat 失败")
 	}
 	return nil
 }
 
-func FindApacheBinary(dir string) string {
-	direct := filepath.Join(dir, "bin", "httpd.exe")
+func checkEntry(kind, folder string) error {
+	switch kind {
+	case software.KIND_PHP:
+		if !fileExists(filepath.Join(folder, "php-cgi.exe")) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 php-cgi.exe")
+		}
+	case software.KIND_NODE:
+		if !fileExists(filepath.Join(folder, "node.exe")) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 node.exe")
+		}
+	case software.KIND_GO:
+		if !fileExists(filepath.Join(folder, "bin", "go.exe")) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 bin\\go.exe")
+		}
+	case software.KIND_PYTHON:
+		if !fileExists(filepath.Join(folder, "python.exe")) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 python.exe")
+		}
+	case software.KIND_COMPOSER:
+		if !fileExists(filepath.Join(folder, "composer.phar")) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 composer.phar")
+		}
+	case software.KIND_MYSQL:
+		if !fileExists(filepath.Join(folder, "bin", "mysqld.exe")) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 bin\\mysqld.exe")
+		}
+	case software.KIND_MARIADB:
+		if !fileExists(filepath.Join(folder, "bin", "mariadbd.exe")) && !fileExists(filepath.Join(folder, "bin", "mysqld.exe")) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 bin\\mariadbd.exe")
+		}
+	case software.KIND_POSTGRESQL:
+		if !fileExists(filepath.Join(folder, "bin", "postgres.exe")) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 bin\\postgres.exe")
+		}
+	case software.KIND_MONGODB:
+		if !fileExists(filepath.Join(folder, "bin", "mongod.exe")) {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 bin\\mongod.exe")
+		}
+	case software.KIND_REDIS:
+		if FindRedis(folder) == "" {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 redis-server.exe")
+		}
+	case software.KIND_MEMCACHED:
+		if FindBinary(folder, "memcached.exe") == "" {
+			return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 memcached.exe")
+		}
+	case software.KIND_JAVA:
+		return requireEntry(folder, filepath.Join("bin", "java.exe"))
+	case software.KIND_DOTNET:
+		return requireEntry(folder, "dotnet.exe")
+	case software.KIND_DENO:
+		return requireEntry(folder, "deno.exe")
+	case software.KIND_BUN:
+		return requireEntry(folder, "bun.exe")
+	case software.KIND_NGINX:
+		return requireEntry(folder, "nginx.exe")
+	case software.KIND_CADDY:
+		return requireEntry(folder, "caddy.exe")
+	case software.KIND_SQLITE:
+		return requireEntry(folder, "sqlite3.exe")
+	case software.KIND_GRADLE:
+		return requireEntry(folder, filepath.Join("bin", "gradle.bat"))
+	case software.KIND_MAVEN:
+		return requireEntry(folder, filepath.Join("bin", "mvn.cmd"))
+	}
+	return nil
+}
+
+func requireEntry(folder, relative string) error {
+	if fileExists(filepath.Join(folder, relative)) {
+		return nil
+	}
+	return appErrors.New(appErrors.INSTALL_FAILED, "安装包中未找到 "+relative)
+}
+
+func FindRedis(folder string) string {
+	return FindBinary(folder, "redis-server.exe")
+}
+
+func FindBinary(folder, name string) string {
+	direct := filepath.Join(folder, name)
 	if fileExists(direct) {
 		return direct
 	}
-	nested := filepath.Join(dir, "Apache24", "bin", "httpd.exe")
-	if fileExists(nested) {
-		return nested
+	if strings.EqualFold(name, "memcached.exe") {
+		preferred := filepath.Join(folder, "libevent-2.1", "x64", "memcached.exe")
+		if fileExists(preferred) {
+			return preferred
+		}
+		fallback := filepath.Join(folder, "libevent-2.0", "x64", "memcached.exe")
+		if fileExists(fallback) {
+			return fallback
+		}
 	}
 	var found string
-	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+	if err := filepath.WalkDir(folder, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
 			return nil
 		}
-		if strings.EqualFold(d.Name(), "httpd.exe") {
+		if strings.EqualFold(entry.Name(), name) {
 			found = path
 			return filepath.SkipAll
 		}
 		return nil
-	})
+	}); err != nil {
+		return ""
+	}
 	return found
 }
 
-func FindRedisBinary(dir string) string {
-	direct := filepath.Join(dir, "redis-server.exe")
-	if fileExists(direct) {
-		return direct
-	}
-	var found string
-	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		if strings.EqualFold(d.Name(), "redis-server.exe") {
-			found = path
-			return filepath.SkipAll
-		}
-		return nil
-	})
-	return found
-}
-
-func postProcess(kind, tmpDir, finalTarget string) error {
-	if kind == software.KindApache {
-		apacheSubdir := filepath.Join(tmpDir, "Apache24")
-		if info, err := os.Stat(apacheSubdir); err == nil && info.IsDir() {
-			entries, readErr := os.ReadDir(apacheSubdir)
-			if readErr == nil {
-				for _, ent := range entries {
-					src := filepath.Join(apacheSubdir, ent.Name())
-					dst := filepath.Join(tmpDir, ent.Name())
-					_ = os.RemoveAll(dst)
-					_ = os.Rename(src, dst)
-				}
-				_ = os.Remove(apacheSubdir)
-			}
-		}
-
-		confPath := filepath.Join(tmpDir, "conf", "httpd.conf")
-		if raw, err := os.ReadFile(confPath); err == nil {
-			text := string(raw)
-			targetSlash := filepath.ToSlash(finalTarget)
-			reSrvRoot := regexp.MustCompile(`(?mi)^\s*Define\s+SRVROOT\s+.*$`)
-			if reSrvRoot.MatchString(text) {
-				text = reSrvRoot.ReplaceAllString(text, fmt.Sprintf(`Define SRVROOT "%s"`, targetSlash))
-			} else {
-				text = fmt.Sprintf("Define SRVROOT \"%s\"\r\n%s", targetSlash, text)
-			}
-			_ = os.WriteFile(confPath, []byte(text), 0644)
-		}
+func postProcess(kind, tempFolder, targetFolder string) error {
+	if kind != software.KIND_PHP {
 		return nil
 	}
-	if kind != software.KindPHP {
-		return nil
-	}
-	devIni := filepath.Join(tmpDir, "php.ini-development")
-	raw, err := os.ReadFile(devIni)
+	sourceIni := filepath.Join(tempFolder, "php.ini-development")
+	raw, err := os.ReadFile(sourceIni)
 	if err != nil {
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "读取 php.ini-development 失败")
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "读取 php.ini-development 失败")
 	}
 
 	text := string(raw)
-	extDir := filepath.Join(finalTarget, "ext")
-	text = strings.ReplaceAll(text, `;extension_dir = "ext"`, fmt.Sprintf(`extension_dir = "%s"`, extDir))
+	extensionFolder := filepath.Join(targetFolder, "ext")
+	text = strings.ReplaceAll(text, `;extension_dir = "ext"`, fmt.Sprintf(`extension_dir = "%s"`, extensionFolder))
 
 	extensions := []string{
 		"curl",
@@ -428,14 +523,14 @@ func postProcess(kind, tmpDir, finalTarget string) error {
 		"sqlite3",
 		"zip",
 	}
-	for _, ext := range extensions {
-		text = strings.ReplaceAll(text, ";extension="+ext, "extension="+ext)
+	for _, extension := range extensions {
+		text = strings.ReplaceAll(text, ";extension="+extension, "extension="+extension)
 	}
 	text = strings.ReplaceAll(text, ";date.timezone =", `date.timezone = "Asia/Shanghai"`)
 
-	targetIni := filepath.Join(tmpDir, "php.ini")
-	if err := os.WriteFile(targetIni, []byte(text), 0644); err != nil {
-		return appErrors.Wrap(err, appErrors.CodeInstallFailed, "生成 php.ini 失败")
+	targetIni := filepath.Join(tempFolder, "php.ini")
+	if err := os.WriteFile(targetIni, []byte(text), 0o644); err != nil {
+		return appErrors.Wrap(err, appErrors.INSTALL_FAILED, "生成 php.ini 失败")
 	}
 	return nil
 }

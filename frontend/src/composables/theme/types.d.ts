@@ -1,20 +1,18 @@
-/**
- * 主题模式：浅色 / 深色 / 跟随系统
- */
+// 主题模式类型
 export type ThemeMode = 'light' | 'dark' | 'system'
 
-/**
- * 主题强调色配置项
- */
-export interface ThemeColorItem {
-  name: string
-  value: string
+// 主题强调色选项
+export interface ThemeColor {
+	// 颜色名称
+	name: string
+	// 颜色色值
+	value: string
 }
 
-/**
- * 主题状态
- */
+// 主题状态结构
 export interface ThemeState {
-  mode: ThemeMode
-  color: string
+	// 色彩模式
+	mode: ThemeMode
+	// 强调色值
+	color: string
 }
