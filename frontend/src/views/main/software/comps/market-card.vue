@@ -7,10 +7,13 @@
 			<div class="title-col">
 				<div class="name-line">
 					<span class="software-name">{{ item.name }}</span>
-					<span class="category-badge">{{ item.category }}</span>
-					<span v-if="item.count > 0" class="installed-badge">
-						已安装 {{ item.count }} 个版本
-					</span>
+					<h-tag :value="item.category" />
+					<h-tag
+						v-if="item.count > 0"
+						color="success"
+						value="已安装"
+					/>
+					<h-tag v-if="versions.length > 0" color="info" :value="`本机已有 ${versions.join('、')}`" />
 				</div>
 				<p class="software-summary">{{ item.description }}</p>
 			</div>
@@ -97,6 +100,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { externalVersions } from '@/composables'
 import type { MarketItem, Software } from '@/types'
 
 // 接收商店卡片属性
@@ -105,6 +109,8 @@ const props = defineProps<{
 	installedList: Software[]
 	progressMap: Record<string, { progress: number; message: string }>
 }>()
+
+const versions = computed(() => externalVersions(props.item.kind))
 
 // 定义卡片操作事件
 const emit = defineEmits<{
@@ -184,26 +190,6 @@ const failedTask = computed(() => {
 .software-name {
 	font-size: var(--font-lg);
 	color: var(--text-primary);
-}
-
-/* 分类徽标 */
-.category-badge {
-	font-size: var(--font-xs);
-	color: var(--text-secondary);
-	background: var(--bg-app);
-	border: 1px solid var(--border-color);
-	padding: 0.1rem 0.45rem;
-	border-radius: var(--h-radius);
-}
-
-/* 已安装数量徽标 */
-.installed-badge {
-	font-size: var(--font-xs);
-	color: var(--ok);
-	background: var(--ok-bg);
-	border: 1px solid var(--ok-border);
-	padding: 0.1rem 0.45rem;
-	border-radius: var(--h-radius);
 }
 
 /* 软件说明文字 */

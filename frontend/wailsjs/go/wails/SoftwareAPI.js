@@ -38,12 +38,28 @@ export function ReadConfig(arg1) {
   return window['go']['wails']['SoftwareAPI']['ReadConfig'](arg1);
 }
 
+export function RedisDatabases(arg1) {
+  return window['go']['wails']['SoftwareAPI']['RedisDatabases'](arg1);
+}
+
+export function RedisKeys(arg1) {
+  return window['go']['wails']['SoftwareAPI']['RedisKeys'](arg1);
+}
+
+export function RedisValue(arg1) {
+  return window['go']['wails']['SoftwareAPI']['RedisValue'](arg1);
+}
+
 export function Remove(arg1) {
   return window['go']['wails']['SoftwareAPI']['Remove'](arg1);
 }
 
 export function SaveConfig(arg1) {
   return window['go']['wails']['SoftwareAPI']['SaveConfig'](arg1);
+}
+
+export function ScanEnvironments(arg1, arg2) {
+  return window['go']['wails']['SoftwareAPI']['ScanEnvironments'](arg1, arg2);
 }
 
 export function SetAutostart(arg1, arg2) {

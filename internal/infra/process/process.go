@@ -103,7 +103,9 @@ func (m *Manager) Start(key string, options ports.Options) (int, error) {
 		return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "进程启动失败")
 	}
 
-	m.job.assign(command.Process)
+	if !options.Detached {
+		m.job.assign(command.Process)
+	}
 
 	pid := command.Process.Pid
 	item := &entry{

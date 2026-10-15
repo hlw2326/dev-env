@@ -6,6 +6,10 @@ export function DataFolder() {
   return window['go']['wails']['SystemAPI']['DataFolder']();
 }
 
+export function Metrics() {
+  return window['go']['wails']['SystemAPI']['Metrics']();
+}
+
 export function OpenFolder(arg1) {
   return window['go']['wails']['SystemAPI']['OpenFolder'](arg1);
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"devenv/internal/domain/project"
+	inframonitor "devenv/internal/infra/monitor"
 	"devenv/internal/infra/sqlite"
 	"devenv/internal/ports"
 	appErrors "devenv/internal/shared/errors"
@@ -50,7 +51,7 @@ func TestCreateRequiresInstalledNginx(t *testing.T) {
 	projects := sqlite.NewProjectRepository(database.DB)
 	software := sqlite.NewSoftwareRepository(database.DB)
 	settings := sqlite.NewSettingRepository(database.DB)
-	service := NewProjectService(home, projects, software, settings, &projectGateway{}, nil, nil, nil, nil, nil)
+	service := NewProjectService(home, projects, software, settings, &projectGateway{}, nil, nil, nil, nil, nil, inframonitor.NewCollector())
 	root := filepath.Join(home, "projects", "demo")
 
 	_, err = service.Create(context.Background(), project.CreateInput{
@@ -80,5 +81,30 @@ func TestCreateRequiresInstalledNginx(t *testing.T) {
 	}
 	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected no project directory, got %v", err)
+	}
+}
+
+func TestRemoveNginxArtifacts(t *testing.T) {
+	base := t.TempDir()
+	item := project.Project{ID: 7, Name: "demo", Kind: project.KIND_PHP}
+	hosts := filepath.Join(base, "data", "nginx", "vhosts")
+	if err := os.MkdirAll(hosts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(hosts, "website-7-demo.conf")
+	environmentPath := filepath.Join(hosts, "website-7-demo.environment.conf")
+	for _, target := range []string{configPath, environmentPath, configPath + ".devenv-backup"} {
+		if err := os.WriteFile(target, []byte("generated"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := removeNginxArtifacts(base, item); err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []string{configPath, environmentPath, configPath + ".devenv-backup"} {
+		if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expected generated artifact to be removed: %s, got %v", target, err)
+		}
 	}
 }

@@ -19,6 +19,8 @@ declare global {
   const defineComponent: typeof import('vue').defineComponent
   const defineStore: typeof import('pinia').defineStore
   const effectScope: typeof import('vue').effectScope
+  const formatBytes: typeof import('./src/utils/format').formatBytes
+  const formatDuration: typeof import('./src/utils/format').formatDuration
   const formatError: typeof import('./src/utils/path').formatError
   const getActivePinia: typeof import('pinia').getActivePinia
   const getCurrentInstance: typeof import('vue').getCurrentInstance

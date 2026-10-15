@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"devenv/internal/app"
+	domainmonitor "devenv/internal/domain/monitor"
+	domainredis "devenv/internal/domain/redis"
 	"devenv/internal/domain/software"
 )
 
@@ -63,11 +65,20 @@ func (a *SoftwareAPI) List() ([]SoftwareDTO, error) {
 			Autostart: item.Autostart,
 			Running:   item.Running,
 			PID:       item.PID,
+			Metrics:   convertProcessMetrics(item.Metrics),
 			Daemon:    software.IsDaemon(item.Kind),
 			Service:   item.State == software.STATE_INSTALLED && software.IsService(item.Kind) && (software.IsDaemon(item.Kind) || item.Main),
 		})
 	}
 	return result, nil
+}
+
+func convertProcessMetrics(item domainmonitor.ProcessMetrics) ProcessMetricsDTO {
+	return ProcessMetricsDTO{
+		CPUPercent: item.CPUPercent, MemoryBytes: item.MemoryBytes,
+		ReadBytes: item.ReadBytes, WriteBytes: item.WriteBytes,
+		UptimeSeconds: item.UptimeSeconds,
+	}
 }
 
 func (a *SoftwareAPI) Versions(kind string) ([]VersionDTO, error) {
@@ -210,4 +221,59 @@ func (a *SoftwareAPI) SetAutostart(id int64, on bool) Result {
 
 func (a *SoftwareAPI) Logs(id int64, limit int) ([]string, error) {
 	return a.service.Logs(a.ctx, id, limit)
+}
+
+func (a *SoftwareAPI) RedisDatabases(id int64) ([]RedisDatabaseDTO, error) {
+	items, err := a.service.RedisDatabases(a.ctx, id)
+	if err != nil {
+		return make([]RedisDatabaseDTO, 0), err
+	}
+	result := make([]RedisDatabaseDTO, 0, len(items))
+	for _, item := range items {
+		result = append(result, RedisDatabaseDTO{Index: item.Index, Keys: item.Keys, Expires: item.Expires})
+	}
+	return result, nil
+}
+
+func (a *SoftwareAPI) RedisKeys(in RedisKeysInput) (RedisKeyPageDTO, error) {
+	result, err := a.service.RedisKeys(a.ctx, in.ID, domainredis.KeyQuery{
+		Database: in.Database,
+		Pattern:  in.Pattern,
+		Cursor:   in.Cursor,
+		Limit:    in.Limit,
+	})
+	if err != nil {
+		return RedisKeyPageDTO{Keys: make([]RedisKeyDTO, 0)}, err
+	}
+	keys := make([]RedisKeyDTO, 0, len(result.Keys))
+	for _, item := range result.Keys {
+		keys = append(keys, RedisKeyDTO{Name: item.Name, Type: item.Type, TTL: item.TTL})
+	}
+	return RedisKeyPageDTO{Cursor: result.Cursor, Keys: keys}, nil
+}
+
+func (a *SoftwareAPI) RedisValue(in RedisValueInput) (RedisValueDTO, error) {
+	result, err := a.service.RedisValue(a.ctx, in.ID, domainredis.ValueQuery{
+		Database: in.Database,
+		Key:      in.Key,
+		Cursor:   in.Cursor,
+		Limit:    in.Limit,
+	})
+	if err != nil {
+		return RedisValueDTO{Entries: make([]RedisEntryDTO, 0)}, err
+	}
+	entries := make([]RedisEntryDTO, 0, len(result.Entries))
+	for _, item := range result.Entries {
+		entries = append(entries, RedisEntryDTO{Field: item.Field, Value: item.Value, Score: item.Score})
+	}
+	return RedisValueDTO{
+		Type:      result.Type,
+		TTL:       result.TTL,
+		Length:    result.Length,
+		Text:      result.Text,
+		Encoding:  result.Encoding,
+		Truncated: result.Truncated,
+		Cursor:    result.Cursor,
+		Entries:   entries,
+	}, nil
 }

@@ -5,8 +5,9 @@
 		<div class="row-main">
 			<div class="version-info">
 				<span class="version-num font-mono">{{ row.version }}</span>
-				<span v-if="row.recommended" class="recommend-tag">推荐</span>
-				<span v-if="row.note !== ''" class="note-tag">{{ row.note }}</span>
+				<h-tag v-if="row.recommended" color="success" value="推荐" />
+				<h-tag v-if="systemInstalled" color="info" value="系统同版本入口" />
+				<h-tag v-if="row.note !== ''" :value="row.note" />
 			</div>
 
 			<div class="version-actions">
@@ -27,7 +28,7 @@
 					v-else
 					size="small"
 					icon="pi pi-download"
-					label="安装"
+					:label="installLabel"
 					:disabled="busy"
 					@click="emit('install', row.version)"
 				/>
@@ -53,15 +54,22 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { SoftwareVersion } from '@/types'
 
 // 接收版本与进度属性
-defineProps<{
+const props = withDefaults(defineProps<{
 	row: SoftwareVersion
 	installed: boolean
 	task: { progress: number; message: string } | null
 	busy: boolean
-}>()
+	systemInstalled?: boolean
+}>(), { installed: false, busy: false, systemInstalled: false })
+
+const installLabel = computed(() => {
+	if (props.systemInstalled) return '安装到 DevEnv'
+	return '安装'
+})
 
 // 定义安装与取消事件
 const emit = defineEmits<{
@@ -109,22 +117,6 @@ const emit = defineEmits<{
 .version-num {
 	font-size: var(--font-base);
 	color: var(--text-primary);
-}
-
-/* 推荐标签 */
-.recommend-tag {
-	font-size: var(--font-xs);
-	color: var(--ok);
-	background: var(--ok-bg);
-	border: 1px solid var(--ok-border);
-	padding: 0.1rem 0.45rem;
-	border-radius: var(--h-radius);
-}
-
-/* 版本附加说明 */
-.note-tag {
-	font-size: var(--font-xs);
-	color: var(--text-secondary);
 }
 
 /* 右侧操作区 */

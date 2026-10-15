@@ -7,37 +7,57 @@
 			<div class="info">
 				<div class="top-line">
 					<span class="item-name">{{ item.name }} {{ item.version }}</span>
-					<span v-if="item.main" class="main-tag">默认</span>
+					<h-tag v-if="item.main" color="info" value="默认" />
 
-					<span v-if="item.state === 'installed' && !item.service" class="status-pill ok installed-state">
-						<span class="dot"></span>
-						<span>已安装</span>
-					</span>
+					<h-tag
+						v-if="item.state === 'installed' && !item.service"
+						color="success"
+						value="已安装"
+						dot
+						radius="full"
+					/>
 
-					<span v-if="item.state === 'installing'" class="status-pill installing">
-						<i class="pi pi-spin pi-spinner status-icon"></i>
-						<span>安装中 {{ activeProgress.progress }}%</span>
-					</span>
-					<span v-else-if="item.state === 'failed'" class="status-pill failed">
-						<span class="dot"></span>
-						<span>安装失败</span>
-					</span>
-					<span v-else-if="item.service && item.running" class="status-pill running">
-						<span class="dot"></span>
-						<span>运行中 (PID {{ item.pid }})</span>
-					</span>
-					<span v-else-if="item.service && !item.running" class="status-pill stopped">
-						<span class="dot"></span>
-						<span>已停止</span>
-					</span>
-					<span v-else-if="item.state !== 'installed'" class="status-pill ok">
-						<span class="dot"></span>
-						<span>可用</span>
-					</span>
+					<h-tag
+						v-if="item.state === 'installing'"
+						color="info"
+						:icon="'pi pi-spin pi-spinner'"
+						:value="`安装中 ${activeProgress.progress}%`"
+					/>
+					<h-tag
+						v-else-if="item.state === 'failed'"
+						color="danger"
+						value="安装失败"
+						dot
+						radius="full"
+					/>
+					<h-tag
+						v-else-if="item.service && item.running"
+						color="success"
+						:value="`运行中 (PID ${item.pid})`"
+						dot
+						radius="full"
+					/>
+					<h-tag
+						v-else-if="item.service && !item.running"
+						color="default"
+						value="已停止"
+						dot
+						radius="full"
+					/>
+					<h-tag
+						v-else-if="item.state !== 'installed'"
+						color="success"
+						value="可用"
+						dot
+						radius="full"
+					/>
 
-					<span v-if="item.daemon && item.port > 0" class="port-badge font-mono">
-						端口 {{ item.port }}
-					</span>
+					<h-tag
+						v-if="item.daemon && item.port > 0"
+						class="font-mono"
+						color="default"
+						:value="`端口 ${item.port}`"
+					/>
 				</div>
 
 				<div class="sub-line">
@@ -222,28 +242,6 @@ function confirmRemove(event: MouseEvent): void {
 .item-name {
 	font-size: var(--font-base);
 	color: var(--text-primary);
-}
-/* 默认版本标签 */
-.main-tag {
-	font-size: var(--font-xs);
-	color: var(--info);
-	background: var(--info-bg);
-	border: 1px solid var(--info-border);
-	padding: 0.1rem 0.45rem;
-	border-radius: var(--h-radius);
-}
-/* 状态加载图标 */
-.status-icon {
-	font-size: var(--icon-xs);
-}
-/* 端口徽标 */
-.port-badge {
-	font-size: var(--font-xs);
-	color: var(--text-secondary);
-	background: var(--bg-app);
-	border: 1px solid var(--border-color);
-	padding: 0.1rem 0.45rem;
-	border-radius: var(--h-radius);
 }
 /* 次要信息行 */
 .sub-line {

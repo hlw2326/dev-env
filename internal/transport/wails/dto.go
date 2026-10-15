@@ -12,26 +12,27 @@ type ConfigResult struct {
 }
 
 type ProjectDTO struct {
-	ID               int64    `json:"id"`
-	Name             string   `json:"name"`
-	Kind             string   `json:"kind"`
-	Hosts            []string `json:"hosts"`
-	Root             string   `json:"root"`
-	Run              string   `json:"run"`
-	Path             string   `json:"path"`
-	Software         *int64   `json:"software"`
-	Version          string   `json:"version"`
-	Command          string   `json:"command"`
-	Nginx            string   `json:"nginx"`
-	EnvironmentFile  string   `json:"environmentFile"`
-	EnvironmentFiles []string `json:"environmentFiles"`
-	Port             int      `json:"port"`
-	Autostart        bool     `json:"autostart"`
-	State            string   `json:"state"`
-	URL              string   `json:"url"`
-	Need             string   `json:"need"`
-	Created          string   `json:"created"`
-	Updated          string   `json:"updated"`
+	ID               int64             `json:"id"`
+	Name             string            `json:"name"`
+	Kind             string            `json:"kind"`
+	Hosts            []string          `json:"hosts"`
+	Root             string            `json:"root"`
+	Run              string            `json:"run"`
+	Path             string            `json:"path"`
+	Software         *int64            `json:"software"`
+	Version          string            `json:"version"`
+	Command          string            `json:"command"`
+	Nginx            string            `json:"nginx"`
+	EnvironmentFile  string            `json:"environmentFile"`
+	EnvironmentFiles []string          `json:"environmentFiles"`
+	Traffic          ProjectTrafficDTO `json:"traffic"`
+	Port             int               `json:"port"`
+	Autostart        bool              `json:"autostart"`
+	State            string            `json:"state"`
+	URL              string            `json:"url"`
+	Need             string            `json:"need"`
+	Created          string            `json:"created"`
+	Updated          string            `json:"updated"`
 }
 
 type ProjectTemplateDTO struct {
@@ -152,21 +153,45 @@ type ItemDTO struct {
 }
 
 type SoftwareDTO struct {
-	ID        int64  `json:"id"`
-	Kind      string `json:"kind"`
-	Name      string `json:"name"`
-	Version   string `json:"version"`
-	Path      string `json:"path"`
-	State     string `json:"state"`
-	Progress  int    `json:"progress"`
-	Error     string `json:"error"`
-	Main      bool   `json:"main"`
-	Port      int    `json:"port"`
-	Autostart bool   `json:"autostart"`
-	Running   bool   `json:"running"`
-	PID       int    `json:"pid"`
-	Daemon    bool   `json:"daemon"`
-	Service   bool   `json:"service"`
+	ID        int64             `json:"id"`
+	Kind      string            `json:"kind"`
+	Name      string            `json:"name"`
+	Version   string            `json:"version"`
+	Path      string            `json:"path"`
+	State     string            `json:"state"`
+	Progress  int               `json:"progress"`
+	Error     string            `json:"error"`
+	Main      bool              `json:"main"`
+	Port      int               `json:"port"`
+	Autostart bool              `json:"autostart"`
+	Running   bool              `json:"running"`
+	PID       int               `json:"pid"`
+	Daemon    bool              `json:"daemon"`
+	Service   bool              `json:"service"`
+	Metrics   ProcessMetricsDTO `json:"metrics"`
+}
+
+type ProcessMetricsDTO struct {
+	CPUPercent    float64 `json:"cpuPercent"`
+	MemoryBytes   uint64  `json:"memoryBytes"`
+	ReadBytes     uint64  `json:"readBytes"`
+	WriteBytes    uint64  `json:"writeBytes"`
+	UptimeSeconds int64   `json:"uptimeSeconds"`
+}
+
+type ProjectTrafficDTO struct {
+	RequestCount      int64   `json:"requestCount"`
+	ResponseBytes     int64   `json:"responseBytes"`
+	ErrorCount        int64   `json:"errorCount"`
+	AverageResponseMs float64 `json:"averageResponseMs"`
+	LastAccess        string  `json:"lastAccess"`
+}
+
+type SystemMetricsDTO struct {
+	CPUPercent       float64 `json:"cpuPercent"`
+	MemoryTotalBytes uint64  `json:"memoryTotalBytes"`
+	MemoryUsedBytes  uint64  `json:"memoryUsedBytes"`
+	MemoryPercent    float64 `json:"memoryPercent"`
 }
 
 type VersionDTO struct {
@@ -219,4 +244,54 @@ type SettingsInput struct {
 	Port              int    `json:"port"`
 	Hosts             bool   `json:"hosts"`
 	DeveloperToolsCLI string `json:"developerToolsCLI"`
+}
+
+type RedisDatabaseDTO struct {
+	Index   int   `json:"index"`
+	Keys    int64 `json:"keys"`
+	Expires int64 `json:"expires"`
+}
+
+type RedisKeyDTO struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+	TTL  int64  `json:"ttl"`
+}
+
+type RedisKeyPageDTO struct {
+	Cursor uint64        `json:"cursor"`
+	Keys   []RedisKeyDTO `json:"keys"`
+}
+
+type RedisKeysInput struct {
+	ID       int64  `json:"id"`
+	Database int    `json:"database"`
+	Pattern  string `json:"pattern"`
+	Cursor   uint64 `json:"cursor"`
+	Limit    int64  `json:"limit"`
+}
+
+type RedisEntryDTO struct {
+	Field string `json:"field"`
+	Value string `json:"value"`
+	Score string `json:"score"`
+}
+
+type RedisValueDTO struct {
+	Type      string          `json:"type"`
+	TTL       int64           `json:"ttl"`
+	Length    int64           `json:"length"`
+	Text      string          `json:"text"`
+	Encoding  string          `json:"encoding"`
+	Truncated bool            `json:"truncated"`
+	Cursor    uint64          `json:"cursor"`
+	Entries   []RedisEntryDTO `json:"entries"`
+}
+
+type RedisValueInput struct {
+	ID       int64  `json:"id"`
+	Database int    `json:"database"`
+	Key      string `json:"key"`
+	Cursor   uint64 `json:"cursor"`
+	Limit    int64  `json:"limit"`
 }

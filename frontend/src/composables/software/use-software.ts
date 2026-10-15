@@ -14,6 +14,7 @@ import {
 	listenEvent,
 } from '@/api'
 import { toast, formatError } from '@/utils'
+import { invalidateEnvironments } from './use-local-environments'
 import type {
 	MarketItem,
 	Software,
@@ -235,6 +236,7 @@ export function useSoftware() {
 				activeSoftware.value = null
 			}
 			toast.info('已卸载', `${item.kind} ${item.version}`)
+			invalidateEnvironments()
 			await refreshAll()
 		} catch (err: unknown) {
 			toast.error('卸载失败', formatError(err))
@@ -250,6 +252,7 @@ export function useSoftware() {
 				return
 			}
 			toast.success('已设为默认版本', `${item.kind} ${item.version}`)
+			invalidateEnvironments()
 			await refreshAll()
 		} catch (err: unknown) {
 			toast.error('设置默认失败', formatError(err))
@@ -365,6 +368,7 @@ export function useSoftware() {
 		)
 		stops.push(
 			listenEvent('task:completed', (payload: CompletedEvent) => {
+				invalidateEnvironments()
 				const key = `${payload.kind}:${payload.version}`
 				delete progressMap[key]
 				if (payload.ok) {

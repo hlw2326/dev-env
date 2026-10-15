@@ -15,7 +15,8 @@
 		cancel-text="取消"
 		:loading="false"
 	>
-		<div class="install-modal">
+		<div class="install-modal version-list">
+			<comp-existing-environment :kind="item.kind" />
 			<!-- 加载版本清单状态 -->
 			<div v-if="loading" class="state-box">
 				<i class="pi pi-spin pi-spinner state-icon"></i>
@@ -34,7 +35,7 @@
 			</div>
 
 			<!-- 可安装版本列表 -->
-			<div v-else class="version-list">
+			<template v-else>
 				<comp-version-row
 					v-for="row in versions"
 					:key="row.version"
@@ -42,10 +43,11 @@
 					:installed="row.installed || isInstalled(row.version)"
 					:task="findTask(row.version)"
 					:busy="isBusy"
+					:system-installed="hasExternalVersion(item.kind, row.version)"
 					@install="emit('install', item.kind, $event)"
 					@cancel="emit('cancel', item.kind, $event)"
 				/>
-			</div>
+			</template>
 		</div>
 	</h-modal>
 </template>
@@ -53,6 +55,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import CompVersionRow from './version-row.vue'
+import CompExistingEnvironment from './existing-environment.vue'
+import { hasExternalVersion } from '@/composables'
 import type { MarketItem, Software, SoftwareVersion } from '@/types'
 
 // 接收商店项与版本列表属性

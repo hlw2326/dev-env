@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
-import { listProjects, listSoftware, startSoftware, stopSoftware, loadSettings } from '@/api'
+import { listProjects, listSoftware, startSoftware, stopSoftware, loadSettings, loadSystemMetrics } from '@/api'
 import { toast, formatError } from '@/utils'
-import type { Project, Software } from '@/types'
+import type { Project, ProjectTraffic, Software, SystemMetrics } from '@/types'
 
 // 项目列表状态
 const projects = ref<Project[]>([])
@@ -14,6 +14,14 @@ const listening = ref(false)
 
 // 网关监听端口
 const nginxPort = ref(80)
+
+// 主机资源指标
+const systemMetrics = ref<SystemMetrics>({
+	cpuPercent: 0,
+	memoryTotalBytes: 0,
+	memoryUsedBytes: 0,
+	memoryPercent: 0,
+})
 
 // 数据加载中状态
 const loading = ref(false)
@@ -46,21 +54,48 @@ export function useDashboard() {
 		return daemonList.value.filter((item) => item.running).length
 	})
 
+	// 当前环境中所有项目的累计访问流量
+	const totalTraffic = computed<ProjectTraffic>(() => {
+		const result: ProjectTraffic = {
+			requestCount: 0,
+			responseBytes: 0,
+			errorCount: 0,
+			averageResponseMs: 0,
+			lastAccess: '',
+		}
+		let responseTimeTotal = 0
+		for (const item of projects.value) {
+			result.requestCount += item.traffic.requestCount
+			result.responseBytes += item.traffic.responseBytes
+			result.errorCount += item.traffic.errorCount
+			responseTimeTotal += item.traffic.averageResponseMs * item.traffic.requestCount
+			if (item.traffic.lastAccess > result.lastAccess) {
+				result.lastAccess = item.traffic.lastAccess
+			}
+		}
+		if (result.requestCount > 0) {
+			result.averageResponseMs = responseTimeTotal / result.requestCount
+		}
+		return result
+	})
+
 	// 加载概览页全部数据
 	async function loadData(silent = false): Promise<void> {
 		if (!silent) {
 			loading.value = true
 		}
 		try {
-			const [projectList, softwareList, settings] = await Promise.all([
+			const [projectList, softwareList, settings, metrics] = await Promise.all([
 				listProjects(),
 				listSoftware(),
 				loadSettings(),
+				loadSystemMetrics(),
 			])
 			projects.value = projectList
 			installed.value = softwareList
 			listening.value = settings.listening
 			nginxPort.value = settings.port
+			systemMetrics.value = metrics
 		} catch (err: unknown) {
 			if (!silent) {
 				toast.error(formatError(err))
@@ -130,10 +165,12 @@ export function useDashboard() {
 		daemonList,
 		listening,
 		nginxPort,
+		systemMetrics,
 		loading,
 		busyId,
 		runningProjects,
 		runningDaemons,
+		totalTraffic,
 		loadData,
 		startService,
 		stopService,

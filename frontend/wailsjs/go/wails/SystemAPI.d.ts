@@ -5,6 +5,8 @@ import {context} from '../models';
 
 export function DataFolder():Promise<string>;
 
+export function Metrics():Promise<wails.SystemMetricsDTO>;
+
 export function OpenFolder(arg1:string):Promise<wails.Result>;
 
 export function OpenNginxConfig():Promise<wails.Result>;

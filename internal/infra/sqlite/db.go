@@ -25,6 +25,21 @@ type DB struct {
 	path string
 }
 
+// OpenReadOnly opens an existing database without running migrations or reset.
+func OpenReadOnly(path string) (*sql.DB, error) {
+	dsn := fmt.Sprintf("file:%s?mode=ro&_pragma=busy_timeout(5000)", filepath.ToSlash(path))
+	raw, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "只读打开数据库失败")
+	}
+	raw.SetMaxOpenConns(1)
+	if err := raw.Ping(); err != nil {
+		_ = raw.Close()
+		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "只读连接数据库失败")
+	}
+	return raw, nil
+}
+
 func Open(path string, options Options) (*DB, error) {
 	migrations := options.Migrations
 	if migrations == nil {

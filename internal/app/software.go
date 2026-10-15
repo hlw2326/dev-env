@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,10 +16,12 @@ import (
 	"syscall"
 	"time"
 
+	domainmonitor "devenv/internal/domain/monitor"
 	"devenv/internal/domain/setting"
 	"devenv/internal/domain/software"
 	"devenv/internal/infra/autostart"
 	"devenv/internal/infra/installer"
+	inframonitor "devenv/internal/infra/monitor"
 	"devenv/internal/infra/process"
 	"devenv/internal/infra/windowsservice"
 	"devenv/internal/ports"
@@ -41,6 +44,7 @@ type SoftwareView struct {
 	software.Software
 	Running bool
 	PID     int
+	Metrics domainmonitor.ProcessMetrics
 }
 
 type SoftwareService struct {
@@ -54,7 +58,11 @@ type SoftwareService struct {
 	settings  ports.SettingRepository
 	nginx     ports.Gateway
 	bus       ports.EventPublisher
+	metrics   *inframonitor.Collector
 	installed func(ctx context.Context, item software.Software)
+	userPath  ports.UserPathManager
+	commands  ports.CommandInspector
+	redis     ports.RedisBrowser
 
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
@@ -73,6 +81,10 @@ func NewSoftwareService(
 	nginx ports.Gateway,
 	bus ports.EventPublisher,
 	installed func(ctx context.Context, item software.Software),
+	metrics *inframonitor.Collector,
+	userPath ports.UserPathManager,
+	commands ports.CommandInspector,
+	redis ports.RedisBrowser,
 ) *SoftwareService {
 	return &SoftwareService{
 		base:      base,
@@ -85,6 +97,10 @@ func NewSoftwareService(
 		settings:  settings,
 		nginx:     nginx,
 		bus:       bus,
+		metrics:   metrics,
+		userPath:  userPath,
+		commands:  commands,
+		redis:     redis,
 		installed: installed,
 		cancels:   make(map[string]context.CancelFunc),
 		busy:      make(map[int64]bool),
@@ -137,6 +153,9 @@ func (s *SoftwareService) StartAuto(ctx context.Context) {
 		} else {
 			_ = autostart.Remove(systemAutostartName(item))
 		}
+	}
+	if err := s.syncGlobalCommands(ctx); err != nil {
+		log.Printf("同步全局命令失败: %v", err)
 	}
 }
 
@@ -515,6 +534,9 @@ func (s *SoftwareService) List(ctx context.Context) ([]SoftwareView, error) {
 				view.PID = s.listeningPID(view.Port, "nginx.exe")
 			}
 		}
+		if view.Running && view.PID > 0 {
+			view.Metrics = s.metrics.Process(view.PID)
+		}
 		views = append(views, view)
 	}
 	return views, nil
@@ -691,6 +713,25 @@ func (s *SoftwareService) runInstall(ctx context.Context, taskKey string, record
 	if updateErr := s.repo.Update(bgCtx, &record); updateErr != nil {
 		return
 	}
+	if software.HasGlobalCommands(record.Kind) {
+		if bindErr := s.syncGlobalCommands(bgCtx); bindErr != nil {
+			record.State = software.STATE_FAILED
+			record.Progress = 0
+			record.Error = bindErr.Error()
+			if updateErr := s.repo.Update(bgCtx, &record); updateErr != nil {
+				return
+			}
+			s.bus.Emit("task:completed", map[string]interface{}{
+				"kind":    record.Kind,
+				"version": record.Version,
+				"ok":      false,
+				"error":   bindErr.Error(),
+			})
+			return
+		}
+	} else if bindErr := s.syncGlobalCommands(bgCtx); bindErr != nil {
+		log.Printf("同步全局命令失败: %v", bindErr)
+	}
 
 	s.installed(bgCtx, record)
 
@@ -716,6 +757,10 @@ func (s *SoftwareService) setPHPLog(record software.Software) {
 	if err := os.WriteFile(iniPath, []byte(text), 0o644); err != nil {
 		return
 	}
+}
+
+func (s *SoftwareService) syncGlobalCommands(ctx context.Context) error {
+	return SyncGlobalCommands(ctx, s.base, s.repo, s.userPath)
 }
 
 func (s *SoftwareService) Cancel(ctx context.Context, kind, version string) error {
@@ -803,9 +848,14 @@ func (s *SoftwareService) Remove(ctx context.Context, id int64) error {
 					return candidates[i].Version > candidates[j].Version
 				})
 				if setErr := s.repo.SetMain(ctx, kind, candidates[0].ID); setErr != nil {
-					return nil
+					return setErr
 				}
 			}
+		}
+	}
+	if software.HasGlobalCommands(kind) {
+		if err := s.syncGlobalCommands(ctx); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -822,7 +872,15 @@ func (s *SoftwareService) SetMain(ctx context.Context, id int64) error {
 	if item.State != software.STATE_INSTALLED {
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "只有已安装完成的版本才能设为默认")
 	}
-	return s.repo.SetMain(ctx, item.Kind, item.ID)
+	if err := s.repo.SetMain(ctx, item.Kind, item.ID); err != nil {
+		return err
+	}
+	if software.HasGlobalCommands(item.Kind) {
+		if err := s.syncGlobalCommands(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *SoftwareService) StartAsync(ctx context.Context, id int64) error {

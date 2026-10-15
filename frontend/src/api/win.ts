@@ -2,7 +2,7 @@ import {
 	WindowMinimise,
 	WindowToggleMaximise,
 	WindowIsMaximised,
-	Quit,
+	WindowHide,
 	EventsOn,
 } from '../../wailsjs/runtime/runtime'
 
@@ -15,8 +15,8 @@ export const toggleWin = WindowToggleMaximise
 // 查询窗口是否最大化
 export const checkWin = WindowIsMaximised
 
-// 退出应用
-export const quitWin = Quit
+// 隐藏窗口并保留托盘进程
+export const hideWin = WindowHide
 
 // 监听后端事件
 export const listenEvent = EventsOn

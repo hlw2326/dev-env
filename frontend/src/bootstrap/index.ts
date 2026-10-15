@@ -18,13 +18,13 @@ import '@/assets/css/primevue.css'
 export const AuraPreset = definePreset(Aura, {
 	semantic: {
 		formField: {
-			fontSize: '0.8125rem',
+			fontSize: 'var(--font-sm)',
 			fontWeight: '400',
 			sm: {
-				fontSize: '0.8125rem',
+				fontSize: 'var(--font-sm)',
 			},
 			lg: {
-				fontSize: '0.875rem',
+				fontSize: 'var(--font-base)',
 			},
 		},
 		primary: {
@@ -57,6 +57,24 @@ export const AuraPreset = definePreset(Aura, {
 					activeColor: '{slate.100}',
 				},
 			},
+		},
+	},
+	components: {
+		message: {
+			text: {
+				fontSize: 'var(--font-sm)',
+				fontWeight: '400',
+				sm: { fontSize: 'var(--font-xs)' },
+				lg: { fontSize: 'var(--font-base)' },
+			},
+			icon: {
+				size: 'var(--icon-md)',
+				sm: { size: 'var(--icon-sm)' },
+				lg: { size: 'var(--icon-lg)' },
+			},
+		},
+		panel: {
+			title: { fontWeight: '400' },
 		},
 	},
 })

@@ -17,18 +17,20 @@
 						<span>{{ project.hosts[0] }}</span>
 						<i class="pi pi-external-link link-icon"></i>
 					</p-button>
-					<span v-else class="project-mode">本地调试</span>
-					<span class="status-pill" :class="project.state">
-						<span class="dot"></span>
-						<span>{{ stateLabels[project.state] }}</span>
-					</span>
+					<h-tag v-else color="default" value="本地调试" />
+					<h-tag
+						:color="stateColor"
+						:value="stateLabel"
+						dot
+						radius="full"
+					/>
 					<CompGitStatus :status="gitStatus" @open="emit('git', project)" />
 				</div>
 				<div class="meta-line">
-					<span class="tag">{{ kindLabel }}</span>
-					<span v-if="project.version !== ''" class="tag font-mono">{{ project.version }}</span>
+					<h-tag :value="kindLabel" />
+					<h-tag v-if="project.version !== ''" class="font-mono" :value="project.version" />
 					<div v-if="project.need !== ''" class="need-box">
-						<span class="need-text">未安装 {{ needLabels[project.need] }} 环境</span>
+						<h-tag color="warning" :value="`未安装 ${needLabels[project.need]} 环境`" />
 						<p-button
 							v-if="project.need !== 'rust'"
 							size="small"
@@ -39,6 +41,13 @@
 						/>
 					</div>
 					<span class="path-text font-mono">{{ project.path }}</span>
+				</div>
+				<div v-if="project.traffic.requestCount > 0" class="traffic-line font-mono">
+					<span>请求 {{ project.traffic.requestCount }}</span>
+					<span>· 流量 {{ formatBytes(project.traffic.responseBytes) }}</span>
+					<span>· 错误 {{ project.traffic.errorCount }}</span>
+					<span v-if="project.traffic.averageResponseMs > 0">· 平均 {{ project.traffic.averageResponseMs.toFixed(0) }}ms</span>
+					<span v-if="project.traffic.lastAccess !== ''">· 最近 {{ project.traffic.lastAccess }}</span>
 				</div>
 			</div>
 		</div>
@@ -101,6 +110,7 @@
 import { useConfirm } from 'primevue/useconfirm'
 import { computed } from 'vue'
 import CompGitStatus from './git-status.vue'
+import { formatBytes } from '@/utils'
 import type { ProjectGitStatus, ProjectTemplate, Project } from '@/types'
 
 const props = defineProps<{
@@ -146,11 +156,24 @@ const kindIcon = computed(() => {
 const canOpen = computed(() => {
 	return currentTemplate.value !== null && currentTemplate.value.capabilities.includes('domain')
 })
-const stateLabels: Record<string, string> = {
-	running: '运行中',
-	stopped: '已停止',
-	error: '异常',
-}
+const stateLabel = computed(() => {
+	if (props.project.state === 'running') {
+		return '运行中'
+	}
+	if (props.project.state === 'error') {
+		return '异常'
+	}
+	return '已停止'
+})
+const stateColor = computed(() => {
+	if (props.project.state === 'running') {
+		return 'success'
+	}
+	if (props.project.state === 'error') {
+		return 'danger'
+	}
+	return 'default'
+})
 const needLabels: Record<string, string> = {
 	php: 'PHP',
 	nodejs: 'Node.js',
@@ -234,14 +257,6 @@ function confirmDelete(event: MouseEvent): void {
 	gap: 0.75rem;
 	flex-wrap: wrap;
 }
-.top-line > .status-pill {
-	gap: 0.25rem;
-	padding: 0.05rem 0.35rem;
-}
-.top-line > .status-pill .dot {
-	width: 0.3rem;
-	height: 0.3rem;
-}
 .name {
 	font-size: var(--font-lg);
 	color: var(--text-primary);
@@ -265,34 +280,14 @@ function confirmDelete(event: MouseEvent): void {
 	}
 }
 
-.project-mode {
-	display: inline-flex;
-	align-items: center;
-	padding: 0.15rem 0.5rem;
-	border-radius: var(--h-radius);
-	background: var(--bg-app);
-	color: var(--text-secondary);
-	font-size: var(--font-xs);
-}
 .meta-line {
 	display: flex;
 	align-items: center;
 	gap: 0.625rem;
 	flex-wrap: wrap;
 }
-.tag {
-	font-size: var(--font-xs);
-	color: var(--text-secondary);
-	background: var(--bg-app);
-	padding: 0.1rem 0.45rem;
-	border-radius: var(--h-radius);
-	border: 1px solid var(--border-color);
-}
 .need-box {
 	display: inline-flex; align-items: center; gap: 0.5rem;
-}
-.need-text {
-	font-size: var(--font-xs); color: var(--warn);
 }
 .path-text {
 	font-size: var(--font-xs);
@@ -300,6 +295,13 @@ function confirmDelete(event: MouseEvent): void {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+.traffic-line {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	color: var(--text-muted);
+	font-size: var(--font-xs);
 }
 .actions {
 	display: flex; align-items: center;

@@ -52,6 +52,31 @@
 	font-size: var(--font-xs) !important;
 }
 
+/* Tag 状态统一使用项目语义颜色，避免基础样式覆盖 PrimeVue severity。 */
+.p-tag.p-tag-success {
+	background: var(--ok-bg) !important;
+	border-color: var(--ok-border) !important;
+	color: var(--ok) !important;
+}
+
+.p-tag.p-tag-info {
+	background: var(--info-bg) !important;
+	border-color: var(--info-border) !important;
+	color: var(--info) !important;
+}
+
+.p-tag.p-tag-warn {
+	background: var(--warn-bg) !important;
+	border-color: var(--warn-border) !important;
+	color: var(--warn) !important;
+}
+
+.p-tag.p-tag-danger {
+	background: var(--err-bg) !important;
+	border-color: var(--err-border) !important;
+	color: var(--err) !important;
+}
+
 /* 精简 DataTable */
 .p-datatable .p-datatable-thead > tr > th {
 	background: var(--bg-card) !important;

@@ -11,12 +11,24 @@ import (
 type SystemAPI struct {
 	ctx     context.Context
 	service *app.SettingService
+	monitor *app.MonitorService
 }
 
-func NewSystemAPI(service *app.SettingService) *SystemAPI {
+func NewSystemAPI(service *app.SettingService, monitor *app.MonitorService) *SystemAPI {
 	return &SystemAPI{
 		ctx:     context.Background(),
 		service: service,
+		monitor: monitor,
+	}
+}
+
+func (a *SystemAPI) Metrics() SystemMetricsDTO {
+	item := a.monitor.Metrics()
+	return SystemMetricsDTO{
+		CPUPercent:       item.CPUPercent,
+		MemoryTotalBytes: item.MemoryTotalBytes,
+		MemoryUsedBytes:  item.MemoryUsedBytes,
+		MemoryPercent:    item.MemoryPercent,
 	}
 }
 

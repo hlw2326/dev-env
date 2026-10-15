@@ -3,6 +3,9 @@ import * as SystemAPI from '../../wailsjs/go/wails/SystemAPI'
 // 读取系统设置
 export const loadSettings = SystemAPI.Settings
 
+// 读取主机资源状态
+export const loadSystemMetrics = SystemAPI.Metrics
+
 // 保存系统设置
 export const saveSettings = SystemAPI.SaveSettings
 

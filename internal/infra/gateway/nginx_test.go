@@ -41,7 +41,7 @@ func TestRenderPHPRouteUsesPathInfoFallback(t *testing.T) {
 		Kind:  project.KIND_PHP,
 		Path:  `C:\projects\demo\public`,
 		Log:   `C:\logs\demo\access.log`,
-	}, 9000)
+	}, 9000, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,14 +50,40 @@ func TestRenderPHPRouteUsesPathInfoFallback(t *testing.T) {
 		"server_name \"demo.localhost\";",
 		"try_files $uri $uri/ /index.php$uri$is_args$args;",
 		"fastcgi_split_path_info ^(.+?\\.php)(/.*)$;",
-		"set $devenv_path_info $fastcgi_path_info;",
-		"fastcgi_param PATH_INFO $devenv_path_info;",
+		"include \"fastcgi_params.conf\";",
+		"fastcgi_param PATH_INFO $fastcgi_path_info;",
 		"fastcgi_pass 127.0.0.1:9000;",
 	}
 	for _, expected := range checks {
 		if !strings.Contains(config, expected) {
 			t.Fatalf("expected generated config to contain %q\n%s", expected, config)
 		}
+	}
+}
+
+func TestGeneratedNginxLogsExposeTrafficMetrics(t *testing.T) {
+	mainConfig := renderMain(`C:\nginx`, `C:\data`, 80, nil)
+	if !strings.Contains(mainConfig, "server_names_hash_max_size 4096;") {
+		t.Fatalf("expected server name hash max size in main config\n%s", mainConfig)
+	}
+	if !strings.Contains(mainConfig, "server_names_hash_bucket_size 128;") {
+		t.Fatalf("expected server name hash bucket size in main config\n%s", mainConfig)
+	}
+	if !strings.Contains(mainConfig, "log_format devenv '$time_iso8601\\t$status\\t$body_bytes_sent\\t$request_time';") {
+		t.Fatalf("expected traffic log format in main config\n%s", mainConfig)
+	}
+	routeConfig, err := renderRoute(80, ports.Route{
+		ID:    6,
+		Hosts: []string{"metrics.localhost"},
+		Kind:  project.KIND_STATIC,
+		Path:  `C:\projects\metrics`,
+		Log:   `C:\logs\metrics\access.log`,
+	}, 0, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(routeConfig, `access_log "C:/logs/metrics/access.log" devenv;`) {
+		t.Fatalf("expected project route to use traffic log format\n%s", routeConfig)
 	}
 }
 
@@ -73,14 +99,21 @@ func TestRenderPHPRouteIncludesEnvironmentFile(t *testing.T) {
 		Path:            `C:\projects\env\public`,
 		EnvironmentFile: file,
 		Log:             `C:\logs\env\access.log`,
-	}, 9001)
+	}, 9001, `"vhosts/website-5-environment.conf"`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"fastcgi_param APP_ENV \"dev\";", "fastcgi_param DB_HOST \"127.0.0.1\";"} {
+	for _, expected := range []string{`include "vhosts/website-5-environment.conf";`} {
 		if !strings.Contains(config, expected) {
 			t.Fatalf("expected generated config to contain %q\n%s", expected, config)
 		}
+	}
+	parameter, err := renderEnvironmentParameter(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parameter != "fastcgi_param ENV_NAME \"dev\";\n" {
+		t.Fatalf("expected only environment name parameter, got %q", parameter)
 	}
 }
 
@@ -91,7 +124,7 @@ func TestRenderNodeRouteSupportsWebSocket(t *testing.T) {
 		Kind:  project.KIND_NODE,
 		Port:  3100,
 		Log:   `C:\logs\node\access.log`,
-	}, 0)
+	}, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +143,7 @@ func TestRenderStaticRouteReturnsNotFoundWithoutIndexFallback(t *testing.T) {
 		Kind:  project.KIND_STATIC,
 		Path:  `C:\projects\static`,
 		Log:   `C:\logs\static\access.log`,
-	}, 0)
+	}, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +163,7 @@ func TestRenderRouteIncludesAdvancedConfiguration(t *testing.T) {
 		Path:  `C:\projects\advanced`,
 		Log:   `C:\logs\advanced\access.log`,
 		Nginx: "client_max_body_size 20m;\nadd_header X-DevEnv advanced;",
-	}, 0)
+	}, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,8 +187,15 @@ func TestPoolPortIsStable(t *testing.T) {
 func TestWriteConfigCreatesNginxLogFolder(t *testing.T) {
 	base := t.TempDir()
 	gateway := &Nginx{home: base}
+	nginxHome := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(nginxHome, "conf"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nginxHome, "conf", "fastcgi.conf"), []byte("fastcgi_param QUERY_STRING $query_string;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
-	if err := gateway.writeConfig(t.TempDir(), 18080, []ports.Route{}, map[string]pool{}); err != nil {
+	if err := gateway.writeConfig(nginxHome, 18080, []ports.Route{}, map[string]pool{}); err != nil {
 		t.Fatal(err)
 	}
 	info, err := os.Stat(paths.NginxLog(base))

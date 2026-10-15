@@ -196,15 +196,5 @@ async function toggleTheme(): Promise<void> {
 		}
 	}
 
-	/* 架构标识徽标 */
-	.badge {
-		font-size: var(--font-xs);
-		color: var(--text-secondary);
-		background: var(--bg-app);
-		padding: 0.125rem 0.5rem;
-		border-radius: var(--h-radius);
-		border: 1px solid var(--border-color);
-		--wails-draggable: no-drag;
-	}
 }
 </style>

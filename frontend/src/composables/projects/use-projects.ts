@@ -101,8 +101,10 @@ export function useProjects() {
 	})
 
 	// 刷新项目与环境列表
-	async function refreshAll(): Promise<void> {
-		loading.value = true
+	async function refreshAll(silent = false): Promise<void> {
+		if (!silent) {
+			loading.value = true
+		}
 		try {
 			const [projectItems, softwareItems, settings, templateItems] = await Promise.all([
 				listProjects(),
@@ -121,11 +123,17 @@ export function useProjects() {
 					activeProject.value = found
 				}
 			}
-			void refreshGitStatuses()
+			if (!silent) {
+				void refreshGitStatuses()
+			}
 		} catch (err: unknown) {
+			if (!silent) {
 			toast.error('加载失败', formatError(err))
+			}
 		} finally {
-			loading.value = false
+			if (!silent) {
+				loading.value = false
+			}
 		}
 	}
 

@@ -15,6 +15,7 @@ const (
 	DATA_FOLDER        = "data"
 	BACKUP_FOLDER      = "backups"
 	SOFTWARE_FOLDER    = "software"
+	COMMAND_FOLDER     = "bin"
 	DBDATA_FOLDER      = "dbdata"
 	CACHE_FOLDER       = "cache"
 	LOG_FOLDER         = "logs"
@@ -25,6 +26,7 @@ const (
 	SERVICE_FOLDER     = "services"
 	DB_FILE            = "devenv.db"
 	NGINX_CONFIG       = "nginx.conf"
+	NGINX_FASTCGI_FILE = "fastcgi_params.conf"
 	NGINX_PID          = "nginx.pid"
 	LOOPBACK           = "127.0.0.1"
 )
@@ -43,6 +45,10 @@ func Backups(databasePath string) string {
 
 func Software(base, kind, version string) string {
 	return filepath.Join(base, SOFTWARE_FOLDER, kind, version)
+}
+
+func Commands(base string) string {
+	return filepath.Join(base, COMMAND_FOLDER)
 }
 
 func MySQLData(base, version string) string {
@@ -89,6 +95,10 @@ func NginxConfig(base string) string {
 	return filepath.Join(Nginx(base), NGINX_CONFIG)
 }
 
+func NginxFastCGIConfig(base string) string {
+	return filepath.Join(Nginx(base), NGINX_FASTCGI_FILE)
+}
+
 func NginxProjectConfig(base string, id int64, name string) string {
 	return filepath.Join(NginxHosts(base), NginxProjectConfigName(id, name))
 }
@@ -114,6 +124,11 @@ func NginxProjectConfigName(id int64, name string) string {
 	return fmt.Sprintf("website-%d-%s.conf", id, slug)
 }
 
+func NginxEnvironmentConfigName(id int64, name string) string {
+	configName := strings.TrimSuffix(NginxProjectConfigName(id, name), ".conf")
+	return configName + ".environment.conf"
+}
+
 func NginxPID(base string) string {
 	return filepath.Join(Nginx(base), NGINX_PID)
 }
@@ -127,7 +142,15 @@ func Hosts() string {
 }
 
 func Shell() string {
-	return filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe")
+	return WindowsCommand("cmd.exe")
+}
+
+func WindowsCommand(name string) string {
+	return filepath.Join(os.Getenv("SystemRoot"), "System32", name)
+}
+
+func EnvironmentCommand(root, relative string) string {
+	return filepath.Join(strings.Trim(root, `"`), filepath.FromSlash(relative))
 }
 
 func ExpandProfile(value string) string {

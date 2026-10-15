@@ -13,29 +13,27 @@
 		</div>
 
 		<!-- 右侧状态标签 -->
-		<p-tag
+		<h-tag
 			v-if="project.state === 'running'"
-			severity="success"
+			color="success"
 			value="运行中"
-			size="small"
+			dot
+			radius="full"
 		/>
-		<p-tag
+		<h-tag
 			v-else-if="project.need !== ''"
-			severity="warn"
+			color="warning"
 			value="缺少环境"
-			size="small"
 		/>
-		<p-tag
+		<h-tag
 			v-else-if="project.state === 'error'"
-			severity="danger"
+			color="danger"
 			value="异常"
-			size="small"
 		/>
-		<p-tag
+		<h-tag
 			v-else
-			severity="secondary"
+			color="default"
 			value="已停止"
-			size="small"
 		/>
 	</div>
 </template>

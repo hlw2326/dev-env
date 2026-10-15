@@ -1,6 +1,6 @@
 <template>
-	<!-- 核心软件与服务状态卡片 -->
-	<h-card title="核心软件与服务状态">
+	<!-- 服务状态卡片 -->
+	<h-card title="服务状态">
 		<!-- 卡片右上角刷新按钮 -->
 		<template #extra>
 			<p-button
@@ -16,15 +16,15 @@
 
 		<!-- 空状态提示 -->
 		<h-empty
-			v-if="readySoftware.length === 0"
-			icon="pi pi-box"
-			description="暂无已安装的软件与服务"
+			v-if="daemonList.length === 0"
+			icon="pi pi-server"
+			description="暂无已安装的服务"
 		/>
 
-		<!-- 软件与服务列表 -->
+		<!-- 服务列表 -->
 		<div v-else class="list">
 			<h-service
-				v-for="item in readySoftware"
+				v-for="item in daemonList"
 				:key="item.id"
 				:item="item"
 				:busy="busyId === item.id"
@@ -44,7 +44,7 @@ import { useDashboard } from '@/composables'
 import type { ServiceEvent } from '@/types'
 
 // 概览软件数据与刷新方法
-const { readySoftware, loading, busyId, loadData, startService, stopService } = useDashboard()
+const { daemonList, loading, busyId, loadData, startService, stopService } = useDashboard()
 
 let stopEvents: (() => void) | null = null
 

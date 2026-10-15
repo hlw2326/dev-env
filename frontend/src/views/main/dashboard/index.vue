@@ -1,26 +1,23 @@
 <template>
-	<!-- 环境概览页面 -->
 	<h-page title="开发环境概览" description="Windows 本地高效 PHP / Web 开发栈一站式控制中心">
-		<!-- 页面右上角 Nginx 监听状态 -->
 		<template #extra>
-			<p-tag
+			<h-tag
 				v-if="listening"
-				severity="success"
+				color="success"
 				:value="'Nginx: 监听 127.0.0.1:' + nginxPort"
 				icon="pi pi-server"
 			/>
-			<p-tag
+			<h-tag
 				v-else
-				severity="danger"
+				color="danger"
 				value="Nginx: 未监听"
 				icon="pi pi-exclamation-triangle"
 			/>
 		</template>
 
-		<!-- 统计卡片区 -->
 		<comp-stats />
+		<comp-resources />
 
-		<!-- 服务状态与最近项目双列网格 -->
 		<div class="dash-grid">
 			<comp-services />
 			<comp-projects />
@@ -29,23 +26,32 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useDashboard } from '@/composables'
 import CompStats from './comps/stats.vue'
+import CompResources from './comps/resources.vue'
 import CompServices from './comps/services.vue'
 import CompProjects from './comps/projects.vue'
 
-	// 概览页 Nginx 状态与加载函数
-	const { listening, nginxPort, loadData } = useDashboard()
+const { listening, nginxPort, loadData } = useDashboard()
+let refreshTimer: number | null = null
 
-// 挂载时加载概览数据
 onMounted(() => {
-	loadData()
+	void loadData()
+	refreshTimer = window.setInterval(() => {
+		void loadData(true)
+	}, 5000)
+})
+
+onUnmounted(() => {
+	if (refreshTimer !== null) {
+		window.clearInterval(refreshTimer)
+		refreshTimer = null
+	}
 })
 </script>
 
 <style scoped lang="scss">
-/* 概览主面板双列网格 */
 .dash-grid {
 	display: grid;
 	grid-template-columns: 1fr 1fr;

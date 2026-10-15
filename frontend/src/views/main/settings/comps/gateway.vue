@@ -6,14 +6,20 @@
 			<div class="gateway-status">
 				<span class="section-title">Nginx 状态</span>
 				<div class="status-right">
-					<span v-if="listening" class="status-pill ok">
-						<span class="dot"></span>
-						<span>Nginx 正在监听 127.0.0.1:{{ form.port }}</span>
-					</span>
-					<span v-else class="status-pill error">
-						<span class="dot"></span>
-						<span>Nginx 未监听</span>
-					</span>
+					<h-tag
+						v-if="listening"
+						color="success"
+						:value="`Nginx 正在监听 127.0.0.1:${form.port}`"
+						dot
+						radius="full"
+					/>
+					<h-tag
+						v-else
+						color="danger"
+						value="Nginx 未监听"
+						dot
+						radius="full"
+					/>
 				</div>
 			</div>
 

@@ -10,7 +10,7 @@
 				severity="secondary"
 				variant="outlined"
 				:loading="loading"
-				@click="loadData"
+				@click="loadData()"
 			/>
 		</template>
 
@@ -35,6 +35,7 @@
 				@start="startService"
 				@stop="stopService"
 				@configure="openSettings"
+				@data="openRedisData"
 			/>
 		</div>
 
@@ -48,13 +49,16 @@
 			@autostart="toggleAutostart"
 			@folder="browseFolder"
 		/>
+
+		<comp-redis-data />
 	</h-page>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
-import { useServices } from '@/composables'
+import { useRedisData, useServices } from '@/composables'
 import type { Software } from '@/types'
+import CompRedisData from './comps/redis-data.vue'
 
 // 服务管理数据与控制方法
 const {
@@ -71,6 +75,7 @@ const {
 	browseFolder,
 	bindEvents,
 } = useServices()
+const { open: openRedisData } = useRedisData()
 
 const settingsVisible = ref(false)
 const activeService = ref<Software | null>(null)
@@ -93,11 +98,15 @@ watch(services, (items) => {
 
 // 服务事件解绑函数
 let stopEvents: (() => void) | null = null
+let refreshTimer: number | null = null
 
 // 挂载时加载并监听服务变化
 onMounted(() => {
 	loadData()
 	stopEvents = bindEvents()
+	refreshTimer = window.setInterval(() => {
+		void loadData(true)
+	}, 5000)
 })
 
 // 卸载时移除服务事件监听
@@ -105,6 +114,10 @@ onUnmounted(() => {
 	if (stopEvents) {
 		stopEvents()
 		stopEvents = null
+	}
+	if (refreshTimer !== null) {
+		window.clearInterval(refreshTimer)
+		refreshTimer = null
 	}
 })
 </script>

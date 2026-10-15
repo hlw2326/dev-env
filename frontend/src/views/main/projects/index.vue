@@ -3,7 +3,7 @@
 	<h-page title="项目管理" description="管理本地开发项目" padding>
 		<!-- 页面右上角创建按钮 -->
 		<template #extra>
-			<p-button icon="pi pi-plus" label="创建项目" @click="createVisible = true" />
+			<p-button icon="pi pi-plus" label="创建项目" @click="openCreate" />
 		</template>
 
 		<!-- 顶部筛选与搜索工具栏 -->
@@ -16,7 +16,7 @@
 				title="还没有创建任何项目"
 				description="选择项目类型并填写项目目录，即可创建本地开发项目"
 			>
-				<p-button icon="pi pi-plus" label="创建第一个项目" @click="createVisible = true" />
+				<p-button icon="pi pi-plus" label="创建第一个项目" @click="openCreate" />
 			</h-empty>
 		</div>
 
@@ -43,6 +43,7 @@
 		<comp-create
 			v-model:visible="createVisible"
 			:default-root="defaultRoot"
+			:initial-kind="kindFilter"
 			:templates="projectTemplates"
 			@submit="onCreate"
 		/>
@@ -79,6 +80,7 @@ const {
 	projectTemplates,
 	gitStatuses,
 	defaultRoot,
+	kindFilter,
 	createVisible,
 	activeProject,
 	detailVisible,
@@ -103,6 +105,11 @@ const {
 
 // 事件解绑函数引用
 let stopEvents: (() => void) | null = null
+let refreshTimer: number | null = null
+
+function openCreate(): void {
+	createVisible.value = true
+}
 
 // 处理创建项目表单提交
 async function onCreate(input: ProjectCreateInput): Promise<void> {
@@ -116,6 +123,9 @@ async function onCreate(input: ProjectCreateInput): Promise<void> {
 onMounted(() => {
 	refreshAll()
 	stopEvents = bindEvents()
+	refreshTimer = window.setInterval(() => {
+		void refreshAll(true)
+	}, 5000)
 })
 
 // 卸载时清理事件监听
@@ -123,6 +133,10 @@ onUnmounted(() => {
 	if (stopEvents) {
 		stopEvents()
 		stopEvents = null
+	}
+	if (refreshTimer !== null) {
+		window.clearInterval(refreshTimer)
+		refreshTimer = null
 	}
 })
 </script>

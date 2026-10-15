@@ -24,20 +24,23 @@ func main() {
 		return
 	}
 	app := NewApp()
+	app.startTray()
 
 	err := wails.Run(&options.App{
-		Title:     "DevEnv - 本地开发环境管理平台",
-		Width:     1280,
-		Height:    800,
-		MinWidth:  1024,
-		MinHeight: 640,
-		Frameless: true,
+		Title:             "DevEnv - 本地开发环境管理平台",
+		Width:             1280,
+		Height:            800,
+		MinWidth:          1024,
+		MinHeight:         640,
+		Frameless:         true,
+		HideWindowOnClose: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 248, G: 250, B: 252, A: 255},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
+		OnBeforeClose:    app.beforeClose,
 		Bind: []any{
 			app,
 			app.Project,

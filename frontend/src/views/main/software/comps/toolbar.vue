@@ -19,12 +19,13 @@
 				:class="{ active: tab === 'installed' }"
 				@click="tab = 'installed'"
 			>
-				已安装 ({{ installedCount }})
+				已安装
 			</p-button>
 		</div>
 
 		<!-- 右侧分类筛选与搜索框 -->
 		<div class="right-filters">
+			<p-button size="small" severity="secondary" variant="outlined" icon="pi pi-desktop" label="本机环境" @click="openEnvironments()" />
 			<div v-if="tab === 'market'" class="category-tabs">
 				<p-button
 					v-for="item in categories"
@@ -52,10 +53,12 @@
 </template>
 
 <script setup lang="ts">
-import { useSoftware } from '@/composables'
+import { useSoftware, useLocalEnvironments } from '@/composables'
+
+const { openEnvironments } = useLocalEnvironments()
 
 // 软件商店筛选状态
-const { tab, category, search, installedCount } = useSoftware()
+const { tab, category, search } = useSoftware()
 
 // 软件分类筛选列表
 const categories = ['全部', '运行环境', 'Web 服务', '数据库', '缓存', '工具']

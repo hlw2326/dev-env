@@ -13,8 +13,10 @@ import (
 	"sync"
 	"time"
 
+	domainmonitor "devenv/internal/domain/monitor"
 	"devenv/internal/domain/project"
 	"devenv/internal/domain/software"
+	inframonitor "devenv/internal/infra/monitor"
 	"devenv/internal/infra/process"
 	"devenv/internal/ports"
 	appErrors "devenv/internal/shared/errors"
@@ -33,6 +35,7 @@ const (
 type ProjectView struct {
 	project.Project
 	Path             string
+	Traffic          domainmonitor.ProjectTraffic
 	EnvironmentFiles []string
 	Version          string
 	State            string
@@ -51,6 +54,7 @@ type ProjectService struct {
 	probe    ports.PortChecker
 	bus      ports.EventPublisher
 	git      ports.GitManager
+	metrics  *inframonitor.Collector
 
 	mu     sync.RWMutex
 	active map[int64]bool
@@ -68,6 +72,7 @@ func NewProjectService(
 	probe ports.PortChecker,
 	bus ports.EventPublisher,
 	gitManager ports.GitManager,
+	metrics *inframonitor.Collector,
 ) *ProjectService {
 	return &ProjectService{
 		base:     base,
@@ -80,6 +85,7 @@ func NewProjectService(
 		probe:    probe,
 		bus:      bus,
 		git:      gitManager,
+		metrics:  metrics,
 		active:   make(map[int64]bool),
 		failed:   make(map[int64]string),
 	}
@@ -567,6 +573,9 @@ func (s *ProjectService) Delete(ctx context.Context, id int64) error {
 	if err := s.Stop(ctx, id); err != nil {
 		return err
 	}
+	if err := removeNginxArtifacts(s.base, *current); err != nil {
+		return err
+	}
 	if err := s.projects.Delete(ctx, id); err != nil {
 		return err
 	}
@@ -576,6 +585,20 @@ func (s *ProjectService) Delete(ctx context.Context, id int64) error {
 	}
 	if err := s.syncHosts(ctx); err != nil {
 		return err
+	}
+	return nil
+}
+
+func removeNginxArtifacts(base string, item project.Project) error {
+	if !project.UsesNginx(item.Kind) {
+		return nil
+	}
+	configPath := paths.NginxProjectConfig(base, item.ID, item.Name)
+	environmentPath := filepath.Join(paths.NginxHosts(base), paths.NginxEnvironmentConfigName(item.ID, item.Name))
+	for _, target := range []string{configPath, environmentPath, configPath + ".devenv-backup"} {
+		if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+			return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "清理项目 Nginx 配置失败: "+target)
+		}
 	}
 	return nil
 }
@@ -606,13 +629,9 @@ func (s *ProjectService) OpenNginxConfig(ctx context.Context, id int64) error {
 	if project.IsLocal(item.Kind) {
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "Electron 项目不使用 Nginx 配置")
 	}
-	configPath := paths.NginxProjectConfig(s.base, item.ID, item.Name)
-	info, err := os.Stat(configPath)
+	configPath, err := s.ensureNginxConfig(ctx, *item)
 	if err != nil {
-		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "该项目的 Nginx 配置文件尚未生成，请先启动项目")
-	}
-	if info.IsDir() {
-		return appErrors.New(appErrors.PATH_NOT_ACCESSIBLE, "项目 Nginx 配置文件路径指向了目录")
+		return err
 	}
 	return exec.Command("explorer.exe", configPath).Start()
 }
@@ -628,13 +647,9 @@ func (s *ProjectService) ReadNginxConfig(ctx context.Context, id int64) (string,
 	if project.IsLocal(item.Kind) {
 		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "Electron 项目不使用 Nginx 配置")
 	}
-	configPath := paths.NginxProjectConfig(s.base, item.ID, item.Name)
-	info, err := os.Stat(configPath)
+	configPath, err := s.ensureNginxConfig(ctx, *item)
 	if err != nil {
-		return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "该项目的 Nginx 配置文件尚未生成，请先启动项目")
-	}
-	if info.IsDir() {
-		return "", appErrors.New(appErrors.PATH_NOT_ACCESSIBLE, "项目 Nginx 配置文件路径指向了目录")
+		return "", err
 	}
 	content, err := os.ReadFile(configPath)
 	if err != nil {
@@ -662,9 +677,9 @@ func (s *ProjectService) WriteNginxConfig(ctx context.Context, id int64, content
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "Nginx 配置不能为空")
 	}
 
-	configPath := paths.NginxProjectConfig(s.base, item.ID, item.Name)
-	if _, err := os.Stat(configPath); err != nil {
-		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "读取项目 Nginx 配置失败")
+	configPath, err := s.ensureNginxConfig(ctx, *item)
+	if err != nil {
+		return err
 	}
 	installed, err := s.software.GetMain(ctx, software.KIND_NGINX)
 	if err != nil {
@@ -724,6 +739,31 @@ func (s *ProjectService) WriteNginxConfig(ctx context.Context, id int64, content
 		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "清理 Nginx 备份配置失败")
 	}
 	return nil
+}
+
+func (s *ProjectService) ensureNginxConfig(ctx context.Context, item project.Project) (string, error) {
+	configPath := paths.NginxProjectConfig(s.base, item.ID, item.Name)
+	info, err := os.Stat(configPath)
+	if err == nil {
+		if info.IsDir() {
+			return "", appErrors.New(appErrors.PATH_NOT_ACCESSIBLE, "项目 Nginx 配置文件路径指向了目录")
+		}
+		return configPath, nil
+	}
+	if !os.IsNotExist(err) {
+		return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "读取项目 Nginx 配置失败")
+	}
+	if err := s.syncRoutes(ctx); err != nil {
+		return "", err
+	}
+	info, err = os.Stat(configPath)
+	if err != nil {
+		return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "该项目的 Nginx 配置文件未生成，请先启动项目")
+	}
+	if info.IsDir() {
+		return "", appErrors.New(appErrors.PATH_NOT_ACCESSIBLE, "项目 Nginx 配置文件路径指向了目录")
+	}
+	return configPath, nil
 }
 
 func validateNginxConfig(executable, base string) error {
@@ -1045,6 +1085,7 @@ func (s *ProjectService) buildView(item project.Project, softwareMap map[int64]s
 	return ProjectView{
 		Project:          item,
 		Path:             docPath,
+		Traffic:          s.metrics.Traffic(paths.ProjectLog(s.base, item.Name, "access.log")),
 		Version:          version,
 		State:            state,
 		URL:              projectURL,

@@ -22,13 +22,13 @@
 			<i v-if="maximized" class="pi pi-clone icon"></i>
 			<i v-else class="pi pi-stop icon"></i>
 		</p-button>
-		<!-- 关闭窗口按钮 -->
+		<!-- 隐藏到托盘按钮 -->
 		<p-button
 			type="button"
 			unstyled
 			class="control-btn danger"
-			title="关闭"
-			@click="onQuit"
+			title="隐藏到托盘"
+			@click="onHide"
 		>
 			<i class="pi pi-times icon"></i>
 		</p-button>
@@ -37,7 +37,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { minWin, toggleWin, checkWin, quitWin } from '@/api'
+import { minWin, toggleWin, checkWin, hideWin } from '@/api'
 import { toast, formatError } from '@/utils'
 
 // 窗口是否处于最大化状态
@@ -71,9 +71,9 @@ async function onToggle(): Promise<void> {
 	await syncState()
 }
 
-// 退出应用程序
-function onQuit(): void {
-	quitWin()
+// 隐藏窗口并继续在托盘运行
+function onHide(): void {
+	hideWin()
 }
 
 // 挂载时同步窗口状态

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"devenv/internal/app"
+	domainmonitor "devenv/internal/domain/monitor"
 	"devenv/internal/domain/plugin"
 	"devenv/internal/domain/project"
 	"devenv/internal/ports"
@@ -254,6 +255,7 @@ func convertProject(view app.ProjectView) ProjectDTO {
 		Nginx:            view.Nginx,
 		EnvironmentFile:  view.EnvironmentFile,
 		EnvironmentFiles: append([]string{}, view.EnvironmentFiles...),
+		Traffic:          convertProjectTraffic(view.Traffic),
 		Port:             view.Port,
 		Autostart:        view.Autostart,
 		State:            view.State,
@@ -261,6 +263,14 @@ func convertProject(view app.ProjectView) ProjectDTO {
 		Need:             view.Need,
 		Created:          view.Created,
 		Updated:          view.Updated,
+	}
+}
+
+func convertProjectTraffic(item domainmonitor.ProjectTraffic) ProjectTrafficDTO {
+	return ProjectTrafficDTO{
+		RequestCount: item.RequestCount, ResponseBytes: item.ResponseBytes,
+		ErrorCount: item.ErrorCount, AverageResponseMs: item.AverageResponseMs,
+		LastAccess: item.LastAccess,
 	}
 }
 

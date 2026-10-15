@@ -7,29 +7,29 @@
 			<div class="info">
 				<div class="title">
 					<span class="name">{{ item.name }} {{ item.version }}</span>
-					<p-tag
+					<h-tag
 						v-if="item.main"
-						severity="info"
+						color="info"
 						value="默认"
-						size="small"
 					/>
-					<p-tag
+					<h-tag
 						v-if="item.service && item.running"
-						severity="success"
+						color="success"
 						value="运行中"
-						size="small"
+						dot
+						radius="full"
 					/>
-					<p-tag
+					<h-tag
 						v-else-if="item.service"
-						severity="secondary"
+						color="default"
 						value="已停止"
-						size="small"
+						dot
+						radius="full"
 					/>
-					<p-tag
+					<h-tag
 						v-else
-						severity="success"
+						color="success"
 						value="就绪"
-						size="small"
 					/>
 				</div>
 				<span class="meta font-mono">
@@ -40,12 +40,28 @@
 					</template>
 					<span v-else>{{ item.path }}</span>
 				</span>
+				<span v-if="item.service && item.running && item.pid > 0" class="resource-meta font-mono">
+					<span>CPU {{ item.metrics.cpuPercent.toFixed(1) }}%</span>
+					<span>· 内存 {{ formatBytes(item.metrics.memoryBytes) }}</span>
+					<span>· I/O {{ formatBytes(item.metrics.readBytes) }}/{{ formatBytes(item.metrics.writeBytes) }}</span>
+					<span>· 运行 {{ formatDuration(item.metrics.uptimeSeconds) }}</span>
+				</span>
 			</div>
 		</div>
 
 		<!-- 右侧服务操作 -->
 		<div class="actions">
 			<template v-if="item.service">
+				<p-button
+					v-if="item.kind === 'redis'"
+					label="数据"
+					icon="pi pi-database"
+					size="small"
+					severity="secondary"
+					variant="outlined"
+					:disabled="!item.running"
+					@click="emit('data', item)"
+				/>
 				<p-button
 					v-if="configurable"
 					label="设置"
@@ -88,6 +104,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatBytes, formatDuration } from '@/utils'
 import type { HServiceProps } from './types.d'
 
 // 全局服务行组件名称
@@ -106,6 +123,7 @@ const emit = defineEmits<{
 	stop: [id: number]
 	manage: []
 	configure: [item: HServiceProps['item']]
+	data: [item: HServiceProps['item']]
 }>()
 </script>
 
@@ -165,6 +183,14 @@ const emit = defineEmits<{
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	max-width: 22rem;
+}
+
+.resource-meta {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: var(--font-xs);
+	color: var(--text-muted);
 }
 
 /* 右侧操作区 */

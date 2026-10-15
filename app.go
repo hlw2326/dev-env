@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"sync/atomic"
 
 	"devenv/internal/app"
+	trayinfra "devenv/internal/infra/tray"
 	transport "devenv/internal/transport/wails"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -15,25 +17,69 @@ type App struct {
 	Project   *transport.ProjectAPI
 	Software  *transport.SoftwareAPI
 	System    *transport.SystemAPI
+	tray      trayinfra.Manager
+	exiting   atomic.Bool
 }
 
 func NewApp() *App {
+	trayManager := trayinfra.NewManager()
 	container, err := app.Bootstrap()
 	if err != nil {
 		return &App{
 			bootError: err,
+			tray:      trayManager,
 			Project:   transport.NewProjectAPI(nil, nil),
 			Software:  transport.NewSoftwareAPI(nil),
-			System:    transport.NewSystemAPI(nil),
+			System:    transport.NewSystemAPI(nil, nil),
 		}
 	}
 
 	return &App{
 		container: container,
+		tray:      trayManager,
 		Project:   transport.NewProjectAPI(container.Project, container.Deployment),
 		Software:  transport.NewSoftwareAPI(container.Software),
-		System:    transport.NewSystemAPI(container.Setting),
+		System:    transport.NewSystemAPI(container.Setting, container.Monitor),
 	}
+}
+
+func (a *App) startTray() {
+	if a.bootError != nil {
+		return
+	}
+	a.tray.Start(trayinfra.Callbacks{
+		Show: a.showWindow,
+		Hide: a.hideWindow,
+		Quit: a.quit,
+	})
+}
+
+func (a *App) showWindow() {
+	if a.ctx != nil {
+		runtime.WindowShow(a.ctx)
+		runtime.WindowUnminimise(a.ctx)
+	}
+}
+
+func (a *App) hideWindow() {
+	if a.ctx != nil {
+		runtime.WindowHide(a.ctx)
+	}
+}
+
+func (a *App) quit() {
+	if a.ctx != nil {
+		a.exiting.Store(true)
+		runtime.Quit(a.ctx)
+	}
+}
+
+func (a *App) beforeClose(ctx context.Context) bool {
+	if a.bootError != nil || a.exiting.Load() {
+		return false
+	}
+	runtime.WindowHide(ctx)
+	return true
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -58,6 +104,7 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	a.tray.Stop()
 	if a.bootError == nil {
 		a.container.Shutdown()
 	}

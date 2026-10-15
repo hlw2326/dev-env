@@ -9,6 +9,9 @@ export const listSoftware = SoftwareAPI.List
 // 获取软件可安装版本列表
 export const listVersions = SoftwareAPI.Versions
 
+// 用户主动查询本机环境；空类型表示全部，程序路径用于手动指定入口
+export const scanEnvironments = SoftwareAPI.ScanEnvironments
+
 // 读取软件常用配置项
 export const loadConfig = SoftwareAPI.Config
 
@@ -53,3 +56,12 @@ export const setAutostart = SoftwareAPI.SetAutostart
 
 // 读取软件运行日志
 export const listLogs = SoftwareAPI.Logs
+
+// 读取 Redis 数据库列表
+export const listRedisDatabases = SoftwareAPI.RedisDatabases
+
+// 分页读取 Redis 键列表
+export const listRedisKeys = SoftwareAPI.RedisKeys
+
+// 读取 Redis 键内容
+export const loadRedisValue = SoftwareAPI.RedisValue

@@ -40,8 +40,10 @@ const (
 )
 
 type pool struct {
-	key  string
-	port int
+	key      string
+	port     int
+	pid      int
+	external bool
 }
 
 type softwareReader interface {
@@ -164,12 +166,8 @@ func (n *Nginx) SetRoutes(routes []ports.Route) error {
 	n.mutex.Lock()
 	previous := n.routes
 	n.routes = copied
-	external := n.external
 	started := n.port > 0
 	n.mutex.Unlock()
-	if external {
-		return nil
-	}
 	if !started {
 		return nil
 	}
@@ -256,6 +254,20 @@ func (n *Nginx) reconcile() error {
 		return cleanup(err)
 	}
 
+	if n.external {
+		if err := reloadNginx(executable, n.home); err != nil {
+			return cleanup(err)
+		}
+		if err := n.stopUnused(pools); err != nil {
+			return err
+		}
+		n.mutex.Lock()
+		n.listening = port
+		n.pools = pools
+		n.mutex.Unlock()
+		return nil
+	}
+
 	status := n.runner.Status(NGINX_KEY)
 	if status.Running {
 		if err := reloadNginx(executable, n.home); err != nil {
@@ -267,6 +279,7 @@ func (n *Nginx) reconcile() error {
 			Args:      []string{"-p", nginxPrefix(n.home), "-c", paths.NGINX_CONFIG},
 			Directory: installed.Path,
 			Log:       paths.GatewayLog(n.home, "nginx.log"),
+			Detached:  true,
 		})
 		if err != nil {
 			return cleanup(err)
@@ -351,25 +364,33 @@ func (n *Nginx) startPools(routes []ports.Route, nginxPort int) (map[string]pool
 		used[port] = true
 
 		item, found := existing[executable]
-		if found && item.port == port && n.runner.Status(item.key).Running {
-			result[executable] = item
-			continue
+		if found && item.port == port {
+			if n.runner.Status(item.key).Running || item.external && n.externalPoolRunning(item, executable) {
+				result[executable] = item
+				continue
+			}
 		}
 		if !n.checker.Available(port) {
+			if adopted, ok := n.adoptPool(executable, port); ok {
+				result[executable] = adopted
+				continue
+			}
 			return cleanup(appErrors.New(appErrors.PORT_ALREADY_IN_USE, fmt.Sprintf("PHP FastCGI 固定端口 %d 已被占用", port)))
 		}
 
 		item = pool{key: poolKey(executable), port: port}
-		_, err = n.runner.Start(item.key, ports.Options{
+		pid, startErr := n.runner.Start(item.key, ports.Options{
 			Binary:      executable,
 			Args:        []string{"-b", paths.LOOPBACK + ":" + strconv.Itoa(port)},
 			Directory:   filepath.Dir(executable),
 			Environment: []string{"PHP_FCGI_CHILDREN=" + NGINX_PHP_CONCURRENCY, "PHP_FCGI_MAX_REQUESTS=0"},
 			Log:         paths.GatewayLog(n.home, fmt.Sprintf("php-%d.log", port)),
+			Detached:    true,
 		})
-		if err != nil {
-			return cleanup(err)
+		if startErr != nil {
+			return cleanup(startErr)
 		}
+		item.pid = pid
 		started = append(started, item)
 		if err := waitPort(n.checker, port); err != nil {
 			return cleanup(err)
@@ -399,11 +420,44 @@ func (n *Nginx) stopUnused(active map[string]pool) error {
 func (n *Nginx) stopPools(items []pool) error {
 	stopErrors := make([]error, 0)
 	for _, item := range items {
+		if item.external {
+			if err := processinfra.StopPID(item.pid); err != nil {
+				stopErrors = append(stopErrors, err)
+			}
+			continue
+		}
 		if err := n.runner.Stop(item.key); err != nil {
 			stopErrors = append(stopErrors, err)
 		}
 	}
 	return errors.Join(stopErrors...)
+}
+
+func (n *Nginx) adoptPool(executable string, port int) (pool, bool) {
+	finder, ok := n.checker.(interface{ ListeningPID(int) int })
+	if !ok {
+		return pool{}, false
+	}
+	pid := finder.ListeningPID(port)
+	if pid <= 0 || !processinfra.MatchesImageName(pid, "php-cgi.exe") {
+		return pool{}, false
+	}
+	if !sameExecutable(executable, processinfra.ExecutablePath(pid)) {
+		return pool{}, false
+	}
+	return pool{key: poolKey(executable), port: port, pid: pid, external: true}, true
+}
+
+func (n *Nginx) externalPoolRunning(item pool, executable string) bool {
+	adopted, ok := n.adoptPool(executable, item.port)
+	return ok && adopted.pid == item.pid
+}
+
+func sameExecutable(first, second string) bool {
+	if first == "" || second == "" {
+		return false
+	}
+	return strings.EqualFold(filepath.Clean(first), filepath.Clean(second))
 }
 
 func (n *Nginx) writeConfig(nginxHome string, port int, routes []ports.Route, pools map[string]pool) error {
@@ -434,6 +488,13 @@ func (n *Nginx) writeConfig(nginxHome string, port int, routes []ports.Route, po
 			}
 		}
 	}
+	fastCGIParameters, err := os.ReadFile(filepath.Join(nginxHome, "conf", "fastcgi.conf"))
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "读取 Nginx FastCGI 参数失败")
+	}
+	if err := os.WriteFile(paths.NginxFastCGIConfig(n.home), fastCGIParameters, 0o644); err != nil {
+		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "写入 Nginx FastCGI 参数失败")
+	}
 
 	mainConfig := renderMain(nginxHome, n.home, port, routes)
 	if err := os.WriteFile(paths.NginxConfig(n.home), []byte(mainConfig), 0o644); err != nil {
@@ -452,7 +513,21 @@ func (n *Nginx) writeConfig(nginxHome string, port int, routes []ports.Route, po
 			}
 			fastCGIPort = item.port
 		}
-		content, err := renderRoute(port, route, fastCGIPort)
+		environmentConfig := ""
+		if route.Kind == project.KIND_PHP {
+			environmentParameter, environmentErr := renderEnvironmentParameter(route.EnvironmentFile)
+			if environmentErr != nil {
+				return environmentErr
+			}
+			if environmentParameter != "" {
+				environmentPath := filepath.Join(hosts, paths.NginxEnvironmentConfigName(route.ID, route.Name))
+				if writeErr := os.WriteFile(environmentPath, []byte(environmentParameter), 0o600); writeErr != nil {
+					return appErrors.Wrap(writeErr, appErrors.PATH_NOT_ACCESSIBLE, "写入 PHP 环境变量配置失败")
+				}
+				environmentConfig = nginxQuote(nginxPath(environmentPath))
+			}
+		}
+		content, err := renderRoute(port, route, fastCGIPort, environmentConfig)
 		if err != nil {
 			return err
 		}
@@ -479,8 +554,11 @@ events {
 }
 
 http {
+    server_names_hash_max_size 4096;
+    server_names_hash_bucket_size 128;
     include %s;
     default_type application/octet-stream;
+    log_format devenv '$time_iso8601\t$status\t$body_bytes_sent\t$request_time';
     sendfile on;
     keepalive_timeout %s;
     client_max_body_size %s;
@@ -503,7 +581,7 @@ http {
 `, nginxQuote(errorLog), nginxQuote(pid), NGINX_CONNECTIONS, nginxQuote(mime), NGINX_KEEPALIVE, NGINX_UPLOAD_LIMIT, paths.LOOPBACK, port, nginxQuote(overview), nginxQuote(hosts))
 }
 
-func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
+func renderRoute(port int, route ports.Route, fastCGIPort int, environmentConfig string) (string, error) {
 	hosts := make([]string, 0, len(route.Hosts))
 	for _, host := range route.Hosts {
 		clean := strings.TrimSpace(host)
@@ -521,49 +599,23 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
 	var body string
 	switch route.Kind {
 	case project.KIND_PHP:
-		environmentParameters, err := renderEnvironmentParameters(route.EnvironmentFile)
-		if err != nil {
-			return "", err
+		environmentInclude := ""
+		if environmentConfig != "" {
+			environmentInclude = "        include " + environmentConfig + ";\n"
 		}
-		body = fmt.Sprintf(`    root %s;
-    index index.php index.html index.htm;
-
-    location / {
+		body = fmt.Sprintf(`    location / {
         try_files $uri $uri/ /index.php$uri$is_args$args;
     }
 
     location ~ ^(.+?\.php)(/.*)?$ {
-        limit_conn php %s;
-        fastcgi_read_timeout %s;
-        fastcgi_split_path_info ^(.+?\.php)(/.*)$;
-        set $devenv_path_info $fastcgi_path_info;
         try_files $fastcgi_script_name =404;
-        fastcgi_pass %s:%d;
-        fastcgi_index index.php;
-        fastcgi_param GATEWAY_INTERFACE CGI/1.1;
-        fastcgi_param SERVER_SOFTWARE nginx;
-        fastcgi_param QUERY_STRING $query_string;
-        fastcgi_param REQUEST_METHOD $request_method;
-        fastcgi_param CONTENT_TYPE $content_type;
-        fastcgi_param CONTENT_LENGTH $content_length;
+        include %s;
+        fastcgi_split_path_info ^(.+?\.php)(/.*)$;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        fastcgi_param SCRIPT_NAME $fastcgi_script_name;
-        fastcgi_param PATH_INFO $devenv_path_info;
-        fastcgi_param REQUEST_URI $request_uri;
-        fastcgi_param DOCUMENT_URI $document_uri;
-        fastcgi_param DOCUMENT_ROOT $document_root;
-        fastcgi_param SERVER_PROTOCOL $server_protocol;
-        fastcgi_param REQUEST_SCHEME $scheme;
-        fastcgi_param HTTPS $https if_not_empty;
-        fastcgi_param REMOTE_ADDR $remote_addr;
-        fastcgi_param REMOTE_PORT $remote_port;
-        fastcgi_param SERVER_ADDR $server_addr;
-        fastcgi_param SERVER_PORT $server_port;
-        fastcgi_param SERVER_NAME $server_name;
-        fastcgi_param HTTP_HOST $http_host;
-        fastcgi_param REDIRECT_STATUS 200;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_pass %s:%d;
 %s    }
-`, root, NGINX_PHP_CONCURRENCY, PHP_REQUEST_TIMEOUT, paths.LOOPBACK, fastCGIPort, environmentParameters)
+`, nginxQuote(paths.NGINX_FASTCGI_FILE), paths.LOOPBACK, fastCGIPort, environmentInclude)
 	case project.KIND_NODE, project.KIND_PYTHON, project.KIND_GO, project.KIND_RUST, project.KIND_JAVA:
 		body = fmt.Sprintf(`    location / {
         proxy_pass http://%s:%d;
@@ -577,13 +629,10 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
     }
 `, paths.LOOPBACK, route.Port)
 	case project.KIND_STATIC:
-		body = fmt.Sprintf(`    root %s;
-    index index.html index.htm;
-
-    location / {
+		body = fmt.Sprintf(`    location / {
         try_files $uri $uri/ =404;
     }
-`, root)
+`)
 	default:
 		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "项目类型无效: "+route.Kind)
 	}
@@ -596,19 +645,13 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
 	return fmt.Sprintf(`server {
     listen %s:%d;
     server_name %s;
-    access_log %s;
+    root %s;
+    index index.php index.html index.htm;
+    access_log %s devenv;
     error_log %s;
 
-    location ~ (^|/)\. {
-        deny all;
-    }
-
-    location ~ (^|/)node_modules(?:/|$) {
-        deny all;
-    }
-
 %s}
-`, paths.LOOPBACK, port, strings.Join(hosts, " "), accessLog, errorLog, body), nil
+`, paths.LOOPBACK, port, strings.Join(hosts, " "), root, accessLog, errorLog, body), nil
 }
 
 func indentNginx(config string) string {
@@ -624,67 +667,22 @@ func indentNginx(config string) string {
 	return strings.Join(lines, "\n")
 }
 
-func renderEnvironmentParameters(file string) (string, error) {
+func renderEnvironmentParameter(file string) (string, error) {
 	if strings.TrimSpace(file) == "" {
 		return "", nil
 	}
-	content, err := os.ReadFile(file)
-	if err != nil {
-		return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "读取 PHP 环境变量文件失败")
+	fileName := filepath.Base(filepath.Clean(file))
+	if fileName == ".env" {
+		return "", nil
 	}
-	values := make(map[string]string)
-	for lineNumber, line := range strings.Split(strings.TrimPrefix(string(content), "\ufeff"), "\n") {
-		line = strings.TrimSpace(strings.TrimSuffix(line, "\r"))
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
-		separator := strings.IndexByte(line, '=')
-		if separator < 1 {
-			return "", appErrors.New(appErrors.INVALID_ARGUMENT, fmt.Sprintf("PHP 环境变量文件第 %d 行格式无效", lineNumber+1))
-		}
-		key := strings.TrimSpace(line[:separator])
-		if !validEnvironmentKey(key) {
-			return "", appErrors.New(appErrors.INVALID_ARGUMENT, fmt.Sprintf("PHP 环境变量名称无效: %s", key))
-		}
-		value := strings.TrimSpace(line[separator+1:])
-		if len(value) >= 2 {
-			first := value[0]
-			last := value[len(value)-1]
-			if (first == '\'' && last == '\'') || (first == '"' && last == '"') {
-				value = value[1 : len(value)-1]
-			}
-		}
-		values[key] = value
+	if !strings.HasPrefix(fileName, ".env.") {
+		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "PHP 环境文件名称必须是 .env 或 .env.{环境名}")
 	}
-
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
+	environmentName := strings.TrimPrefix(fileName, ".env.")
+	if environmentName == "" {
+		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "PHP 环境文件缺少环境名")
 	}
-	sort.Strings(keys)
-	var builder strings.Builder
-	for _, key := range keys {
-		builder.WriteString("        fastcgi_param ")
-		builder.WriteString(key)
-		builder.WriteByte(' ')
-		builder.WriteString(nginxQuote(values[key]))
-		builder.WriteString(";\n")
-	}
-	return builder.String(), nil
-}
-
-func validEnvironmentKey(value string) bool {
-	if value == "" {
-		return false
-	}
-	for index, character := range value {
-		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || character == '_' || (index > 0 && character >= '0' && character <= '9') {
-			continue
-		}
-		return false
-	}
-	return true
+	return "fastcgi_param ENV_NAME " + nginxQuote(environmentName) + ";\n", nil
 }
 
 func renderOverview(routes []ports.Route) string {

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"devenv/internal/domain/project"
+	"devenv/internal/domain/redis"
 	"devenv/internal/domain/setting"
 	"devenv/internal/domain/software"
 )
@@ -65,6 +66,7 @@ type Options struct {
 	Directory   string
 	Environment []string
 	Log         string
+	Detached    bool
 	OnExit      func(key string, message string)
 }
 
@@ -110,4 +112,22 @@ type PortChecker interface {
 
 type EventPublisher interface {
 	Emit(event string, payload interface{})
+}
+
+// UserPathManager manages entries in the current Windows user's PATH.
+// It never changes the machine-wide environment.
+type UserPathManager interface {
+	Ensure(path string) error
+	Remove(path string) error
+}
+
+// CommandInspector only discovers commands; it never installs or imports them.
+type CommandInspector interface {
+	Inspect(ctx context.Context, kind, executable string) (software.EnvironmentScan, error)
+}
+
+type RedisBrowser interface {
+	Databases(ctx context.Context, connection redis.Connection) ([]redis.Database, error)
+	Keys(ctx context.Context, connection redis.Connection, query redis.KeyQuery) (redis.KeyPage, error)
+	Value(ctx context.Context, connection redis.Connection, query redis.ValueQuery) (redis.Value, error)
 }

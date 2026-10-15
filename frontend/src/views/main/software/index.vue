@@ -3,6 +3,7 @@
 	<h-page title="软件商店" description="一键安装、多版本并存、按需启停与可视化配置本地开发环境服务">
 		<!-- 顶部页签与搜索栏 -->
 		<comp-toolbar />
+		<comp-local-environments :items="marketItems" />
 
 		<!-- 版本清单加载失败提示 -->
 		<div v-if="marketError !== ''" class="error-banner surface-card">
@@ -60,6 +61,7 @@
 import { onMounted, onUnmounted } from 'vue'
 import { useSoftware } from '@/composables'
 import CompToolbar from './comps/toolbar.vue'
+import CompLocalEnvironments from './comps/local-environments.vue'
 import CompMarketCard from './comps/market-card.vue'
 import CompInstalledGroups from './comps/installed-groups.vue'
 import CompInstallModal from './comps/install-modal.vue'
@@ -67,6 +69,7 @@ import CompInstallModal from './comps/install-modal.vue'
 // 软件商店状态与操作方法
 const {
 	tab,
+	marketItems,
 	filteredMarket,
 	installedList,
 	marketError,

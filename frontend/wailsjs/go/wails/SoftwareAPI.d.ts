@@ -21,9 +21,17 @@ export function OpenFolder(arg1:number):Promise<wails.Result>;
 
 export function ReadConfig(arg1:number):Promise<string>;
 
+export function RedisDatabases(arg1:number):Promise<Array<wails.RedisDatabaseDTO>>;
+
+export function RedisKeys(arg1:wails.RedisKeysInput):Promise<wails.RedisKeyPageDTO>;
+
+export function RedisValue(arg1:wails.RedisValueInput):Promise<wails.RedisValueDTO>;
+
 export function Remove(arg1:number):Promise<wails.Result>;
 
 export function SaveConfig(arg1:wails.ConfigInput):Promise<wails.ConfigResult>;
+
+export function ScanEnvironments(arg1:string,arg2:string):Promise<Array<wails.CommandEnvironmentDTO>>;
 
 export function SetAutostart(arg1:number,arg2:boolean):Promise<wails.Result>;
 

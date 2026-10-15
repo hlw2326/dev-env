@@ -251,62 +251,6 @@ dt {
     color: var(--text-secondary);
 }
 
-/* 通用状态胶囊徽标 */
-.status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: var(--font-xs);
-    padding: 0.125rem 0.5rem;
-    border-radius: 999rem;
-}
-
-.status-pill .dot {
-    width: 0.375rem;
-    height: 0.375rem;
-    border-radius: 50%;
-}
-
-.status-pill.running,
-.status-pill.ok {
-    color: var(--ok);
-    background: var(--ok-bg);
-    border: 1px solid var(--ok-border);
-}
-
-.status-pill.running .dot,
-.status-pill.ok .dot {
-    background: var(--ok);
-}
-
-.status-pill.stopped {
-    color: var(--text-secondary);
-    background: var(--bg-app);
-    border: 1px solid var(--border-color);
-}
-
-.status-pill.stopped .dot {
-    background: var(--text-muted);
-}
-
-.status-pill.installing {
-    color: var(--info);
-    background: var(--info-bg);
-    border: 1px solid var(--info-border);
-}
-
-.status-pill.error,
-.status-pill.failed {
-    color: var(--err);
-    background: var(--err-bg);
-    border: 1px solid var(--err-border);
-}
-
-.status-pill.error .dot,
-.status-pill.failed .dot {
-    background: var(--err);
-}
-
 /* 通用弹窗内部页签栏 */
 .panel-tabs {
     display: flex;

@@ -9,13 +9,16 @@ import (
 	"devenv/internal/domain/software"
 	"devenv/internal/infra/catalog"
 	deployinfra "devenv/internal/infra/deployment"
+	environment "devenv/internal/infra/environment"
 	"devenv/internal/infra/events"
 	"devenv/internal/infra/gateway"
 	gitmanager "devenv/internal/infra/git"
 	"devenv/internal/infra/hosts"
 	"devenv/internal/infra/installer"
+	inframonitor "devenv/internal/infra/monitor"
 	"devenv/internal/infra/network"
 	"devenv/internal/infra/process"
+	redisinfra "devenv/internal/infra/redis"
 	"devenv/internal/infra/sqlite"
 	"devenv/internal/ports"
 	"devenv/internal/shared/paths"
@@ -31,6 +34,7 @@ type Container struct {
 	Software   *SoftwareService
 	Setting    *SettingService
 	Deployment *DeploymentService
+	Monitor    *MonitorService
 }
 
 func Bootstrap() (*Container, error) {
@@ -48,6 +52,7 @@ func Bootstrap() (*Container, error) {
 	bus := events.NewPublisher()
 	probe := network.NewChecker()
 	runner := process.NewManager()
+	metrics := inframonitor.NewCollector()
 	catalogClient := catalog.NewClient()
 	installerManager := installer.NewManager()
 	hostsWriter := hosts.NewWriter()
@@ -65,11 +70,12 @@ func Bootstrap() (*Container, error) {
 	}, settingRepo)
 	nginx := gateway.NewNginx(base, softwareRepo, runner, probe)
 
-	projectService := NewProjectService(base, projectRepo, softwareRepo, settingRepo, nginx, runner, hostsWriter, probe, bus, gitmanager.NewClient())
+	projectService := NewProjectService(base, projectRepo, softwareRepo, settingRepo, nginx, runner, hostsWriter, probe, bus, gitmanager.NewClient(), metrics)
 	softwareService := NewSoftwareService(base, softwareRepo, projectRepo, catalogClient, installerManager, runner, probe, settingRepo, nginx, bus, func(ctx context.Context, item software.Software) {
 		projectService.BindInstalled(ctx, item)
-	})
+	}, metrics, environment.NewUserPathManager(), environment.NewCommandInspector(), redisinfra.NewBrowser())
 	settingService := NewSettingService(base, settingRepo, projectRepo, nginx, hostsWriter)
+	monitorService := NewMonitorService(metrics)
 
 	return &Container{
 		Base:       base,
@@ -81,6 +87,7 @@ func Bootstrap() (*Container, error) {
 		Software:   softwareService,
 		Setting:    settingService,
 		Deployment: deploymentService,
+		Monitor:    monitorService,
 	}, nil
 }
 
@@ -97,9 +104,6 @@ func (c *Container) Shutdown() {
 	}
 	if err := c.Software.StopAll(); err != nil {
 		log.Printf("停止软件进程失败: %v", err)
-	}
-	if err := c.Nginx.Stop(); err != nil {
-		log.Printf("停止 Nginx 失败: %v", err)
 	}
 	if err := c.DB.Close(); err != nil {
 		log.Printf("关闭数据库失败: %v", err)

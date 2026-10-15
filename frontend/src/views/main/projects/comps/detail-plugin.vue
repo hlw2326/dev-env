@@ -5,8 +5,8 @@
 				<div class="plugin-title">{{ plugin.name }}</div>
 				<div class="plugin-description">{{ plugin.description }}</div>
 			</div>
-			<span v-if="plugin.available" class="plugin-state available">已就绪</span>
-			<span v-else class="plugin-state unavailable">不可用</span>
+			<h-tag v-if="plugin.available" color="success" value="已就绪" />
+			<h-tag v-else color="danger" value="不可用" />
 		</div>
 
 		<div v-if="plugin.version !== ''" class="plugin-version font-mono">
@@ -87,19 +87,6 @@ function runAction(actionID: string): void {
 
 .plugin-description {
 	margin-top: 0.25rem;
-}
-
-.plugin-state {
-	font-size: var(--font-xs);
-	white-space: nowrap;
-}
-
-.available {
-	color: var(--success-color);
-}
-
-.unavailable {
-	color: var(--danger-color);
 }
 
 .plugin-warning {

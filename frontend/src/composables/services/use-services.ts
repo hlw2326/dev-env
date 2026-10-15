@@ -23,8 +23,10 @@ export function useServices() {
 	})
 
 	// 加载服务运行状态
-	async function loadData(): Promise<void> {
-		loading.value = true
+	async function loadData(silent = false): Promise<void> {
+		if (!silent) {
+			loading.value = true
+		}
 		try {
 			items.value = await listSoftware()
 			const current = items.value.find((item) => item.id === busy.value)
@@ -37,7 +39,9 @@ export function useServices() {
 		} catch (err: unknown) {
 			toast.error('加载服务失败', formatError(err))
 		} finally {
-			loading.value = false
+			if (!silent) {
+				loading.value = false
+			}
 		}
 	}
 

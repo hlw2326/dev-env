@@ -93,6 +93,7 @@ import type { ProjectCreateInput, ProjectTemplate } from '@/types'
 
 const props = defineProps<{
 	defaultRoot: string
+	initialKind: string
 	templates: ProjectTemplate[]
 }>()
 
@@ -124,6 +125,13 @@ function findTemplate(kind: string): ProjectTemplate | null {
 		}
 	}
 	return null
+}
+
+function initialKind(): string {
+	if (props.initialKind !== 'all' && findTemplate(props.initialKind) !== null) {
+		return props.initialKind
+	}
+	return 'php'
 }
 
 const currentTemplate = computed<ProjectTemplate | null>(() => {
@@ -209,11 +217,12 @@ function submitForm(): void {
 // 打开弹窗时重置表单默认值
 watch(visible, (open) => {
 	if (open) {
-		Object.assign(form, { kind: 'php', name: '', host: '', root: props.defaultRoot, run: '', command: '' })
+		const kind = initialKind()
+		Object.assign(form, { kind, name: '', host: '', root: props.defaultRoot, run: '', command: '' })
 		hostTouched.value = false
 		rootTouched.value = false
 		moreOpen.value = false
-		previousKind.value = 'php'
+		previousKind.value = kind
 	}
 })
 </script>

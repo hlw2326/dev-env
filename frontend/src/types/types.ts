@@ -48,6 +48,17 @@ export type MarketItem = wails.ItemDTO
 // 已安装软件版本
 export type Software = wails.SoftwareDTO
 
+export type CommandEnvironment = wails.CommandEnvironmentDTO
+
+// 进程资源指标
+export type ProcessMetrics = wails.ProcessMetricsDTO
+
+// 项目访问流量指标
+export type ProjectTraffic = wails.ProjectTrafficDTO
+
+// 主机资源指标
+export type SystemMetrics = wails.SystemMetricsDTO
+
 // 可安装软件版本
 export type SoftwareVersion = wails.VersionDTO
 
@@ -65,6 +76,27 @@ export type Extension = wails.ExtensionDTO
 
 // 安装软件入参
 export type InstallInput = wails.InstallInput
+
+// Redis 数据库摘要
+export type RedisDatabase = wails.RedisDatabaseDTO
+
+// Redis 键摘要
+export type RedisKey = wails.RedisKeyDTO
+
+// Redis 键分页结果
+export type RedisKeyPage = wails.RedisKeyPageDTO
+
+// Redis 键列表查询参数
+export type RedisKeysInput = wails.RedisKeysInput
+
+// Redis 集合项
+export type RedisEntry = wails.RedisEntryDTO
+
+// Redis 键详情
+export type RedisValue = wails.RedisValueDTO
+
+// Redis 键详情查询参数
+export type RedisValueInput = wails.RedisValueInput
 
 // 系统设置数据
 export type Settings = wails.SettingsDTO
