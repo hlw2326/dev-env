@@ -27,6 +27,7 @@ type ProjectRepository interface {
 	List(ctx context.Context) ([]project.Project, error)
 	Get(ctx context.Context, id int64) (*project.Project, error)
 	GetByName(ctx context.Context, name string) (*project.Project, error)
+	GetByRoot(ctx context.Context, root string) (*project.Project, error)
 	ListBySoftware(ctx context.Context, softwareID int64) ([]project.Project, error)
 	ListMissingSoftware(ctx context.Context, kind string) ([]project.Project, error)
 	Create(ctx context.Context, item *project.Project) error
@@ -48,6 +49,7 @@ type Route struct {
 	Path            string
 	PHP             string
 	Nginx           string
+	RewriteRule     string
 	EnvironmentFile string
 	Port            int
 	Log             string
@@ -56,6 +58,7 @@ type Route struct {
 type Gateway interface {
 	Start(port int) error
 	Stop() error
+	Restart() error
 	SetRoutes(routes []Route) error
 	Port() int
 }

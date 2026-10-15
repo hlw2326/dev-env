@@ -212,6 +212,13 @@ func (a *SoftwareAPI) Stop(id int64) Result {
 	return Result{OK: true, Message: "服务停止中"}
 }
 
+func (a *SoftwareAPI) Restart(id int64) Result {
+	if err := a.service.RestartAsync(a.ctx, id); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "服务重启中"}
+}
+
 func (a *SoftwareAPI) SetAutostart(id int64, on bool) Result {
 	if err := a.service.SetAutostart(a.ctx, id, on); err != nil {
 		return Result{OK: false, Message: err.Error()}

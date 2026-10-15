@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { listSoftware, listenEvent, startSoftware, stopSoftware, setMain, setAutostart, openSoftware } from '@/api'
+import { listSoftware, listenEvent, restartSoftware, startSoftware, stopSoftware, setMain, setAutostart, openSoftware } from '@/api'
 import { formatError, toast } from '@/utils'
 import type { ServiceEvent, Software } from '@/types'
 
@@ -34,6 +34,9 @@ export function useServices() {
 				clearBusy()
 			}
 			if (current && operation.value === 'stop' && !current.running) {
+				clearBusy()
+			}
+			if (current && operation.value === 'restart' && current.running) {
 				clearBusy()
 			}
 		} catch (err: unknown) {
@@ -78,6 +81,24 @@ export function useServices() {
 		} catch (err: unknown) {
 			clearBusy()
 			toast.error('停止失败', formatError(err))
+		}
+	}
+
+	// 异步重启指定服务
+	async function restartService(id: number): Promise<void> {
+		setBusy(id, 'restart')
+		try {
+			const result = await restartSoftware(id)
+			if (!result.ok) {
+				clearBusy()
+				toast.error('重启失败', result.message)
+				return
+			}
+			toast.info('服务重启中')
+			await loadData()
+		} catch (err: unknown) {
+			clearBusy()
+			toast.error('重启失败', formatError(err))
 		}
 	}
 
@@ -147,7 +168,7 @@ export function useServices() {
 	// 监听服务状态变化并刷新列表
 	function bindEvents(): () => void {
 		return listenEvent('service:status-changed', (payload: ServiceEvent) => {
-			if (payload.id === busy.value) {
+			if (payload.id === busy.value && (operation.value !== 'restart' || payload.running || payload.message !== '')) {
 				clearBusy()
 			}
 			if (payload.message !== '') {
@@ -164,6 +185,7 @@ export function useServices() {
 		loadData,
 		startService,
 		stopService,
+		restartService,
 		startConfiguredService,
 		stopConfiguredService,
 		markMain,

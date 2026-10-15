@@ -23,6 +23,7 @@ type ProjectDTO struct {
 	Version          string            `json:"version"`
 	Command          string            `json:"command"`
 	Nginx            string            `json:"nginx"`
+	RewriteRule      string            `json:"rewriteRule"`
 	EnvironmentFile  string            `json:"environmentFile"`
 	EnvironmentFiles []string          `json:"environmentFiles"`
 	Traffic          ProjectTrafficDTO `json:"traffic"`
@@ -65,6 +66,7 @@ type ProjectUpdateInput struct {
 	Software        *int64   `json:"software"`
 	Command         string   `json:"command"`
 	Nginx           string   `json:"nginx"`
+	RewriteRule     string   `json:"rewriteRule"`
 	EnvironmentFile string   `json:"environmentFile"`
 	Autostart       bool     `json:"autostart"`
 }

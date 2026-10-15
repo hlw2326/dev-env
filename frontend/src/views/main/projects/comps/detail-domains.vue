@@ -67,6 +67,7 @@ function addHost(): void {
 		software: props.project.software,
 		command: props.project.command,
 		nginx: props.project.nginx,
+		rewriteRule: props.project.rewriteRule,
 		environmentFile: props.project.environmentFile,
 		autostart: props.project.autostart,
 	})
@@ -86,6 +87,7 @@ function removeHost(target: string): void {
 		software: props.project.software,
 		command: props.project.command,
 		nginx: props.project.nginx,
+		rewriteRule: props.project.rewriteRule,
 		environmentFile: props.project.environmentFile,
 		autostart: props.project.autostart,
 	})

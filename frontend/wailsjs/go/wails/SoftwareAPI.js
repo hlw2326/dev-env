@@ -54,6 +54,10 @@ export function Remove(arg1) {
   return window['go']['wails']['SoftwareAPI']['Remove'](arg1);
 }
 
+export function Restart(arg1) {
+  return window['go']['wails']['SoftwareAPI']['Restart'](arg1);
+}
+
 export function SaveConfig(arg1) {
   return window['go']['wails']['SoftwareAPI']['SaveConfig'](arg1);
 }

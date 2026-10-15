@@ -72,6 +72,16 @@
 					@click="emit('configure', item)"
 				/>
 				<p-button
+					v-if="item.running && showRestart"
+					label="重启"
+					icon="pi pi-refresh"
+					size="small"
+					severity="secondary"
+					variant="outlined"
+					:loading="busy"
+					@click="emit('restart', item.id)"
+				/>
+				<p-button
 					v-if="!item.running"
 					label="启动"
 					icon="pi pi-play"
@@ -86,7 +96,7 @@
 					icon="pi pi-stop"
 					size="small"
 					severity="danger"
-					:loading="busy"
+					:disabled="busy"
 					@click="emit('stop', item.id)"
 				/>
 			</template>
@@ -115,12 +125,14 @@ defineOptions({
 // 接收服务数据与操作状态
 withDefaults(defineProps<HServiceProps>(), {
 	configurable: true,
+	showRestart: false,
 })
 
 // 定义服务控制事件
 const emit = defineEmits<{
 	start: [id: number]
 	stop: [id: number]
+	restart: [id: number]
 	manage: []
 	configure: [item: HServiceProps['item']]
 	data: [item: HServiceProps['item']]

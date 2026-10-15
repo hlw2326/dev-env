@@ -60,6 +60,20 @@ export const AuraPreset = definePreset(Aura, {
 		},
 	},
 	components: {
+		button: {
+			root: {
+				fontSize: 'var(--font-xs)',
+				paddingX: '0.625rem',
+				paddingY: '0.375rem',
+				iconOnlyWidth: '2rem',
+				sm: {
+					fontSize: 'var(--font-xs)',
+					paddingX: '0.5rem',
+					paddingY: '0.25rem',
+					iconOnlyWidth: '1.75rem',
+				},
+			},
+		},
 		message: {
 			text: {
 				fontSize: 'var(--font-sm)',

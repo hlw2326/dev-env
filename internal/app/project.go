@@ -263,11 +263,6 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 	if !isLocal && host == "" {
 		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "项目域名不能为空")
 	}
-	if project.UsesNginx(kind) {
-		if err := s.requireNginx(ctx); err != nil {
-			return nil, err
-		}
-	}
 
 	root := strings.TrimSpace(in.Root)
 	if root == "" {
@@ -280,6 +275,32 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 	root = filepath.Clean(root)
 	if !filepath.IsAbs(root) {
 		return nil, appErrors.New(appErrors.PATH_INVALID, "项目根目录必须是绝对路径")
+	}
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return nil, appErrors.Wrap(err, appErrors.PATH_INVALID, "解析项目根目录失败")
+	}
+	root = filepath.Clean(absoluteRoot)
+
+	existingByName, err := s.projects.GetByName(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	if existingByName != nil {
+		return nil, appErrors.New(appErrors.ALREADY_EXISTS, "项目名称已存在: "+existingByName.Name)
+	}
+	existingByRoot, err := s.projects.GetByRoot(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	if existingByRoot != nil {
+		return nil, appErrors.New(appErrors.ALREADY_EXISTS, "项目目录已添加: "+existingByRoot.Root)
+	}
+
+	if project.UsesNginx(kind) {
+		if err := s.requireNginx(ctx); err != nil {
+			return nil, err
+		}
 	}
 
 	runFolder, err := project.NormalizeRun(root, in.Run)
@@ -330,8 +351,10 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 		}
 	}
 	environmentFile := ""
+	rewriteRule := project.REWRITE_DEFAULT
 	if kind == project.KIND_PHP {
 		environmentFile = project.DefaultEnvironmentFile(root)
+		rewriteRule = project.REWRITE_THINKPHP
 	}
 
 	created := &project.Project{
@@ -342,6 +365,7 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 		Run:             runFolder,
 		Software:        softwareID,
 		Command:         command,
+		RewriteRule:     rewriteRule,
 		EnvironmentFile: environmentFile,
 		Port:            port,
 		Autostart:       !isLocal,
@@ -406,6 +430,18 @@ func (s *ProjectService) Update(ctx context.Context, in project.UpdateInput) (*P
 	if !filepath.IsAbs(root) {
 		return nil, appErrors.New(appErrors.PATH_INVALID, "根目录必须是绝对路径")
 	}
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return nil, appErrors.Wrap(err, appErrors.PATH_INVALID, "解析项目根目录失败")
+	}
+	root = filepath.Clean(absoluteRoot)
+	existingByRoot, err := s.projects.GetByRoot(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	if existingByRoot != nil && existingByRoot.ID != current.ID {
+		return nil, appErrors.New(appErrors.ALREADY_EXISTS, "项目目录已添加: "+existingByRoot.Root)
+	}
 
 	runFolder, err := project.NormalizeRun(root, in.Run)
 	if err != nil {
@@ -417,12 +453,20 @@ func (s *ProjectService) Update(ctx context.Context, in project.UpdateInput) (*P
 		return nil, appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建运行目录失败")
 	}
 	nginxConfig := strings.TrimSpace(in.Nginx)
+	rewriteRule := strings.TrimSpace(in.RewriteRule)
 	if project.UsesNginx(current.Kind) {
 		if err := project.ValidateNginxConfig(nginxConfig); err != nil {
 			return nil, appErrors.New(appErrors.INVALID_ARGUMENT, err.Error())
 		}
 	} else {
 		nginxConfig = ""
+		rewriteRule = project.REWRITE_DEFAULT
+	}
+	if current.Kind == project.KIND_PHP && !project.IsValidRewriteRule(rewriteRule) {
+		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "伪静态规则无效")
+	}
+	if current.Kind != project.KIND_PHP {
+		rewriteRule = project.REWRITE_DEFAULT
 	}
 	environmentFile, err := project.NormalizeEnvironmentFile(root, in.EnvironmentFile)
 	if err != nil {
@@ -445,6 +489,7 @@ func (s *ProjectService) Update(ctx context.Context, in project.UpdateInput) (*P
 		}
 	}
 	current.Nginx = nginxConfig
+	current.RewriteRule = rewriteRule
 	current.Autostart = in.Autostart && !project.IsLocal(current.Kind)
 
 	if err := s.projects.Update(ctx, current); err != nil {
@@ -457,6 +502,11 @@ func (s *ProjectService) Update(ctx context.Context, in project.UpdateInput) (*P
 		}
 		return nil, err
 	}
+	if nginxSettingsChanged(original, *current) && s.nginx.Port() > 0 {
+		if err := s.nginx.Restart(); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.syncHosts(ctx); err != nil {
 		if restoreErr := s.projects.Update(ctx, &original); restoreErr != nil {
 			return nil, errors.Join(err, restoreErr)
@@ -468,6 +518,12 @@ func (s *ProjectService) Update(ctx context.Context, in project.UpdateInput) (*P
 	}
 
 	return s.Get(ctx, current.ID)
+}
+
+func nginxSettingsChanged(previous, current project.Project) bool {
+	return previous.Nginx != current.Nginx ||
+		previous.RewriteRule != current.RewriteRule ||
+		previous.EnvironmentFile != current.EnvironmentFile
 }
 
 func (s *ProjectService) Start(ctx context.Context, id int64) error {
@@ -996,6 +1052,7 @@ func (s *ProjectService) syncRoutes(ctx context.Context) error {
 			Path:            project.ResolvePath(item.Root, item.Run),
 			PHP:             phpBinary,
 			Nginx:           item.Nginx,
+			RewriteRule:     item.RewriteRule,
 			EnvironmentFile: environmentFile,
 			Port:            item.Port,
 			Log:             paths.ProjectLog(s.base, item.Name, "access.log"),

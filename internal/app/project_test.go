@@ -28,6 +28,10 @@ func (g *projectGateway) Stop() error {
 	return nil
 }
 
+func (g *projectGateway) Restart() error {
+	return nil
+}
+
 func (g *projectGateway) SetRoutes([]ports.Route) error {
 	return nil
 }
@@ -81,6 +85,62 @@ func TestCreateRequiresInstalledNginx(t *testing.T) {
 	}
 	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected no project directory, got %v", err)
+	}
+}
+
+func TestCreateRejectsExistingProjectRoot(t *testing.T) {
+	home := t.TempDir()
+	database, err := sqlite.Open(filepath.Join(home, "devenv.db"), sqlite.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := database.Close(); err != nil {
+			t.Errorf("close test database: %v", err)
+		}
+	})
+
+	projects := sqlite.NewProjectRepository(database.DB)
+	root := filepath.Join(home, "projects", "demo")
+	if err := projects.Create(context.Background(), &project.Project{
+		Name: "existing-project",
+		Kind: project.KIND_PHP,
+		Root: root,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewProjectService(
+		home,
+		projects,
+		sqlite.NewSoftwareRepository(database.DB),
+		sqlite.NewSettingRepository(database.DB),
+		&projectGateway{},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		inframonitor.NewCollector(),
+	)
+	_, err = service.Create(context.Background(), project.CreateInput{
+		Kind: project.KIND_PHP,
+		Name: "new-project",
+		Host: "new-project.localhost",
+		Root: root,
+	})
+	if err == nil {
+		t.Fatal("expected duplicate project root to be rejected")
+	}
+	var applicationError *appErrors.AppError
+	if !errors.As(err, &applicationError) {
+		t.Fatalf("expected application error, got %T", err)
+	}
+	if applicationError.Code != appErrors.ALREADY_EXISTS {
+		t.Fatalf("expected %s, got %s", appErrors.ALREADY_EXISTS, applicationError.Code)
+	}
+	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected duplicate project root to stay untouched, got %v", err)
 	}
 }
 

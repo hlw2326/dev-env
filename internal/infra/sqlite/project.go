@@ -21,7 +21,7 @@ func NewProjectRepository(db *sql.DB) *ProjectRepository {
 
 func (r *ProjectRepository) List(ctx context.Context) ([]project.Project, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, rewrite_rule, environment_file, port, autostart, created, updated
 		FROM system_project
 		ORDER BY id DESC
 	`)
@@ -50,7 +50,7 @@ func (r *ProjectRepository) List(ctx context.Context) ([]project.Project, error)
 
 func (r *ProjectRepository) Get(ctx context.Context, id int64) (*project.Project, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, rewrite_rule, environment_file, port, autostart, created, updated
 		FROM system_project
 		WHERE id = ?
 	`, id)
@@ -68,10 +68,28 @@ func (r *ProjectRepository) Get(ctx context.Context, id int64) (*project.Project
 
 func (r *ProjectRepository) GetByName(ctx context.Context, name string) (*project.Project, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, rewrite_rule, environment_file, port, autostart, created, updated
 		FROM system_project
-		WHERE name = ?
+		WHERE name = ? COLLATE NOCASE
 	`, name)
+	item, err := scanProject(row)
+	if err != nil || item == nil {
+		return item, err
+	}
+	hosts, err := r.listHosts(ctx, item.ID)
+	if err != nil {
+		return nil, err
+	}
+	item.Hosts = hosts
+	return item, nil
+}
+
+func (r *ProjectRepository) GetByRoot(ctx context.Context, root string) (*project.Project, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id, name, kind, root, run, software, command, nginx, rewrite_rule, environment_file, port, autostart, created, updated
+		FROM system_project
+		WHERE root = ? COLLATE NOCASE
+	`, root)
 	item, err := scanProject(row)
 	if err != nil || item == nil {
 		return item, err
@@ -86,7 +104,7 @@ func (r *ProjectRepository) GetByName(ctx context.Context, name string) (*projec
 
 func (r *ProjectRepository) ListBySoftware(ctx context.Context, softwareID int64) ([]project.Project, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, rewrite_rule, environment_file, port, autostart, created, updated
 		FROM system_project
 		WHERE software = ?
 		ORDER BY id ASC
@@ -116,7 +134,7 @@ func (r *ProjectRepository) ListBySoftware(ctx context.Context, softwareID int64
 
 func (r *ProjectRepository) ListMissingSoftware(ctx context.Context, kind string) ([]project.Project, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, rewrite_rule, environment_file, port, autostart, created, updated
 		FROM system_project
 		WHERE kind = ? AND software IS NULL
 		ORDER BY id ASC
@@ -156,8 +174,8 @@ func (r *ProjectRepository) Create(ctx context.Context, item *project.Project) e
 	defer rollbackTx(tx)
 
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO system_project (name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO system_project (name, kind, root, run, software, command, nginx, rewrite_rule, environment_file, port, autostart, created, updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		item.Name,
 		item.Kind,
@@ -166,6 +184,7 @@ func (r *ProjectRepository) Create(ctx context.Context, item *project.Project) e
 		item.Software,
 		item.Command,
 		item.Nginx,
+		item.RewriteRule,
 		item.EnvironmentFile,
 		item.Port,
 		formatBool(item.Autostart),
@@ -174,6 +193,9 @@ func (r *ProjectRepository) Create(ctx context.Context, item *project.Project) e
 	)
 	if err != nil {
 		if checkUnique(err) {
+			if strings.Contains(strings.ToLower(err.Error()), "system_project.root") {
+				return appErrors.New(appErrors.ALREADY_EXISTS, "项目目录已添加: "+item.Root)
+			}
 			return appErrors.New(appErrors.ALREADY_EXISTS, "项目名称已存在")
 		}
 		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "写入项目记录失败")
@@ -216,7 +238,7 @@ func (r *ProjectRepository) Update(ctx context.Context, item *project.Project) e
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE system_project
-		SET root = ?, run = ?, software = ?, command = ?, nginx = ?, environment_file = ?, autostart = ?, updated = ?
+		SET root = ?, run = ?, software = ?, command = ?, nginx = ?, rewrite_rule = ?, environment_file = ?, autostart = ?, updated = ?
 		WHERE id = ?
 	`,
 		item.Root,
@@ -224,12 +246,16 @@ func (r *ProjectRepository) Update(ctx context.Context, item *project.Project) e
 		item.Software,
 		item.Command,
 		item.Nginx,
+		item.RewriteRule,
 		item.EnvironmentFile,
 		formatBool(item.Autostart),
 		item.Updated,
 		item.ID,
 	)
 	if err != nil {
+		if checkUnique(err) {
+			return appErrors.New(appErrors.ALREADY_EXISTS, "项目目录已添加: "+item.Root)
+		}
 		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "更新项目记录失败")
 	}
 
@@ -316,6 +342,7 @@ func scanProjects(rows *sql.Rows) ([]project.Project, error) {
 			&softwareID,
 			&item.Command,
 			&item.Nginx,
+			&item.RewriteRule,
 			&item.EnvironmentFile,
 			&item.Port,
 			&autostart,
@@ -350,6 +377,7 @@ func scanProject(row *sql.Row) (*project.Project, error) {
 		&softwareID,
 		&item.Command,
 		&item.Nginx,
+		&item.RewriteRule,
 		&item.EnvironmentFile,
 		&item.Port,
 		&autostart,

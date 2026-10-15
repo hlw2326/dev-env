@@ -444,6 +444,7 @@ export namespace wails {
 	    version: string;
 	    command: string;
 	    nginx: string;
+	    rewriteRule: string;
 	    environmentFile: string;
 	    environmentFiles: string[];
 	    traffic: ProjectTrafficDTO;
@@ -472,6 +473,7 @@ export namespace wails {
 	        this.version = source["version"];
 	        this.command = source["command"];
 	        this.nginx = source["nginx"];
+	        this.rewriteRule = source["rewriteRule"];
 	        this.environmentFile = source["environmentFile"];
 	        this.environmentFiles = source["environmentFiles"];
 	        this.traffic = this.convertValues(source["traffic"], ProjectTrafficDTO);
@@ -743,6 +745,7 @@ export namespace wails {
 	    software?: number;
 	    command: string;
 	    nginx: string;
+	    rewriteRule: string;
 	    environmentFile: string;
 	    autostart: boolean;
 	
@@ -759,6 +762,7 @@ export namespace wails {
 	        this.software = source["software"];
 	        this.command = source["command"];
 	        this.nginx = source["nginx"];
+	        this.rewriteRule = source["rewriteRule"];
 	        this.environmentFile = source["environmentFile"];
 	        this.autostart = source["autostart"];
 	    }

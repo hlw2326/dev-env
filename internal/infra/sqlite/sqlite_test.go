@@ -83,6 +83,17 @@ func TestRepositories(t *testing.T) {
 		t.Fatalf("expected duplicate domain error")
 	}
 
+	duplicateRootProject := &project.Project{
+		Name:      "blog3",
+		Kind:      project.KIND_STATIC,
+		Hosts:     []string{"blog3.localhost"},
+		Root:      `C:\www\blog`,
+		Autostart: true,
+	}
+	if err := projectRepo.Create(ctx, duplicateRootProject); err == nil {
+		t.Fatalf("expected duplicate project root error")
+	}
+
 	if err := softwareRepo.Delete(ctx, php.ID); err == nil {
 		t.Fatalf("expected ON DELETE RESTRICT error when deleting bound software")
 	}

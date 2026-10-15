@@ -74,6 +74,7 @@ func (a *ProjectAPI) Update(in ProjectUpdateInput) (*ProjectDTO, error) {
 		Software:        in.Software,
 		Command:         in.Command,
 		Nginx:           in.Nginx,
+		RewriteRule:     in.RewriteRule,
 		EnvironmentFile: in.EnvironmentFile,
 		Autostart:       in.Autostart,
 	})
@@ -253,6 +254,7 @@ func convertProject(view app.ProjectView) ProjectDTO {
 		Version:          view.Version,
 		Command:          view.Command,
 		Nginx:            view.Nginx,
+		RewriteRule:      view.RewriteRule,
 		EnvironmentFile:  view.EnvironmentFile,
 		EnvironmentFiles: append([]string{}, view.EnvironmentFiles...),
 		Traffic:          convertProjectTraffic(view.Traffic),

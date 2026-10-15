@@ -29,6 +29,8 @@ export function RedisValue(arg1:wails.RedisValueInput):Promise<wails.RedisValueD
 
 export function Remove(arg1:number):Promise<wails.Result>;
 
+export function Restart(arg1:number):Promise<wails.Result>;
+
 export function SaveConfig(arg1:wails.ConfigInput):Promise<wails.ConfigResult>;
 
 export function ScanEnvironments(arg1:string,arg2:string):Promise<Array<wails.CommandEnvironmentDTO>>;

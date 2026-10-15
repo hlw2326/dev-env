@@ -32,8 +32,10 @@
 				:key="item.id"
 				:item="item"
 				:busy="busy === item.id"
+				show-restart
 				@start="startService"
 				@stop="stopService"
+				@restart="restartService"
 				@configure="openSettings"
 				@data="openRedisData"
 			/>
@@ -68,6 +70,7 @@ const {
 	loadData,
 	startService,
 	stopService,
+	restartService,
 	startConfiguredService,
 	stopConfiguredService,
 	markMain,

@@ -8,4 +8,6 @@ export interface HServiceProps {
 	busy: boolean
 	// 是否显示服务设置入口
 	configurable?: boolean
+	// 是否显示运行中服务的重启入口
+	showRestart?: boolean
 }

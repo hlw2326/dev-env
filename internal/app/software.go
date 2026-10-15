@@ -1030,6 +1030,28 @@ func (s *SoftwareService) StopAsync(ctx context.Context, id int64) error {
 	return nil
 }
 
+// RestartAsync stops a managed service and starts it again in one background
+// operation, so the caller never blocks on database or gateway startup.
+func (s *SoftwareService) RestartAsync(ctx context.Context, id int64) error {
+	if _, err := s.serviceItem(ctx, id); err != nil {
+		return err
+	}
+	if !s.beginServiceOperation(id) {
+		return nil
+	}
+	go func() {
+		defer s.endServiceOperation(id)
+		if err := s.Stop(context.Background(), id); err != nil {
+			s.emitServiceStatus(id, false, 0, err.Error())
+			return
+		}
+		if err := s.Start(context.Background(), id); err != nil {
+			s.emitServiceStatus(id, false, 0, err.Error())
+		}
+	}()
+	return nil
+}
+
 func (s *SoftwareService) serviceItem(ctx context.Context, id int64) (*software.Software, error) {
 	item, err := s.repo.Get(ctx, id)
 	if err != nil {

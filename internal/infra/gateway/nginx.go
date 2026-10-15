@@ -160,6 +160,24 @@ func (n *Nginx) StopManaged() error {
 	return n.Stop()
 }
 
+// Restart stops the managed Nginx instance and starts it with the latest
+// generated routes. It is used after a project Nginx configuration changes.
+func (n *Nginx) Restart() error {
+	n.mutex.RLock()
+	port := n.listening
+	if port == 0 {
+		port = n.port
+	}
+	n.mutex.RUnlock()
+	if port == 0 {
+		return nil
+	}
+	if err := n.StopManaged(); err != nil {
+		return err
+	}
+	return n.Start(port)
+}
+
 func (n *Nginx) SetRoutes(routes []ports.Route) error {
 	copied := copyRoutes(routes)
 
@@ -603,9 +621,7 @@ func renderRoute(port int, route ports.Route, fastCGIPort int, environmentConfig
 		if environmentConfig != "" {
 			environmentInclude = "        include " + environmentConfig + ";\n"
 		}
-		body = fmt.Sprintf(`    location / {
-        try_files $uri $uri/ /index.php$uri$is_args$args;
-    }
+		body = fmt.Sprintf(`%s
 
     location ~ ^(.+?\.php)(/.*)?$ {
         try_files $fastcgi_script_name =404;
@@ -615,7 +631,7 @@ func renderRoute(port int, route ports.Route, fastCGIPort int, environmentConfig
         fastcgi_param PATH_INFO $fastcgi_path_info;
         fastcgi_pass %s:%d;
 %s    }
-`, nginxQuote(paths.NGINX_FASTCGI_FILE), paths.LOOPBACK, fastCGIPort, environmentInclude)
+`, renderPHPRewrite(route.RewriteRule), nginxQuote(paths.NGINX_FASTCGI_FILE), paths.LOOPBACK, fastCGIPort, environmentInclude)
 	case project.KIND_NODE, project.KIND_PYTHON, project.KIND_GO, project.KIND_RUST, project.KIND_JAVA:
 		body = fmt.Sprintf(`    location / {
         proxy_pass http://%s:%d;
@@ -652,6 +668,21 @@ func renderRoute(port int, route ports.Route, fastCGIPort int, environmentConfig
 
 %s}
 `, paths.LOOPBACK, port, strings.Join(hosts, " "), root, accessLog, errorLog, body), nil
+}
+
+func renderPHPRewrite(rule string) string {
+	switch rule {
+	case project.REWRITE_THINKPHP:
+		return "    location / {\n        try_files $uri $uri/ /index.php?s=$uri&$args;\n    }"
+	case project.REWRITE_LARAVEL:
+		return "    location / {\n        try_files $uri $uri/ /index.php?$query_string;\n    }"
+	case project.REWRITE_WORDPRESS:
+		return "    location / {\n        try_files $uri $uri/ /index.php?$args;\n    }"
+	case project.REWRITE_TYPECHO:
+		return "    location / {\n        try_files $uri $uri/ /index.php$uri?$args;\n    }"
+	default:
+		return "    location / {\n        try_files $uri $uri/ /index.php$uri$is_args$args;\n    }"
+	}
 }
 
 func indentNginx(config string) string {

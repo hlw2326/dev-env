@@ -22,6 +22,14 @@ const (
 )
 
 const (
+	REWRITE_DEFAULT   = "default"
+	REWRITE_THINKPHP  = "thinkphp"
+	REWRITE_LARAVEL   = "laravel"
+	REWRITE_WORDPRESS = "wordpress"
+	REWRITE_TYPECHO   = "typecho"
+)
+
+const (
 	STATE_RUNNING = "running"
 	STATE_STOPPED = "stopped"
 	STATE_ERROR   = "error"
@@ -37,6 +45,7 @@ type Project struct {
 	Software        *int64   `json:"software"`
 	Command         string   `json:"command"`
 	Nginx           string   `json:"nginx"`
+	RewriteRule     string   `json:"rewriteRule"`
 	EnvironmentFile string   `json:"environmentFile"`
 	Port            int      `json:"port"`
 	Autostart       bool     `json:"autostart"`
@@ -61,8 +70,24 @@ type UpdateInput struct {
 	Software        *int64   `json:"software"`
 	Command         string   `json:"command"`
 	Nginx           string   `json:"nginx"`
+	RewriteRule     string   `json:"rewriteRule"`
 	EnvironmentFile string   `json:"environmentFile"`
 	Autostart       bool     `json:"autostart"`
+}
+
+// RewriteRules returns the built-in PHP pseudo-static rules. The generated
+// route owns these rules so they cannot be overwritten by advanced settings.
+func RewriteRules() []string {
+	return []string{REWRITE_DEFAULT, REWRITE_THINKPHP, REWRITE_LARAVEL, REWRITE_WORDPRESS, REWRITE_TYPECHO}
+}
+
+func IsValidRewriteRule(value string) bool {
+	for _, item := range RewriteRules() {
+		if value == item {
+			return true
+		}
+	}
+	return false
 }
 
 func IsValidKind(kind string) bool {

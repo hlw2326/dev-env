@@ -61,6 +61,23 @@ func TestRenderPHPRouteUsesPathInfoFallback(t *testing.T) {
 	}
 }
 
+func TestRenderPHPRouteUsesSelectedRewriteRule(t *testing.T) {
+	config, err := renderRoute(80, ports.Route{
+		ID:          7,
+		Hosts:       []string{"laravel.localhost"},
+		Kind:        project.KIND_PHP,
+		RewriteRule: project.REWRITE_LARAVEL,
+		Path:        `C:\projects\laravel\public`,
+		Log:         `C:\logs\laravel\access.log`,
+	}, 9000, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(config, "try_files $uri $uri/ /index.php?$query_string;") {
+		t.Fatalf("expected Laravel pseudo-static rule\n%s", config)
+	}
+}
+
 func TestGeneratedNginxLogsExposeTrafficMetrics(t *testing.T) {
 	mainConfig := renderMain(`C:\nginx`, `C:\data`, 80, nil)
 	if !strings.Contains(mainConfig, "server_names_hash_max_size 4096;") {

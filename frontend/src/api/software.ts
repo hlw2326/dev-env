@@ -51,6 +51,9 @@ export const startSoftware = SoftwareAPI.Start
 // 停止守护进程服务
 export const stopSoftware = SoftwareAPI.Stop
 
+// 异步重启守护进程服务
+export const restartSoftware = SoftwareAPI.Restart
+
 // 设置守护进程随应用启动
 export const setAutostart = SoftwareAPI.SetAutostart
 

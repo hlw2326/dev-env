@@ -14,7 +14,7 @@
 			/>
 		</div>
 		<div v-if="project.kind === 'php'" class="environment-field">
-			<label for="php-environment-file">PHP 环境变量文件</label>
+			<label for="php-environment-file">PHP 环境标识文件</label>
 			<p-select
 				id="php-environment-file"
 				v-model="environmentFile"
@@ -22,24 +22,10 @@
 				placeholder="自动使用 .env.dev"
 				:disabled="environmentFileOptions.length === 0"
 			/>
-			<span class="hint">启动 PHP 项目时，DevEnv 会将文件内容作为 FastCGI 环境变量传给应用；优先自动读取 .env.dev。</span>
+			<span class="hint">仅从文件名提取环境名；例如 .env.dev 会生成 ENV_NAME=dev，不读取文件内容。</span>
 		</div>
+		<comp-rewrite-rule v-if="project.kind === 'php'" v-model="rewriteRule" />
 		<comp-nginx-preview :project-id="project.id" />
-		<div class="editor-toolbar">
-			<label for="nginx-snippet">插入常用指令</label>
-			<p-select
-				id="nginx-snippet"
-				v-model="selectedSnippet"
-				:options="snippetOptions"
-				option-label="label"
-				option-value="value"
-				placeholder="选择指令模板"
-				class="snippet-select"
-				@change="insertSelectedSnippet"
-			/>
-			<span class="editor-meta">{{ lineCount }} 行 · {{ nginx.length }} 个字符</span>
-		</div>
-
 		<div class="editor-shell" :class="{ invalid: validationMessage !== '' }">
 			<div ref="lineNumbers" class="line-numbers" aria-hidden="true">
 				<span v-for="line in lineCount" :key="line">{{ line }}</span>
@@ -62,7 +48,7 @@
 			<span>{{ validationMessage === '' ? '配置格式正确，可以保存' : validationMessage }}</span>
 		</div>
 		<span class="hint">
-			支持 Tab 缩进、Enter 自动缩进和常用指令模板。内容会合并到自动生成的 server 区块，不能写入 server、http 或 events 区块。
+			支持 Tab 缩进与 Enter 自动缩进。内容会合并到自动生成的 server 区块，不能写入 server、http 或 events 区块。
 		</span>
 	</div>
 </template>
@@ -73,27 +59,16 @@ import { openProjectNginxConfig } from '@/api'
 import { formatError, toast } from '@/utils'
 import type { Project, ProjectUpdateInput } from '@/types'
 import CompNginxPreview from './nginx-preview.vue'
+import CompRewriteRule from './rewrite-rule.vue'
 
 const props = defineProps<{ project: Project }>()
 const emit = defineEmits<{ save: [input: ProjectUpdateInput] }>()
 
 const nginx = ref('')
 const environmentFile = ref('')
-const selectedSnippet = ref('')
+const rewriteRule = ref('default')
 const editor = ref<HTMLTextAreaElement | null>(null)
 const lineNumbers = ref<HTMLDivElement | null>(null)
-
-const snippets = [
-	{ label: '限制请求体大小', value: 'client_max_body_size 20m;' },
-	{ label: '开启 Gzip', value: 'gzip on;\ngzip_types text/plain text/css application/json application/javascript;' },
-	{ label: '添加安全响应头', value: 'add_header X-Content-Type-Options "nosniff" always;' },
-	{ label: '静态资源缓存', value: 'location ~* \\.(css|js|png|jpg|jpeg|gif|svg|woff2)$ {\n\t expires 7d;\n\t add_header Cache-Control "public, max-age=604800";\n}' },
-]
-
-const snippetOptions = computed(() => [
-	{ label: '选择指令模板', value: '' },
-	...snippets,
-])
 
 const environmentFileOptions = computed(() => {
 	const options = [...props.project.environmentFiles]
@@ -150,24 +125,10 @@ function validateNginxConfig(value: string): string {
 			return `第 ${index + 1} 行需要以分号或左大括号结尾`
 		}
 	}
-
 	if (quote !== '') return '配置中包含未闭合的引号'
 	if (depth !== 0) return '配置中的大括号没有匹配'
 	return ''
 }
-function insertSelectedSnippet(): void {
-	if (selectedSnippet.value === '' || editor.value === null) return
-	const target = editor.value
-	const start = target.selectionStart
-	const end = target.selectionEnd
-	const before = nginx.value.slice(0, start)
-	const prefix = before !== '' && !before.endsWith('\n') ? '\n' : ''
-	target.setRangeText(`${prefix}${selectedSnippet.value}\n`, start, end, 'end')
-	nginx.value = target.value
-	selectedSnippet.value = ''
-	target.focus()
-}
-
 function handleEditorKeydown(event: KeyboardEvent): void {
 	if (editor.value === null) return
 	const target = editor.value
@@ -216,6 +177,7 @@ function saveForm(): void {
 		software: props.project.software,
 		command: props.project.command,
 		nginx: nginx.value,
+		rewriteRule: rewriteRule.value,
 		environmentFile: environmentFile.value,
 		autostart: props.project.autostart,
 	})
@@ -228,6 +190,7 @@ watch(
 	(item) => {
 		nginx.value = item.nginx
 		environmentFile.value = item.environmentFile
+		rewriteRule.value = item.rewriteRule
 	},
 	{ immediate: true },
 )
@@ -239,8 +202,7 @@ watch(
 	gap: 0.75rem;
 }
 
-.config-toolbar,
-.editor-toolbar {
+.config-toolbar {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -259,16 +221,6 @@ watch(
 	color: var(--text-secondary);
 	font-size: var(--font-sm);
 	line-height: 1.5;
-}
-
-.editor-toolbar .snippet-select {
-	min-width: 12rem;
-}
-
-.editor-meta {
-	margin-left: auto;
-	color: var(--text-muted);
-	font-size: var(--font-xs);
 }
 
 .editor-shell {

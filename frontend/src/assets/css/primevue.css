@@ -21,7 +21,6 @@
 	font-weight: 400 !important;
 	box-shadow: none !important;
 	border-radius: var(--radius-md) !important;
-	font-size: var(--font-sm) !important;
 	flex-shrink: 0;
 	transition: none !important;
 	animation: none !important;
