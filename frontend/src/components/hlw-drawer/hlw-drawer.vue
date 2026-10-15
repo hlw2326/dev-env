@@ -20,6 +20,10 @@
 			<slot name="header"></slot>
 		</template>
 
+		<div v-if="$slots.top" class="top">
+			<slot name="top"></slot>
+		</div>
+
 		<div v-if="$slots.toolbar" class="toolbar">
 			<slot name="toolbar"></slot>
 		</div>
@@ -29,7 +33,7 @@
 			</div>
 		</div>
 
-		<template v-if="footer" #footer>
+		<template #footer>
 			<slot name="footer">
 				<Button
 					:label="cancelText"
@@ -144,6 +148,10 @@ defineExpose<HlwDrawerExpose>({ open, close })
 	min-width: 0;
 	padding: var(--h-padding);
 	border-bottom: 1px solid var(--border-color);
+}
+.top {
+	flex-shrink: 0;
+	min-width: 0;
 }
 .body {
 	flex: 1;

@@ -16,8 +16,9 @@
 		:loading="false"
 		@ok="saveCurrentTab"
 	>
-		<!-- 页签固定在标题下方，不随正文滚动 -->
-		<comp-detail-tabs v-model="currentTab" :tabs="detailTabs" />
+		<template #top>
+			<comp-detail-tabs v-model="currentTab" :tabs="detailTabs" />
+		</template>
 
 		<!-- 概览设置页签 -->
 		<comp-detail-info

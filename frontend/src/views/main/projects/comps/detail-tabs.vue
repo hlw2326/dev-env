@@ -25,7 +25,9 @@ const currentTab = defineModel<string>({ required: true })
 
 <style scoped lang="scss">
 .detail-tabs {
-	margin: 0;
+	padding: var(--h-padding);
 	flex-wrap: wrap;
+	margin-bottom: var(--h-padding);
+	background: var(--bg-card);
 }
 </style>
