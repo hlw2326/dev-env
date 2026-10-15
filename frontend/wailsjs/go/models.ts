@@ -81,6 +81,158 @@ export namespace wails {
 	        this.restart = source["restart"];
 	    }
 	}
+	export class DeploymentConfigDTO {
+	    projectId: number;
+	    provider: string;
+	    source: string;
+	    exclude: string;
+	    host: string;
+	    port: number;
+	    username: string;
+	    privateKey: string;
+	    fingerprint: string;
+	    remote: string;
+	    appId: string;
+	    uploadKey: string;
+	    nodePath: string;
+	    modulePath: string;
+	    version: string;
+	    description: string;
+	    robot: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeploymentConfigDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.projectId = source["projectId"];
+	        this.provider = source["provider"];
+	        this.source = source["source"];
+	        this.exclude = source["exclude"];
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.username = source["username"];
+	        this.privateKey = source["privateKey"];
+	        this.fingerprint = source["fingerprint"];
+	        this.remote = source["remote"];
+	        this.appId = source["appId"];
+	        this.uploadKey = source["uploadKey"];
+	        this.nodePath = source["nodePath"];
+	        this.modulePath = source["modulePath"];
+	        this.version = source["version"];
+	        this.description = source["description"];
+	        this.robot = source["robot"];
+	    }
+	}
+	export class DeploymentFileDTO {
+	    path: string;
+	    size: number;
+	    digest: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeploymentFileDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.size = source["size"];
+	        this.digest = source["digest"];
+	    }
+	}
+	export class DeploymentInput {
+	    projectId: number;
+	    token: string;
+	    password: string;
+	    passphrase: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeploymentInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.projectId = source["projectId"];
+	        this.token = source["token"];
+	        this.password = source["password"];
+	        this.passphrase = source["passphrase"];
+	    }
+	}
+	export class DeploymentPlanDTO {
+	    token: string;
+	    projectId: number;
+	    provider: string;
+	    source: string;
+	    target: string;
+	    files: DeploymentFileDTO[];
+	    bytes: number;
+	    excluded: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeploymentPlanDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.token = source["token"];
+	        this.projectId = source["projectId"];
+	        this.provider = source["provider"];
+	        this.source = source["source"];
+	        this.target = source["target"];
+	        this.files = this.convertValues(source["files"], DeploymentFileDTO);
+	        this.bytes = source["bytes"];
+	        this.excluded = source["excluded"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class DeploymentTaskDTO {
+	    id: string;
+	    projectId: number;
+	    provider: string;
+	    state: string;
+	    message: string;
+	    target: string;
+	    completed: number;
+	    total: number;
+	    created: string;
+	    finished: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeploymentTaskDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.projectId = source["projectId"];
+	        this.provider = source["provider"];
+	        this.state = source["state"];
+	        this.message = source["message"];
+	        this.target = source["target"];
+	        this.completed = source["completed"];
+	        this.total = source["total"];
+	        this.created = source["created"];
+	        this.finished = source["finished"];
+	    }
+	}
 	export class ExtensionDTO {
 	    name: string;
 	    enabled: boolean;
@@ -212,6 +364,150 @@ export namespace wails {
 	        this.created = source["created"];
 	        this.updated = source["updated"];
 	    }
+	}
+	export class ProjectGitCommitInput {
+	    projectId: number;
+	    message: string;
+	    bumpVersion: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectGitCommitInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.projectId = source["projectId"];
+	        this.message = source["message"];
+	        this.bumpVersion = source["bumpVersion"];
+	    }
+	}
+	export class ProjectGitFileDTO {
+	    path: string;
+	    status: string;
+	    staged: boolean;
+	    unstaged: boolean;
+	    untracked: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectGitFileDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.status = source["status"];
+	        this.staged = source["staged"];
+	        this.unstaged = source["unstaged"];
+	        this.untracked = source["untracked"];
+	    }
+	}
+	export class ProjectGitRemoteDTO {
+	    name: string;
+	    url: string;
+	    pushUrl: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectGitRemoteDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.url = source["url"];
+	        this.pushUrl = source["pushUrl"];
+	    }
+	}
+	export class ProjectGitRemoteInput {
+	    projectId: number;
+	    name: string;
+	    url: string;
+	    pushUrl: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectGitRemoteInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.projectId = source["projectId"];
+	        this.name = source["name"];
+	        this.url = source["url"];
+	        this.pushUrl = source["pushUrl"];
+	    }
+	}
+	export class ProjectGitStatusDTO {
+	    remotes: ProjectGitRemoteDTO[];
+	    upstream: string;
+	    ahead: number;
+	    behind: number;
+	    projectId: number;
+	    projectName: string;
+	    available: boolean;
+	    repository: boolean;
+	    nested: boolean;
+	    branch: string;
+	    lastCommit: string;
+	    commitMessage: string;
+	    changed: number;
+	    staged: number;
+	    unstaged: number;
+	    untracked: number;
+	    files: ProjectGitFileDTO[];
+	    version: string;
+	    nextVersion: string;
+	    versionFile: string;
+	    versionCanBump: boolean;
+	    versionError: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectGitStatusDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.remotes = this.convertValues(source["remotes"], ProjectGitRemoteDTO);
+	        this.upstream = source["upstream"];
+	        this.ahead = source["ahead"];
+	        this.behind = source["behind"];
+	        this.projectId = source["projectId"];
+	        this.projectName = source["projectName"];
+	        this.available = source["available"];
+	        this.repository = source["repository"];
+	        this.nested = source["nested"];
+	        this.branch = source["branch"];
+	        this.lastCommit = source["lastCommit"];
+	        this.commitMessage = source["commitMessage"];
+	        this.changed = source["changed"];
+	        this.staged = source["staged"];
+	        this.unstaged = source["unstaged"];
+	        this.untracked = source["untracked"];
+	        this.files = this.convertValues(source["files"], ProjectGitFileDTO);
+	        this.version = source["version"];
+	        this.nextVersion = source["nextVersion"];
+	        this.versionFile = source["versionFile"];
+	        this.versionCanBump = source["versionCanBump"];
+	        this.versionError = source["versionError"];
+	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class ProjectPluginActionInput {
 	    projectId: number;

@@ -1,10 +1,11 @@
 <template>
-	<!-- 项目详情模态框 -->
-	<h-modal
+	<!-- 项目详情右侧抽屉 -->
+	<hlw-drawer
 		v-if="project !== null"
 		v-model:visible="visible"
 		:title="`项目详情 · ${project.name}`"
-		width="52rem"
+		position="right"
+		width="70%"
 		:modal="true"
 		:closable="true"
 		:mask-close="false"
@@ -15,22 +16,11 @@
 		:loading="false"
 		@ok="saveCurrentTab"
 	>
-		<!-- 详情页签切换栏 -->
-		<div class="panel-tabs detail-tabs">
-			<button
-				v-for="tab in detailTabs"
-				:key="tab.value"
-				type="button"
-				class="panel-tab"
-				:class="{ active: currentTab === tab.value }"
-				@click="currentTab = tab.value"
-			>
-				{{ tab.label }}
-			</button>
-		</div>
+		<!-- 页签固定在标题下方，不随正文滚动 -->
+		<comp-detail-tabs v-model="currentTab" :tabs="detailTabs" />
 
 		<!-- 概览设置页签 -->
-		<comp-detail-overview
+		<comp-detail-info
 			v-if="currentTab === 'overview'"
 			ref="overview"
 			:project="project"
@@ -59,6 +49,12 @@
 			:template="currentTemplate"
 		/>
 
+		<comp-detail-git
+			v-else-if="currentTab === 'git'"
+			:project="project"
+			@refresh="emit('refresh-git')"
+		/>
+
 		<comp-detail-plugin
 			v-else-if="currentPlugin !== null"
 			:project="project"
@@ -66,41 +62,52 @@
 			:busy="pluginBusy === currentPlugin.id"
 			@run="emit('plugin', $event)"
 		/>
-	</h-modal>
+
+		<comp-detail-deployment v-else-if="currentTab === 'deployment'" :project="project" />
+	</hlw-drawer>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import CompDetailOverview from './detail-overview.vue'
-import CompDetailDomains from './detail-domains.vue'
-import CompDetailLogs from './detail-logs.vue'
-import CompDetailNginx from './detail-nginx.vue'
-import CompDetailPlugin from './detail-plugin.vue'
+import HlwDrawer from '@/components/hlw-drawer'
+import CompDetailTabs from './comps/detail-tabs.vue'
+import CompDetailInfo from './comps/detail-info.vue'
+import CompDetailDomains from './comps/detail-domains.vue'
+import CompDetailLogs from './comps/detail-logs.vue'
+import CompDetailNginx from './comps/detail-nginx.vue'
+import CompDetailPlugin from './comps/detail-plugin.vue'
+import CompDetailGit from './comps/detail-git.vue'
+import CompDetailDeployment from './comps/detail-deployment.vue'
 import type { ProjectPluginActionInput, ProjectPlugin, ProjectTemplate, Project, Software, ProjectUpdateInput } from '@/types'
 
 // 接收项目与软件列表属性
-const props = defineProps<{
+const props = withDefaults(defineProps<{
 	project: Project | null
 	softwareList: Software[]
 	plugins: ProjectPlugin[]
 	pluginBusy: string
 	templates: ProjectTemplate[]
-}>()
+	initialTab?: string
+}>(), {
+	initialTab: 'overview',
+})
 
-// 弹窗显隐双向绑定
+// 抽屉显隐双向绑定
 const visible = defineModel<boolean>('visible', { required: true })
 
 // 保存项目设置事件
 const emit = defineEmits<{
 	save: [input: ProjectUpdateInput]
 	plugin: [input: ProjectPluginActionInput]
+	'refresh-git': []
 }>()
 
-// 详情弹窗页签配置
+// 详情抽屉页签配置
 const detailTabs = computed(() => {
 	const tabs = [
 		{ value: 'overview', label: '概览' },
 		{ value: 'logs', label: '日志' },
+		{ value: 'git', label: 'Git' },
 	]
 	if (props.project !== null && hasCapability('domain')) {
 		tabs.splice(1, 0, { value: 'domains', label: '域名' })
@@ -109,6 +116,8 @@ const detailTabs = computed(() => {
 	for (const plugin of props.plugins) {
 		tabs.push({ value: `plugin:${plugin.id}`, label: plugin.name })
 	}
+	if (hasCapability('server-sync')) tabs.push({ value: 'deployment', label: '服务器同步' })
+	if (hasCapability('wechat-upload')) tabs.push({ value: 'deployment', label: '微信发布' })
 	return tabs
 })
 
@@ -117,6 +126,8 @@ const showFooter = computed(() => ['overview', 'nginx'].includes(currentTab.valu
 
 // 当前激活页签
 const currentTab = ref('overview')
+
+watch(visible, (value) => { if (value) currentTab.value = props.initialTab })
 
 const currentTemplate = computed<ProjectTemplate | null>(() => {
 	if (props.project === null) {
@@ -136,7 +147,7 @@ function hasCapability(capability: string): boolean {
 }
 
 // 概览表单组件实例
-const overview = ref<InstanceType<typeof CompDetailOverview> | null>(null)
+const overview = ref<InstanceType<typeof CompDetailInfo> | null>(null)
 const nginxEditor = ref<InstanceType<typeof CompDetailNginx> | null>(null)
 
 // 当前插件页签对应的插件
@@ -155,13 +166,20 @@ const currentPlugin = computed<ProjectPlugin | null>(() => {
 })
 
 watch(
-	() => props.project,
+	() => props.project?.id,
 	() => {
-		currentTab.value = 'overview'
+		currentTab.value = props.initialTab
 	},
 )
 
-// 通过弹窗底部按钮保存概览设置
+watch(
+	() => props.initialTab,
+	(value) => {
+		currentTab.value = value
+	},
+)
+
+// 通过抽屉底部按钮保存当前设置
 function saveCurrentTab(): void {
 	if (currentTab.value === 'overview' && overview.value !== null) {
 		overview.value.save()
@@ -171,9 +189,3 @@ function saveCurrentTab(): void {
 }
 </script>
 
-<style scoped lang="scss">
-/* 详情页签下边距 */
-.detail-tabs {
-	margin-bottom: 1rem;
-}
-</style>

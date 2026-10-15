@@ -58,6 +58,10 @@ func (a *SystemAPI) PickFolder(title string) (string, error) {
 	})
 }
 
+func (a *SystemAPI) PickFile(title string) (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title})
+}
+
 func (a *SystemAPI) OpenURL(url string) Result {
 	runtime.BrowserOpenURL(a.ctx, url)
 	return Result{OK: true, Message: ""}

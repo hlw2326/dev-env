@@ -49,6 +49,7 @@ type ProjectService struct {
 	hosts    ports.HostsWriter
 	probe    ports.PortChecker
 	bus      ports.EventPublisher
+	git      ports.GitManager
 
 	mu     sync.RWMutex
 	active map[int64]bool
@@ -65,6 +66,7 @@ func NewProjectService(
 	hosts ports.HostsWriter,
 	probe ports.PortChecker,
 	bus ports.EventPublisher,
+	gitManager ports.GitManager,
 ) *ProjectService {
 	return &ProjectService{
 		base:     base,
@@ -76,6 +78,7 @@ func NewProjectService(
 		hosts:    hosts,
 		probe:    probe,
 		bus:      bus,
+		git:      gitManager,
 		active:   make(map[int64]bool),
 		failed:   make(map[int64]string),
 	}

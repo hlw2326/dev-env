@@ -18,6 +18,10 @@ export function OpenURL(arg1) {
   return window['go']['wails']['SystemAPI']['OpenURL'](arg1);
 }
 
+export function PickFile(arg1) {
+  return window['go']['wails']['SystemAPI']['PickFile'](arg1);
+}
+
 export function PickFolder(arg1) {
   return window['go']['wails']['SystemAPI']['PickFolder'](arg1);
 }

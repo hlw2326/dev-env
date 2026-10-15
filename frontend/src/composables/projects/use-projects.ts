@@ -17,6 +17,7 @@ import {
 	listVersions,
 	installSoftware,
 	listenEvent,
+	listProjectGitStatuses,
 } from '@/api'
 import { toast, formatError } from '@/utils'
 import type {
@@ -30,6 +31,7 @@ import type {
 	ProjectPluginActionInput,
 	ProjectPluginEvent,
 	ProjectTemplate,
+	ProjectGitStatus,
 } from '@/types'
 
 // 项目列表状态
@@ -40,6 +42,9 @@ const softwareList = ref<Software[]>([])
 
 // 后端注册的项目模板
 const projectTemplates = ref<ProjectTemplate[]>([])
+
+// 项目 Git 状态
+const gitStatuses = ref<Record<number, ProjectGitStatus>>({})
 
 // 默认项目父目录
 const defaultRoot = ref('')
@@ -62,6 +67,9 @@ const activeProject = ref<Project | null>(null)
 // 详情弹窗显隐状态
 const detailVisible = ref(false)
 
+// 打开详情时默认显示的页签
+const detailInitialTab = ref('overview')
+
 // 正在一键安装的软件类型
 const installingKind = ref('')
 
@@ -70,6 +78,8 @@ const projectPlugins = ref<ProjectPlugin[]>([])
 
 // 当前正在执行的插件
 const pluginBusy = ref('')
+
+let gitStatusRequest = 0
 
 // 项目管理组合式函数
 export function useProjects() {
@@ -111,10 +121,29 @@ export function useProjects() {
 					activeProject.value = found
 				}
 			}
+			void refreshGitStatuses()
 		} catch (err: unknown) {
 			toast.error('加载失败', formatError(err))
 		} finally {
 			loading.value = false
+		}
+	}
+
+	// 异步刷新所有项目 Git 状态，不阻塞项目列表首屏
+	async function refreshGitStatuses(): Promise<void> {
+		const request = ++gitStatusRequest
+		try {
+			const statuses = await listProjectGitStatuses()
+			if (request !== gitStatusRequest) {
+				return
+			}
+			const next: Record<number, ProjectGitStatus> = {}
+			for (const status of statuses) {
+				next[status.projectId] = status
+			}
+			gitStatuses.value = next
+		} catch (err: unknown) {
+			toast.warn('读取项目 Git 状态失败', formatError(err))
 		}
 	}
 
@@ -269,10 +298,15 @@ export function useProjects() {
 	}
 
 	// 打开项目详情弹窗
-	function openDetail(item: Project): void {
+	function openDetail(item: Project, tab = 'overview'): void {
 		activeProject.value = item
+		detailInitialTab.value = tab
 		detailVisible.value = true
 		loadPlugins(item.id)
+	}
+
+	function openGit(item: Project): void {
+		openDetail(item, 'git')
 	}
 
 	// 执行项目插件操作
@@ -347,6 +381,7 @@ export function useProjects() {
 		filteredProjects,
 		softwareList,
 		projectTemplates,
+		gitStatuses,
 		defaultRoot,
 		loading,
 		search,
@@ -354,10 +389,12 @@ export function useProjects() {
 		createVisible,
 		activeProject,
 		detailVisible,
+		detailInitialTab,
 	installingKind,
 	projectPlugins,
 	pluginBusy,
 		refreshAll,
+		refreshGitStatuses,
 		submitCreate,
 		submitUpdate,
 		toggleProject,
@@ -367,6 +404,7 @@ export function useProjects() {
 		openProject,
 		browseFolder,
 		openDetail,
+		openGit,
 		loadPlugins,
 		runPlugin,
 		bindEvents,

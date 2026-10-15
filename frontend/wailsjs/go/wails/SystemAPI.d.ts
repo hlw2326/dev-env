@@ -11,6 +11,8 @@ export function OpenNginxConfig():Promise<wails.Result>;
 
 export function OpenURL(arg1:string):Promise<wails.Result>;
 
+export function PickFile(arg1:string):Promise<string>;
+
 export function PickFolder(arg1:string):Promise<string>;
 
 export function SaveSettings(arg1:wails.SettingsInput):Promise<wails.Result>;

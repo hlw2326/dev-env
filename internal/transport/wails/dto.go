@@ -71,6 +71,59 @@ type ProjectPluginActionInput struct {
 	ActionID  string `json:"actionId"`
 }
 
+type ProjectGitFileDTO struct {
+	Path      string `json:"path"`
+	Status    string `json:"status"`
+	Staged    bool   `json:"staged"`
+	Unstaged  bool   `json:"unstaged"`
+	Untracked bool   `json:"untracked"`
+}
+
+type ProjectGitStatusDTO struct {
+	Remotes        []ProjectGitRemoteDTO `json:"remotes"`
+	Upstream       string                `json:"upstream"`
+	Ahead          int                   `json:"ahead"`
+	Behind         int                   `json:"behind"`
+	ProjectID      int64                 `json:"projectId"`
+	ProjectName    string                `json:"projectName"`
+	Available      bool                  `json:"available"`
+	Repository     bool                  `json:"repository"`
+	Nested         bool                  `json:"nested"`
+	Branch         string                `json:"branch"`
+	LastCommit     string                `json:"lastCommit"`
+	CommitMessage  string                `json:"commitMessage"`
+	Changed        int                   `json:"changed"`
+	Staged         int                   `json:"staged"`
+	Unstaged       int                   `json:"unstaged"`
+	Untracked      int                   `json:"untracked"`
+	Files          []ProjectGitFileDTO   `json:"files"`
+	Version        string                `json:"version"`
+	NextVersion    string                `json:"nextVersion"`
+	VersionFile    string                `json:"versionFile"`
+	VersionCanBump bool                  `json:"versionCanBump"`
+	VersionError   string                `json:"versionError"`
+	Error          string                `json:"error"`
+}
+
+type ProjectGitCommitInput struct {
+	ProjectID   int64  `json:"projectId"`
+	Message     string `json:"message"`
+	BumpVersion bool   `json:"bumpVersion"`
+}
+
+type ProjectGitRemoteDTO struct {
+	Name    string `json:"name"`
+	URL     string `json:"url"`
+	PushURL string `json:"pushUrl"`
+}
+
+type ProjectGitRemoteInput struct {
+	ProjectID int64  `json:"projectId"`
+	Name      string `json:"name"`
+	URL       string `json:"url"`
+	PushURL   string `json:"pushUrl"`
+}
+
 type PluginActionDTO struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`

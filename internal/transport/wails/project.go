@@ -6,17 +6,20 @@ import (
 	"devenv/internal/app"
 	"devenv/internal/domain/plugin"
 	"devenv/internal/domain/project"
+	"devenv/internal/ports"
 )
 
 type ProjectAPI struct {
-	ctx     context.Context
-	service *app.ProjectService
+	ctx        context.Context
+	service    *app.ProjectService
+	deployment *app.DeploymentService
 }
 
-func NewProjectAPI(service *app.ProjectService) *ProjectAPI {
+func NewProjectAPI(service *app.ProjectService, deployment *app.DeploymentService) *ProjectAPI {
 	return &ProjectAPI{
-		ctx:     context.Background(),
-		service: service,
+		ctx:        context.Background(),
+		service:    service,
+		deployment: deployment,
 	}
 }
 
@@ -197,6 +200,40 @@ func (a *ProjectAPI) WriteNginxConfig(id int64, content string) Result {
 	return Result{OK: true, Message: "Nginx 配置已保存"}
 }
 
+func (a *ProjectAPI) GitStatuses() ([]ProjectGitStatusDTO, error) {
+	items, err := a.service.GitStatuses(a.ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ProjectGitStatusDTO, 0, len(items))
+	for _, item := range items {
+		result = append(result, convertProjectGitStatus(item))
+	}
+	return result, nil
+}
+
+func (a *ProjectAPI) GitStatus(id int64) (ProjectGitStatusDTO, error) {
+	item, err := a.service.GitStatus(a.ctx, id)
+	if err != nil {
+		return ProjectGitStatusDTO{}, err
+	}
+	return convertProjectGitStatus(item), nil
+}
+
+func (a *ProjectAPI) InitializeGit(id int64) Result {
+	if err := a.service.InitializeGit(a.ctx, id); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "Git 仓库已初始化"}
+}
+
+func (a *ProjectAPI) CommitGit(input ProjectGitCommitInput) Result {
+	if err := a.service.CommitGit(a.ctx, input.ProjectID, input.Message, input.BumpVersion); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "Git 提交成功"}
+}
+
 func convertProject(view app.ProjectView) ProjectDTO {
 	hosts := view.Hosts
 	if hosts == nil {
@@ -222,4 +259,56 @@ func convertProject(view app.ProjectView) ProjectDTO {
 		Created:   view.Created,
 		Updated:   view.Updated,
 	}
+}
+
+func convertProjectGitStatus(item ports.ProjectGitStatus) ProjectGitStatusDTO {
+	remotes := make([]ProjectGitRemoteDTO, 0, len(item.Remotes))
+	for _, remote := range item.Remotes {
+		remotes = append(remotes, ProjectGitRemoteDTO{Name: remote.Name, URL: remote.URL, PushURL: remote.PushURL})
+	}
+	files := make([]ProjectGitFileDTO, 0, len(item.Files))
+	for _, file := range item.Files {
+		files = append(files, ProjectGitFileDTO{
+			Path: file.Path, Status: file.Status, Staged: file.Staged,
+			Unstaged: file.Unstaged, Untracked: file.Untracked,
+		})
+	}
+	return ProjectGitStatusDTO{
+		Remotes: remotes, Upstream: item.Upstream, Ahead: item.Ahead, Behind: item.Behind,
+		ProjectID: item.ProjectID, ProjectName: item.ProjectName,
+		Available: item.Available, Repository: item.Repository, Nested: item.Nested,
+		Branch: item.Branch, LastCommit: item.LastCommit,
+		CommitMessage: item.CommitMessage, Changed: item.Changed, Staged: item.Staged,
+		Unstaged: item.Unstaged, Untracked: item.Untracked, Files: files,
+		Version: item.Version, NextVersion: item.NextVersion, VersionFile: item.VersionFile,
+		VersionCanBump: item.VersionCanBump, VersionError: item.VersionError, Error: item.Error,
+	}
+}
+
+func (a *ProjectAPI) SaveGitRemote(input ProjectGitRemoteInput) Result {
+	if err := a.service.SaveGitRemote(a.ctx, input.ProjectID, ports.GitRemote{Name: input.Name, URL: input.URL, PushURL: input.PushURL}); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "远端地址已保存"}
+}
+
+func (a *ProjectAPI) RemoveGitRemote(id int64, name string) Result {
+	if err := a.service.RemoveGitRemote(a.ctx, id, name); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "远端配置已移除，不影响远端仓库本身"}
+}
+
+func (a *ProjectAPI) FetchGit(id int64, name string) Result {
+	if err := a.service.FetchGit(a.ctx, id, name); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "远端状态已更新，未合并或修改工作区"}
+}
+
+func (a *ProjectAPI) PushGit(id int64, name string) Result {
+	if err := a.service.PushGit(a.ctx, id, name); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "当前分支已推送"}
 }

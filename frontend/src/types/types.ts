@@ -27,6 +27,21 @@ export type ProjectPlugin = wails.ProjectPluginDTO
 // 执行项目插件操作入参
 export type ProjectPluginActionInput = wails.ProjectPluginActionInput
 
+// 项目 Git 文件状态
+export type ProjectGitFile = wails.ProjectGitFileDTO
+
+// 项目 Git 仓库状态
+export type ProjectGitStatus = wails.ProjectGitStatusDTO
+
+// 项目 Git 提交参数
+export type ProjectGitCommitInput = wails.ProjectGitCommitInput
+
+export type ProjectGitRemote = wails.ProjectGitRemoteDTO
+
+export type DeploymentConfig = wails.DeploymentConfigDTO
+export type DeploymentPlan = wails.DeploymentPlanDTO
+export type DeploymentTask = wails.DeploymentTaskDTO
+
 // 软件商店卡片项
 export type MarketItem = wails.ItemDTO
 

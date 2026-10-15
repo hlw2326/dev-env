@@ -22,7 +22,7 @@ func NewApp() *App {
 	if err != nil {
 		return &App{
 			bootError: err,
-			Project:   transport.NewProjectAPI(nil),
+			Project:   transport.NewProjectAPI(nil, nil),
 			Software:  transport.NewSoftwareAPI(nil),
 			System:    transport.NewSystemAPI(nil),
 		}
@@ -30,7 +30,7 @@ func NewApp() *App {
 
 	return &App{
 		container: container,
-		Project:   transport.NewProjectAPI(container.Project),
+		Project:   transport.NewProjectAPI(container.Project, container.Deployment),
 		Software:  transport.NewSoftwareAPI(container.Software),
 		System:    transport.NewSystemAPI(container.Setting),
 	}

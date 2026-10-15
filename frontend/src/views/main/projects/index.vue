@@ -24,14 +24,16 @@
 		<div v-else class="project-list">
 			<comp-row
 				v-for="item in filteredProjects"
-					:key="item.id"
-					:project="item"
-					:templates="projectTemplates"
+				:key="item.id"
+				:project="item"
+				:templates="projectTemplates"
+				:git-status="gitStatuses[item.id]"
 				:installing-kind="installingKind"
 				@toggle="toggleProject"
 				@open="openProject"
 				@folder="browseFolder"
 				@detail="openDetail"
+				@git="openGit"
 				@delete="removeProject"
 				@install="quickInstall"
 			/>
@@ -45,16 +47,18 @@
 			@submit="onCreate"
 		/>
 
-		<!-- 项目详情弹窗 -->
-		<comp-detail
+		<!-- 项目详情抽屉 -->
+		<project-detail
 			v-model:visible="detailVisible"
 			:project="activeProject"
+			:initial-tab="detailInitialTab"
 			:software-list="softwareList"
 			:templates="projectTemplates"
 			:plugins="projectPlugins"
 			:plugin-busy="pluginBusy"
 			@save="submitUpdate"
 			@plugin="runPlugin"
+			@refresh-git="refreshGitStatuses"
 		/>
 	</h-page>
 </template>
@@ -65,7 +69,7 @@ import { useProjects } from '@/composables'
 import CompToolbar from './comps/toolbar.vue'
 import CompRow from './comps/row.vue'
 import CompCreate from './comps/create.vue'
-import CompDetail from './comps/detail.vue'
+import ProjectDetail from './detail.vue'
 import type { ProjectCreateInput } from '@/types'
 
 // 项目管理状态与操作方法
@@ -73,14 +77,17 @@ const {
 	filteredProjects,
 	softwareList,
 	projectTemplates,
+	gitStatuses,
 	defaultRoot,
 	createVisible,
 	activeProject,
 	detailVisible,
+	detailInitialTab,
 	installingKind,
 	projectPlugins,
 	pluginBusy,
 	refreshAll,
+	refreshGitStatuses,
 	submitCreate,
 	submitUpdate,
 	toggleProject,
@@ -89,6 +96,7 @@ const {
 	openProject,
 	browseFolder,
 	openDetail,
+	openGit,
 	runPlugin,
 	bindEvents,
 } = useProjects()

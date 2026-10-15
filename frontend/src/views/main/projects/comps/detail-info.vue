@@ -1,6 +1,6 @@
 <template>
 	<!-- 项目详情概览页签 -->
-	<div class="detail-overview">
+	<div class="detail-info">
 		<!-- 项目根目录设置 -->
 		<div class="form-field">
 			<label>项目目录</label>
@@ -150,7 +150,7 @@ watch(
 
 <style scoped lang="scss">
 /* 概览表单容器 */
-.detail-overview {
+.detail-info {
 	display: flex;
 	flex-direction: column;
 	gap: 0.25rem;

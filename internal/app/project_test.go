@@ -50,7 +50,7 @@ func TestCreateRequiresInstalledNginx(t *testing.T) {
 	projects := sqlite.NewProjectRepository(database.DB)
 	software := sqlite.NewSoftwareRepository(database.DB)
 	settings := sqlite.NewSettingRepository(database.DB)
-	service := NewProjectService(home, projects, software, settings, &projectGateway{}, nil, nil, nil, nil)
+	service := NewProjectService(home, projects, software, settings, &projectGateway{}, nil, nil, nil, nil, nil)
 	root := filepath.Join(home, "projects", "demo")
 
 	_, err = service.Create(context.Background(), project.CreateInput{

@@ -1,284 +1,52 @@
-# Git 集成
+# 项目 Git 集成
 
-产品目标:项目 Git 提交、创建标签、推送到多个远程。
+## 目标
 
-不做:分支操作、拉取、合并、变基、回退、冲突解决、子模块。
-
-## 一、配置
-
-`system_project` 表新增 `git TEXT` 字段,JSON:
-
-```json
-{
-  "enabled": true,
-  "remotes": [
-    {
-      "name": "github",
-      "url": "https://github.com/user/repo.git",
-      "username": "user",
-      "token": "encrypted",
-      "main": true
-    }
-  ],
-  "auto": false,
-  "template": "update: ${files} files"
-}
-```
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `enabled` | bool | 是 | 启用 Git |
-| `remotes` | array | 否 | 远程仓库组 |
-| `remotes[].name` | string | 是 | 远程名称,唯一 |
-| `remotes[].url` | string | 是 | HTTPS URL |
-| `remotes[].username` | string | 否 | 用户名 |
-| `remotes[].token` | string | 否 | 访问令牌,加密存储 |
-| `remotes[].main` | bool | 是 | 默认推送目标,只能有一个 |
-| `auto` | bool | 否 | 保存时自动提交,默认 `false` |
-| `template` | string | 否 | 提交消息模板,支持 `${files}` `${date}` `${time}` |
-
-- 只在项目详情"Git"页签编辑。
-- `token` AES-256-GCM 加密,复用 `sync.key`。
-- 不支持 SSH,只支持 HTTPS。
-- `remotes` 空时禁用推送,只能本地提交。
-
-## 二、操作
-
-### 初始化
-
-项目详情"Git"页签【初始化仓库】,执行 `git init`。
-
-### 提交
-
-【提交更改】:
-
-1. 检查未初始化返回 `GIT_NOT_INITIALIZED`。
-2. 发 `git:commit-progress`,`stage=staging`。
-3. 执行 `git add .`。
-4. 发 `git:commit-progress`,`stage=committing`。
-5. 执行 `git commit -m "<message>"`。
-6. 读提交哈希:`git rev-parse HEAD`。
-7. 发 `git:operation-completed`,返回哈希。
-
-### 创建标签
-
-【创建标签】:
-
-1. 输入标签名,校验格式 `^v?\d+\.\d+\.\d+$`。
-2. 输入标签消息(可选)。
-3. 执行 `git tag -a <tag> -m "<message>"`。
-4. 发 `git:operation-completed`。
-
-### 推送
-
-【推送】:
-
-1. 读 `git`,检查 `remotes`。
-2. 找目标 `remote`,解密 `token`。
-3. 构造认证 URL:`https://<username>:<token>@github.com/user/repo.git`。
-4. 发 `git:push-progress`。
-5. 执行 `git push <url> <refspec>`。
-6. 发 `git:operation-completed`。
-
-推送模式:
-
-- 推送到主远程:推送当前分支
-- 推送到所有远程:遍历 `remotes`,逐个推送
-- 推送标签到主远程:推送指定标签
-- 推送标签到所有远程:遍历推送标签
-
-### 自动提交
-
-`auto=true` 时监听 `root` 文件变化:
-
-- 防抖 2 秒。
-- 用 `template` 生成消息,替换 `${files}` `${date}` `${time}`。
-- 后台提交,失败 toast。
-
-## 三、GitAPI
-
-| 方法 | 入参 | 返回 |
-|------|------|------|
-| `GetStatus(projectID)` | | `StatusDTO` |
-| `Init(projectID)` | | `Result` |
-| `Commit(projectID, message)` | | `Result`,返回哈希 |
-| `CreateTag(projectID, tag, message)` | | `Result` |
-| `Push(projectID, remote, ref)` | `ref` 为 `main` 或 `v1.0.0` | `Result` |
-| `PushAll(projectID, ref)` | 推送到所有远程 | `Result`,每个远程的结果 |
-| `SaveConfig(projectID, config)` | `{enabled, remotes[], auto, template}` | `Result` |
-| `GetConfig(projectID)` | | `ConfigDTO`,`token` 返回掩码 |
-| `TestRemote(projectID, name)` | | `Result` |
-
-`StatusDTO`:
-
-```json
-{
-  "initialized": true,
-  "branch": "main",
-  "uncommitted": 12,
-  "untracked": 3,
-  "modified": 8,
-  "deleted": 1,
-  "last": {
-    "hash": "a3f5c2d",
-    "message": "update: 5 files",
-    "time": "2026-10-15T10:30:00Z"
-  },
-  "remotes": ["github", "gitlab"],
-  "main": "github"
-}
-```
-
-`ConfigDTO`:
-
-```json
-{
-  "enabled": true,
-  "remotes": [
-    {
-      "name": "github",
-      "url": "https://github.com/user/repo.git",
-      "username": "user",
-      "main": true
-    }
-  ],
-  "auto": false,
-  "template": "update: ${files} files"
-}
-```
-
-## 四、事件
-
-`git:commit-progress`:
-
-```json
-{
-  "project": 1,
-  "stage": "staging",
-  "message": "正在暂存..."
-}
-```
-
-`stage`:`staging` | `committing` | `done`
-
-`git:push-progress`:
-
-```json
-{
-  "project": 1,
-  "remote": "github",
-  "stage": "pushing",
-  "message": "正在推送..."
-}
-```
-
-`git:operation-completed`:
-
-```json
-{
-  "project": 1,
-  "operation": "commit",
-  "ok": true,
-  "result": "a3f5c2d",
-  "error": ""
-}
-```
-
-`operation`:`init` | `commit` | `tag` | `push`
-
-## 五、后端
-
-分层:
-
-```
-internal/
-├── domain/git/       配置模型,Token 加解密
-├── ports/git.go      GitClient 接口
-├── app/git.go        GitService,编排操作
-├── infra/git/
-│   ├── client.go    封装 git 命令
-│   └── auth.go      HTTPS 认证
-└── transport/wails/git.go  GitAPI 绑定
-```
-
-依赖:
-
-- 调用系统 `git.exe`,不用 `go-git`。
-- 检查:`git --version`,找不到返回 `GIT_NOT_INSTALLED`。
-
-`GitClient` 接口:
-
-```go
-type GitClient interface {
-    Init(dir string) error
-    Status(dir string) (*Status, error)
-    Commit(dir, message string) (string, error)
-    Tag(dir, tag, message string) error
-    Push(dir, remote, ref string, auth *Auth) error
-    LastCommit(dir string) (*Commit, error)
-}
-```
-
-Token 加密:
-
-- 复用 `sync.key`。
-- `SaveConfig` 收明文,加密存库。
-- `Push` 解密,拼 URL:`https://<username>:<token>@<host>/<path>`。
-
-命令注入防护:
-
-- 提交消息、标签名、标签消息做检查,拒绝 `&&` `||` `;` `|`。
-- 认证 URL 不写入 `.git/config`,只在命令行传递。
-
-错误码(`shared/errors`):
-
-- `GIT_NOT_INSTALLED`
-- `GIT_NOT_INITIALIZED`
-- `GIT_COMMIT_FAILED`
-- `GIT_TAG_FAILED`
-- `GIT_PUSH_FAILED`
-- `GIT_AUTH_FAILED`
-- `GIT_REMOTE_NOT_FOUND`
-
-## 六、数据库
-
-迁移,改 `000001_init.sql`:
-
-```sql
-ALTER TABLE system_project ADD COLUMN git TEXT DEFAULT '';
-```
-
-改表同步全链路(见 [数据库.md](rules/数据库.md) 第六节)。
-
-## 七、安全
-
-1. Token 加密,不在日志、事件、错误里输出。
-2. 推送时认证 URL 只在命令行传递,不写 `.git/config`。
-3. 检查 `.git` 目录权限,拒绝超出 `root` 的 `.git`。
-4. 提交消息、标签名注入检查。
-5. 推送超时 5 分钟。
-
-## 八、限制
-
-1. 只支持 HTTPS,不支持 SSH。
-2. 不支持分支操作,默认在当前分支工作。
-3. 不支持交互式操作。
-4. 推送冲突返回错误,不自动解决。
-5. 远程仓库必须已存在。
-
-## 九、测试
-
-- `domain/git`:Token 加解密、模板变量替换。
-- `infra/git`:临时目录 + 本地 Git 服务器(gitea Docker):初始化、提交、标签、HTTPS 推送、认证失败、推送冲突。
-- `app/git`:mock `GitClient`,测试编排、事件。
-- 手动:真实 GitHub/GitLab,大仓库,断网,自动提交。
-
-## 自查
-
-```bash
-go build ./... && go test ./...
-cd frontend && npx vue-tsc --noEmit
-rg 'token.*string' internal/infra/sqlite --glob '*.go' | rg -v 'encrypt'
-rg '_ = .*(Init|Commit|Push|Tag)' internal/app internal/infra/git
-rg 'exec.Command.*\+' internal/infra/git
-```
+在项目管理中统一查看本地项目是否初始化 Git、分支、最近一次提交和未提交变更，避免多个项目之间遗漏提交。
+
+## 使用方式
+
+- 项目列表显示 Git 状态：未启用、未提交变更、待推送提交、落后提交、工作区干净、Git 不可用或仓库嵌套。
+- 项目详情提供 Git 页签，显示分支、远端地址、最近提交和变更文件。
+- 区分电脑未安装 Git 与项目未启用 Git。未启用时提示是否开启，由用户点击“启用 Git”创建本地仓库；该操作只执行 `git init`，不创建远端、不自动提交。
+- 提交要求填写提交说明。提交时执行 `git add --all` 和 `git commit`，范围是当前项目仓库的全部变更。
+- 提交不自动推送远端。用户可以管理多个远端名称、拉取地址和推送地址；配置保存到项目自身的 Git 配置，不额外保存到 DevEnv 数据库。
+- Git 状态在运行时读取，不新增 SQLite 表或项目数据库字段。
+
+## 远端操作
+
+- 添加或编辑远端时支持 HTTPS、SSH、Git 协议和本地绝对路径；推送地址留空表示与拉取地址一致。
+- 新增远端只是关联地址，不会创建 GitHub、GitLab 等平台仓库。远端凭据由本机 Git 凭据管理器或 SSH 密钥提供，禁止在新地址中嵌入密码。
+- “获取远端状态”执行 fetch，不执行 pull、merge 或 rebase，不覆盖工作区。
+- “推送当前分支”需要用户确认，正常推送并建立上游关联，不强制推送、不自动上传标签。
+- “移除”只移除本地远端配置与跟踪引用，需用户确认，不删除云端仓库。
+- 待推送/落后数量基于本地已有的上游引用。打开列表不联网，获取远端状态后才反映最新远端变更；没有上游时明确显示未关联，不显示已同步。
+- 所有写操作按仓库互斥，界面显示 loading 并禁止重复点击。网络操作有超时，错误原样反馈；不触发交互式终端凭据提示。
+- 多 URL 的高级远端配置不自动覆盖，需要用户在 Git 配置中维护。
+
+## 仓库边界
+
+项目根目录必须等于 Git 仓库根目录。若项目处于父仓库子目录，状态会标记为嵌套仓库，并禁止初始化和提交，避免把项目外的文件一并纳入提交。
+
+## 自动版本递增
+
+提交表单提供“提交时自动升级版本号”选项。只有识别到受支持文件且版本符合三段数字格式时才允许勾选。支持清单：
+
+- Node.js、Electron、小程序：`package.json`。
+- PHP：`composer.json`。
+- Python：`pyproject.toml`、`setup.cfg`。
+- Rust：`Cargo.toml` 的 `[package]` 段。
+- Java：`pom.xml`、`gradle.properties`、`build.gradle`、`build.gradle.kts`。
+- 通用：项目根目录的 `VERSION` 文件。
+
+根目录存在有效 `VERSION` 时优先使用它，避免将自定义版本格式写入有严格规范的包清单。
+
+版本按用户约定递增：补丁段从 `0` 到 `99`，非零补丁段显示两位；`1.0.0 → 1.0.01 → … → 1.0.99 → 1.1.0`。次版本到 `99` 后再进位主版本。
+
+**兼容性提示：** 两位补丁段（例如 `1.0.01`）不符合严格 SemVer 的前导零规则。对要求标准 SemVer 的生态项目，建议不要启用该选项，或使用独立 `VERSION` 文件维护此自定义版本号。
+
+提交失败时会恢复自动修改的版本文件和原暂存区；如果版本文件被其他工具修改或 HEAD 已变化则保留现状并报告，避免覆盖并发修改。实际 Git 错误会显示给用户，不伪造提交成功状态。
+
+## 验证
+
+自动化测试使用临时本地仓库和临时裸仓库，覆盖未启用检测、嵌套仓库拒绝、初始化、提交、版本递增、提交失败恢复、远端增改删除、获取和首次推送。不使用用户项目或真实远端进行测试。

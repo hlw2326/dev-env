@@ -9,6 +9,8 @@ export const saveSettings = SystemAPI.SaveSettings
 // 打开系统文件夹选择对话框
 export const pickFolder = SystemAPI.PickFolder
 
+export const pickFile = SystemAPI.PickFile
+
 // 使用系统默认浏览器打开链接
 export const openURL = SystemAPI.OpenURL
 

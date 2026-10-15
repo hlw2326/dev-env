@@ -3,15 +3,31 @@
 import {wails} from '../models';
 import {context} from '../models';
 
+export function CancelDeployment(arg1:number):Promise<wails.Result>;
+
+export function CommitGit(arg1:wails.ProjectGitCommitInput):Promise<wails.Result>;
+
 export function Create(arg1:wails.ProjectCreateInput):Promise<wails.ProjectDTO>;
 
 export function Delete(arg1:number):Promise<wails.Result>;
+
+export function DeploymentConfig(arg1:number):Promise<wails.DeploymentConfigDTO>;
+
+export function DeploymentHistory(arg1:number):Promise<Array<wails.DeploymentTaskDTO>>;
+
+export function FetchGit(arg1:number,arg2:string):Promise<wails.Result>;
 
 export function FindCommands(arg1:string,arg2:string):Promise<Array<string>>;
 
 export function FindRun(arg1:string,arg2:string):Promise<string>;
 
 export function Get(arg1:number):Promise<wails.ProjectDTO>;
+
+export function GitStatus(arg1:number):Promise<wails.ProjectGitStatusDTO>;
+
+export function GitStatuses():Promise<Array<wails.ProjectGitStatusDTO>>;
+
+export function InitializeGit(arg1:number):Promise<wails.Result>;
 
 export function List():Promise<Array<wails.ProjectDTO>>;
 
@@ -21,19 +37,33 @@ export function OpenNginxConfig(arg1:number):Promise<wails.Result>;
 
 export function Plugins(arg1:number):Promise<Array<wails.ProjectPluginDTO>>;
 
+export function PreviewDeployment(arg1:number):Promise<wails.DeploymentPlanDTO>;
+
+export function PushGit(arg1:number,arg2:string):Promise<wails.Result>;
+
 export function ReadNginxConfig(arg1:number):Promise<string>;
+
+export function RemoveGitRemote(arg1:number,arg2:string):Promise<wails.Result>;
 
 export function Restart(arg1:number):Promise<wails.Result>;
 
 export function RunPlugin(arg1:wails.ProjectPluginActionInput):Promise<wails.Result>;
 
+export function SaveDeployment(arg1:wails.DeploymentConfigDTO):Promise<wails.Result>;
+
+export function SaveGitRemote(arg1:wails.ProjectGitRemoteInput):Promise<wails.Result>;
+
 export function SetContext(arg1:context.Context):Promise<void>;
 
 export function Start(arg1:number):Promise<wails.Result>;
 
+export function StartDeployment(arg1:wails.DeploymentInput):Promise<wails.Result>;
+
 export function Stop(arg1:number):Promise<wails.Result>;
 
 export function Templates():Promise<Array<wails.ProjectTemplateDTO>>;
+
+export function TestDeployment(arg1:wails.DeploymentInput):Promise<wails.Result>;
 
 export function Update(arg1:wails.ProjectUpdateInput):Promise<wails.ProjectDTO>;
 

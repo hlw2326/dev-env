@@ -50,3 +50,20 @@ export const readProjectNginxConfig = ProjectAPI.ReadNginxConfig
 
 // 保存项目生成的 Nginx 配置
 export const writeProjectNginxConfig = ProjectAPI.WriteNginxConfig
+
+// 获取全部项目 Git 状态
+export const listProjectGitStatuses = ProjectAPI.GitStatuses
+
+// 获取单个项目 Git 状态
+export const getProjectGitStatus = ProjectAPI.GitStatus
+
+// 初始化项目 Git 仓库
+export const initializeProjectGit = ProjectAPI.InitializeGit
+
+// 提交项目 Git 变更
+export const commitProjectGit = ProjectAPI.CommitGit
+
+export const saveProjectGitRemote = ProjectAPI.SaveGitRemote
+export const removeProjectGitRemote = ProjectAPI.RemoveGitRemote
+export const fetchProjectGit = ProjectAPI.FetchGit
+export const pushProjectGit = ProjectAPI.PushGit

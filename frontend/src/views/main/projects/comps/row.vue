@@ -21,6 +21,7 @@
 						<span class="dot"></span>
 						<span>{{ stateLabels[project.state] }}</span>
 					</span>
+					<CompGitStatus :status="gitStatus" @open="emit('git', project)" />
 				</div>
 				<div class="meta-line">
 					<span class="tag">{{ kindLabel }}</span>
@@ -98,18 +99,21 @@
 <script setup lang="ts">
 import { useConfirm } from 'primevue/useconfirm'
 import { computed } from 'vue'
-import type { ProjectTemplate, Project } from '@/types'
+import CompGitStatus from './git-status.vue'
+import type { ProjectGitStatus, ProjectTemplate, Project } from '@/types'
 
 const props = defineProps<{
 	project: Project
 	installingKind: string
 	templates: ProjectTemplate[]
+	gitStatus?: ProjectGitStatus
 }>()
 const emit = defineEmits<{
 	toggle: [project: Project]
 	open: [project: Project]
 	folder: [path: string]
 	detail: [project: Project]
+	git: [project: Project]
 	delete: [project: Project]
 	install: [kind: string]
 }>()
@@ -276,13 +280,10 @@ function confirmDelete(event: MouseEvent): void {
 	border: 1px solid var(--border-color);
 }
 .need-box {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.5rem;
+	display: inline-flex; align-items: center; gap: 0.5rem;
 }
 .need-text {
-	font-size: var(--font-xs);
-	color: var(--warn);
+	font-size: var(--font-xs); color: var(--warn);
 }
 .path-text {
 	font-size: var(--font-xs);
@@ -292,8 +293,7 @@ function confirmDelete(event: MouseEvent): void {
 	white-space: nowrap;
 }
 .actions {
-	display: flex;
-	align-items: center;
+	display: flex; align-items: center;
 	gap: 0.45rem;
 	flex-shrink: 0;
 }

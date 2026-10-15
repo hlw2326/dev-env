@@ -14,6 +14,8 @@ const (
 	CAPABILITY_NGINX         ProjectCapability = "nginx"
 	CAPABILITY_ACCESS_LOG    ProjectCapability = "access-log"
 	CAPABILITY_PHP_RUNTIME   ProjectCapability = "php-runtime"
+	CAPABILITY_SERVER_SYNC   ProjectCapability = "server-sync"
+	CAPABILITY_WECHAT_UPLOAD ProjectCapability = "wechat-upload"
 )
 
 // CommandMode identifies how a project chooses its development command.
@@ -50,13 +52,13 @@ func ProjectTemplates() []ProjectTemplate {
 		{
 			Kind: "php", Label: "PHP", Icon: "pi pi-code", Description: "PHP Web 项目",
 			RuntimeKind:  software.KIND_PHP,
-			Capabilities: []ProjectCapability{CAPABILITY_DOMAIN, CAPABILITY_RUN_DIRECTORY, CAPABILITY_RUNTIME, CAPABILITY_PHP_RUNTIME, CAPABILITY_NGINX, CAPABILITY_ACCESS_LOG},
+			Capabilities: []ProjectCapability{CAPABILITY_DOMAIN, CAPABILITY_RUN_DIRECTORY, CAPABILITY_RUNTIME, CAPABILITY_PHP_RUNTIME, CAPABILITY_NGINX, CAPABILITY_ACCESS_LOG, CAPABILITY_SERVER_SYNC},
 		},
 		{
 			Kind: "node", Label: "Node.js", Icon: "pi pi-bolt", Description: "Node.js Web 项目",
 			RuntimeKind: software.KIND_NODE, CommandMode: COMMAND_MODE_INPUT,
 			CommandLabel: "Node 启动命令", CommandPlaceholder: "如 npm start 或 node server.js",
-			Capabilities: []ProjectCapability{CAPABILITY_DOMAIN, CAPABILITY_RUN_DIRECTORY, CAPABILITY_RUNTIME, CAPABILITY_COMMAND, CAPABILITY_AUTOSTART, CAPABILITY_NGINX, CAPABILITY_ACCESS_LOG},
+			Capabilities: []ProjectCapability{CAPABILITY_DOMAIN, CAPABILITY_RUN_DIRECTORY, CAPABILITY_RUNTIME, CAPABILITY_COMMAND, CAPABILITY_AUTOSTART, CAPABILITY_NGINX, CAPABILITY_ACCESS_LOG, CAPABILITY_SERVER_SYNC},
 		},
 		{
 			Kind: "python", Label: "Python", Icon: "pi pi-code", Description: "Python Web 项目",
@@ -91,7 +93,7 @@ func ProjectTemplates() []ProjectTemplate {
 			Kind: "miniprogram", Label: "小程序", Icon: "pi pi-mobile", Description: "小程序本地调试项目",
 			RuntimeKind: software.KIND_NODE, CommandMode: COMMAND_MODE_PACKAGE_SCRIPT,
 			CommandLabel: "小程序启动命令", CommandPlaceholder: "选择 package.json 中的运行脚本",
-			Capabilities: []ProjectCapability{CAPABILITY_RUNTIME, CAPABILITY_COMMAND},
+			Capabilities: []ProjectCapability{CAPABILITY_RUNTIME, CAPABILITY_COMMAND, CAPABILITY_WECHAT_UPLOAD},
 		},
 	}
 }
