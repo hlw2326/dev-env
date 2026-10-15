@@ -30,8 +30,20 @@ export function OpenNginxConfig(arg1) {
   return window['go']['wails']['SiteAPI']['OpenNginxConfig'](arg1);
 }
 
+export function Plugins(arg1) {
+  return window['go']['wails']['SiteAPI']['Plugins'](arg1);
+}
+
+export function ReadNginxConfig(arg1) {
+  return window['go']['wails']['SiteAPI']['ReadNginxConfig'](arg1);
+}
+
 export function Restart(arg1) {
   return window['go']['wails']['SiteAPI']['Restart'](arg1);
+}
+
+export function RunPlugin(arg1) {
+  return window['go']['wails']['SiteAPI']['RunPlugin'](arg1);
 }
 
 export function SetContext(arg1) {
@@ -48,4 +60,8 @@ export function Stop(arg1) {
 
 export function Update(arg1) {
   return window['go']['wails']['SiteAPI']['Update'](arg1);
+}
+
+export function WriteNginxConfig(arg1, arg2) {
+  return window['go']['wails']['SiteAPI']['WriteNginxConfig'](arg1, arg2);
 }

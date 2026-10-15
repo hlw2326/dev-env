@@ -51,6 +51,9 @@ const props = defineProps<{
 
 // 域名拼接文本
 const hostText = computed(() => {
+	if (props.site.hosts.length === 0) {
+		return '本地调试'
+	}
 	return props.site.hosts.join(', ')
 })
 </script>

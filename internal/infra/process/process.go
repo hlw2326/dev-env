@@ -253,6 +253,12 @@ func MatchesImageName(pid int, names ...string) bool {
 	return false
 }
 
+// IsRunning reports whether a Windows process ID still exists.
+// It is used for detached services whose process is not tracked by Manager.
+func IsRunning(pid int) bool {
+	return ImageName(pid) != ""
+}
+
 // StopPID terminates an externally started Windows process tree.
 func StopPID(pid int) error {
 	if pid <= 0 {

@@ -29,14 +29,14 @@ const { sites, readySoftware, daemonList, runningSites, runningDaemons } = useDa
 // 统计卡片配置列表
 const statCards = computed(() => [
 	{
-		label: '网站总数',
+		label: '项目总数',
 		value: `${sites.value.length}`,
 		icon: 'pi pi-globe',
 		tone: 'info',
 		route: '/sites',
 	},
 	{
-		label: '运行中网站',
+		label: '运行中项目',
 		value: `${runningSites.value} / ${sites.value.length}`,
 		icon: 'pi pi-check-circle',
 		tone: 'warn',

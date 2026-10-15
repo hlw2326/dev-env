@@ -16,6 +16,7 @@
 					variant="outlined"
 					icon="pi pi-stop"
 					label="停止"
+					:loading="busy"
 					@click="emit('stop', item)"
 				/>
 				<p-button
@@ -23,6 +24,7 @@
 					size="small"
 					icon="pi pi-play"
 					label="启动"
+					:loading="busy"
 					@click="emit('start', item)"
 				/>
 			</div>
@@ -88,6 +90,7 @@ import type { Software } from '@/types'
 // 接收软件条目属性
 const props = defineProps<{
 	item: Software
+	busy: boolean
 }>()
 
 // 定义概览面板事件

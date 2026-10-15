@@ -188,17 +188,17 @@ func (a *SoftwareAPI) SetMain(id int64) Result {
 }
 
 func (a *SoftwareAPI) Start(id int64) Result {
-	if err := a.service.Start(a.ctx, id); err != nil {
+	if err := a.service.StartAsync(a.ctx, id); err != nil {
 		return Result{OK: false, Message: err.Error()}
 	}
-	return Result{OK: true, Message: "服务已启动"}
+	return Result{OK: true, Message: "服务启动中"}
 }
 
 func (a *SoftwareAPI) Stop(id int64) Result {
-	if err := a.service.Stop(a.ctx, id); err != nil {
+	if err := a.service.StopAsync(a.ctx, id); err != nil {
 		return Result{OK: false, Message: err.Error()}
 	}
-	return Result{OK: true, Message: "服务已停止"}
+	return Result{OK: true, Message: "服务停止中"}
 }
 
 func (a *SoftwareAPI) SetAutostart(id int64, on bool) Result {

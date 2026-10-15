@@ -10,6 +10,7 @@
 				<div class="top-line">
 					<span class="name">{{ site.name }}</span>
 					<button
+						v-if="site.hosts.length > 0"
 						type="button"
 						class="domain-link font-mono"
 						@click="emit('open', site)"
@@ -17,6 +18,7 @@
 						<span>{{ site.hosts[0] }}</span>
 						<i class="pi pi-external-link link-icon"></i>
 					</button>
+					<span v-else class="project-mode">本地调试</span>
 					<span class="status-pill" :class="site.state">
 						<span class="dot"></span>
 						<span>{{ stateLabels[site.state] }}</span>
@@ -28,6 +30,7 @@
 					<div v-if="site.need !== ''" class="need-box">
 						<span class="need-text">未安装 {{ needLabels[site.need] }} 环境</span>
 						<p-button
+							v-if="site.need !== 'rust'"
 							size="small"
 							:label="`一键安装 ${needLabels[site.need]}`"
 							icon="pi pi-download"
@@ -60,6 +63,7 @@
 				@click="emit('toggle', site)"
 			/>
 			<p-button
+				v-if="site.kind !== 'electron'"
 				size="small"
 				severity="secondary"
 				variant="outlined"
@@ -122,14 +126,24 @@ const confirm = useConfirm()
 const kindLabels: Record<string, string> = {
 	php: 'PHP',
 	node: 'Node.js',
+	python: 'Python',
+	go: 'Go',
+	rust: 'Rust',
+	java: 'Java',
 	static: '静态',
+	electron: 'Electron',
 }
 
 // 站点类型图标映射
 const kindIcons: Record<string, string> = {
 	php: 'pi pi-code',
 	node: 'pi pi-bolt',
+	python: 'pi pi-code',
+	go: 'pi pi-code',
+	rust: 'pi pi-code',
+	java: 'pi pi-code',
 	static: 'pi pi-file',
+	electron: 'pi pi-desktop',
 }
 
 // 站点状态名称映射
@@ -143,13 +157,17 @@ const stateLabels: Record<string, string> = {
 const needLabels: Record<string, string> = {
 	php: 'PHP',
 	nodejs: 'Node.js',
+	python: 'Python',
+	go: 'Go',
+	java: 'Java',
+	rust: 'Rust/cargo',
 }
 
 // 弹出删除站点确认框
 function confirmDelete(event: MouseEvent): void {
 	confirm.require({
 		target: event.currentTarget as HTMLElement,
-		message: '只删除站点记录，不会删除项目目录',
+		message: '只删除项目记录，不会删除项目目录',
 		icon: 'pi pi-exclamation-triangle',
 		acceptLabel: '删除',
 		rejectLabel: '取消',
@@ -246,6 +264,17 @@ function confirmDelete(event: MouseEvent): void {
 	.link-icon {
 		font-size: var(--icon-xs);
 	}
+}
+
+/* 不经过网关的本地项目标识 */
+.project-mode {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.15rem 0.5rem;
+	border-radius: var(--h-radius);
+	background: var(--bg-app);
+	color: var(--text-secondary);
+	font-size: var(--font-xs);
 }
 /* 底部元数据行 */
 .meta-line {

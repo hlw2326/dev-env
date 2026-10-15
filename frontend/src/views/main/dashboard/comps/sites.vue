@@ -1,10 +1,10 @@
 <template>
-	<!-- 最近网站卡片 -->
-	<h-card title="最近网站">
+	<!-- 最近项目卡片 -->
+	<h-card title="最近项目">
 		<!-- 卡片右上角跳转按钮 -->
 		<template #extra>
 			<p-button
-				label="进入网站管理"
+				label="进入项目管理"
 				icon="pi pi-arrow-right"
 				icon-pos="right"
 				size="small"
@@ -16,7 +16,7 @@
 		<h-empty
 			v-if="sites.length === 0"
 			icon="pi pi-globe"
-			description="尚未创建任何网站"
+			description="尚未创建任何项目"
 		/>
 
 		<!-- 最近网站列表 -->

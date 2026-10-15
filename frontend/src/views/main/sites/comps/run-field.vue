@@ -103,6 +103,13 @@ watch(
 	flex: 1;
 }
 
+/* 运行目录选择器沿用表单字号，避免 PrimeVue 默认字号偏大 */
+.row-line :deep(.p-select),
+.row-line :deep(.p-select-label),
+.row-line :deep(.p-inputtext) {
+	font-size: var(--font-sm) !important;
+}
+
 /* 路径预览说明 */
 .hint-text {
 	font-size: var(--font-xs);

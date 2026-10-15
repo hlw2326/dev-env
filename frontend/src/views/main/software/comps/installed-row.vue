@@ -9,6 +9,11 @@
 					<span class="item-name">{{ item.name }} {{ item.version }}</span>
 					<span v-if="item.main" class="main-tag">默认</span>
 
+					<span v-if="item.state === 'installed' && !item.service" class="status-pill ok installed-state">
+						<span class="dot"></span>
+						<span>已安装</span>
+					</span>
+
 					<span v-if="item.state === 'installing'" class="status-pill installing">
 						<i class="pi pi-spin pi-spinner status-icon"></i>
 						<span>安装中 {{ activeProgress.progress }}%</span>
@@ -25,7 +30,7 @@
 						<span class="dot"></span>
 						<span>已停止</span>
 					</span>
-					<span v-else class="status-pill ok">
+					<span v-else-if="item.state !== 'installed'" class="status-pill ok">
 						<span class="dot"></span>
 						<span>可用</span>
 					</span>
@@ -84,6 +89,7 @@
 					variant="outlined"
 					icon="pi pi-stop"
 					label="停止"
+					:loading="busy"
 					@click="emit('stop', item)"
 				/>
 				<p-button
@@ -91,6 +97,7 @@
 					size="small"
 					icon="pi pi-play"
 					label="启动"
+					:loading="busy"
 					@click="emit('start', item)"
 				/>
 				<p-button
@@ -131,6 +138,7 @@ import type { Software } from '@/types'
 const props = defineProps<{
 	item: Software
 	progressMap: Record<string, { progress: number; message: string }>
+	busy: boolean
 }>()
 
 // 定义版本行操作事件

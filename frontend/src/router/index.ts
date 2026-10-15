@@ -15,9 +15,9 @@ const routes: RouteRecordRaw[] = [
 			},
 			{
 				path: 'sites',
-				name: '网站管理',
+				name: '项目管理',
 				component: () => import('@/views/main/sites/index.vue'),
-				meta: { title: '网站管理' },
+				meta: { title: '项目管理' },
 			},
 			{
 				path: 'services',

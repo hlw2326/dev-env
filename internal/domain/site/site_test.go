@@ -38,8 +38,30 @@ func TestFindRun(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(nodeFolder, "package.json"), []byte(`{"scripts":{"start":"node app.js"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if got := FindCommand(nodeFolder); got != "npm start" {
+	if got := FindCommand(nodeFolder, KIND_NODE); got != "npm start" {
 		t.Fatalf("expected npm start, got %q", got)
+	}
+
+	pythonFolder := filepath.Join(folder, "pythonapp")
+	if err := os.MkdirAll(pythonFolder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pythonFolder, "app.py"), []byte("print('ok')"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := FindCommand(pythonFolder, KIND_PYTHON); got != "python app.py" {
+		t.Fatalf("expected python app.py, got %q", got)
+	}
+
+	rustFolder := filepath.Join(folder, "rustapp")
+	if err := os.MkdirAll(rustFolder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rustFolder, "Cargo.toml"), []byte("[package]"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := FindCommand(rustFolder, KIND_RUST); got != "cargo run" {
+		t.Fatalf("expected cargo run, got %q", got)
 	}
 
 	if _, err := NormalizeRun(phpFolder, "../etc"); err == nil {

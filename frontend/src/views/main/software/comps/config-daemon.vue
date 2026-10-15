@@ -19,6 +19,7 @@
 		<comp-config-overview
 			v-if="activeTab === 'overview'"
 			:item="item"
+			:busy="busy"
 			@start="emit('start', $event)"
 			@stop="emit('stop', $event)"
 			@main="emit('main', $event)"
@@ -57,6 +58,7 @@ import type { Software } from '@/types'
 // 接收守护进程软件属性
 const props = defineProps<{
 	item: Software
+	busy: boolean
 }>()
 
 // 定义操作事件

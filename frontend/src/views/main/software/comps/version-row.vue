@@ -10,11 +10,12 @@
 			</div>
 
 			<div class="version-actions">
-				<span v-if="row.installed" class="installed-label">
+				<span v-if="installed" class="installed-label">
 					<i class="pi pi-check-circle"></i> 已安装
 				</span>
 				<p-button
 					v-else-if="task !== null"
+					class="install-cancel-button"
 					size="small"
 					severity="danger"
 					variant="outlined"
@@ -57,6 +58,7 @@ import type { SoftwareVersion } from '@/types'
 // 接收版本与进度属性
 defineProps<{
 	row: SoftwareVersion
+	installed: boolean
 	task: { progress: number; message: string } | null
 	busy: boolean
 }>()
@@ -130,6 +132,14 @@ const emit = defineEmits<{
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
+}
+
+/* 安装中的取消按钮保持紧凑，避免挤占版本信息空间 */
+.install-cancel-button {
+	min-width: 4rem;
+	height: 2rem;
+	padding: 0.3rem 0.5rem;
+	font-size: var(--font-xs);
 }
 
 /* 已安装状态文字 */

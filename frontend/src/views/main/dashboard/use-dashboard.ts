@@ -21,6 +21,9 @@ const loading = ref(false)
 // 正在操作的服务标识
 const busyId = ref(0)
 
+const SERVICE_REFRESH_TIMEOUT = 10_000
+const SERVICE_REFRESH_INTERVAL = 250
+
 // 概览页数据与操作组合式函数
 export function useDashboard() {
 	// 运行中站点数量
@@ -44,8 +47,10 @@ export function useDashboard() {
 	})
 
 	// 加载概览页全部数据
-	async function loadData(): Promise<void> {
-		loading.value = true
+	async function loadData(silent = false): Promise<void> {
+		if (!silent) {
+			loading.value = true
+		}
 		try {
 			const [siteList, softwareList, settings] = await Promise.all([
 				listSites(),
@@ -57,10 +62,29 @@ export function useDashboard() {
 			listening.value = settings.listening
 			nginxPort.value = settings.port
 		} catch (err: unknown) {
-			toast.error(formatError(err))
+			if (!silent) {
+				toast.error(formatError(err))
+			}
 		} finally {
-			loading.value = false
+			if (!silent) {
+				loading.value = false
+			}
 		}
+	}
+
+	async function waitForServiceState(id: number, running: boolean): Promise<void> {
+		const deadline = Date.now() + SERVICE_REFRESH_TIMEOUT
+		do {
+			await loadData(true)
+			const current = installed.value.find((item) => item.id === id)
+			if (current && current.running === running) {
+				return
+			}
+			if (Date.now() >= deadline) {
+				return
+			}
+			await new Promise<void>((resolve) => setTimeout(resolve, SERVICE_REFRESH_INTERVAL))
+		} while (Date.now() < deadline)
 	}
 
 	// 启动指定守护进程服务
@@ -73,7 +97,7 @@ export function useDashboard() {
 				return
 			}
 			toast.success('服务已启动')
-			await loadData()
+			await waitForServiceState(id, true)
 		} catch (err: unknown) {
 			toast.error(formatError(err))
 		} finally {
@@ -91,7 +115,7 @@ export function useDashboard() {
 				return
 			}
 			toast.info('服务已停止')
-			await loadData()
+			await waitForServiceState(id, false)
 		} catch (err: unknown) {
 			toast.error(formatError(err))
 		} finally {

@@ -30,5 +30,17 @@ export const deleteSite = SiteAPI.Delete
 // 读取站点日志
 export const readLogs = SiteAPI.Logs
 
+// 获取项目可用插件
+export const listProjectPlugins = SiteAPI.Plugins
+
+// 执行项目插件操作
+export const runProjectPlugin = SiteAPI.RunPlugin
+
 // 打开网站生成的 Nginx 配置文件
 export const openSiteNginxConfig = SiteAPI.OpenNginxConfig
+
+// 读取项目生成的完整 Nginx 配置
+export const readSiteNginxConfig = SiteAPI.ReadNginxConfig
+
+// 保存项目生成的 Nginx 配置
+export const writeSiteNginxConfig = SiteAPI.WriteNginxConfig

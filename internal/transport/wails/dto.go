@@ -52,6 +52,27 @@ type UpdateInput struct {
 	Autostart bool     `json:"autostart"`
 }
 
+type PluginActionInput struct {
+	ProjectID int64  `json:"projectId"`
+	PluginID  string `json:"pluginId"`
+	ActionID  string `json:"actionId"`
+}
+
+type PluginActionDTO struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type ProjectPluginDTO struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Available   bool              `json:"available"`
+	Reason      string            `json:"reason"`
+	Version     string            `json:"version"`
+	Actions     []PluginActionDTO `json:"actions"`
+}
+
 type ItemDTO struct {
 	Kind        string `json:"kind"`
 	Name        string `json:"name"`

@@ -10,7 +10,7 @@
 				severity="secondary"
 				variant="outlined"
 				:loading="loading"
-				@click="loadData"
+				@click="loadData()"
 			/>
 		</template>
 
@@ -37,10 +37,32 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
+import { listenEvent } from '@/api'
 import { useDashboard } from '../use-dashboard'
+import type { ServiceEvent } from '@/types'
 
 // 概览软件数据与刷新方法
 const { readySoftware, loading, busyId, loadData, startService, stopService } = useDashboard()
+
+let stopEvents: (() => void) | null = null
+
+onMounted(() => {
+	stopEvents = listenEvent('service:status-changed', (payload: ServiceEvent) => {
+		// Start/Stop are asynchronous. Refresh after the backend has finished so
+		// the dashboard reflects the actual process state instead of the request state.
+		if (payload.id > 0) {
+			void loadData(true)
+		}
+	})
+})
+
+onUnmounted(() => {
+	if (stopEvents !== null) {
+		stopEvents()
+		stopEvents = null
+	}
+})
 </script>
 
 <style scoped lang="scss">

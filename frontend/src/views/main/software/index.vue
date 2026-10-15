@@ -46,6 +46,7 @@
 		<comp-config-drawer
 			v-model:visible="configVisible"
 			:item="activeSoftware"
+			:busy="activeSoftware !== null && isServiceBusy(activeSoftware.id)"
 			@start="startItem"
 			@stop="stopItem"
 			@main="markMain"
@@ -86,6 +87,7 @@ const {
 	markMain,
 	startItem,
 	stopItem,
+	isServiceBusy,
 	toggleAutostart,
 	browseDir,
 	showConfig,

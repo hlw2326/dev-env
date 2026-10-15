@@ -19,6 +19,7 @@
 		<comp-config-overview
 			v-if="activeTab === 'overview'"
 			:item="item"
+			:busy="false"
 			@main="emit('main', $event)"
 			@folder="emit('folder', $event)"
 		/>

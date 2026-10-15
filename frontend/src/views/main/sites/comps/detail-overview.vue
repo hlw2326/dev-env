@@ -3,7 +3,7 @@
 	<div class="detail-overview">
 		<!-- 站点根目录设置 -->
 		<div class="form-field">
-			<label>站点根目录</label>
+			<label>项目目录</label>
 			<div class="row-line">
 				<p-input-text v-model="root" class="font-mono flex-input" />
 				<p-button
@@ -17,10 +17,10 @@
 		</div>
 
 		<!-- 运行目录设置 -->
-		<comp-run-field v-model="run" :root="root" @change="saveForm" />
+		<comp-run-field v-if="site.kind !== 'electron'" v-model="run" :root="root" @change="saveForm" />
 
 		<!-- 运行环境版本选择 -->
-		<div v-if="site.kind !== 'static'" class="form-field">
+		<div v-if="versionKinds.includes(site.kind)" class="form-field">
 			<label>运行环境版本</label>
 			<p-select
 				v-model="softwareId"
@@ -32,18 +32,18 @@
 			/>
 		</div>
 
-		<!-- Node 启动命令配置 -->
-		<div v-if="site.kind === 'node'" class="form-field">
-			<label>Node 启动命令（支持 %PORT% 占位符，站点分配端口：{{ site.port }}）</label>
+		<!-- 进程项目启动命令配置 -->
+		<div v-if="commandKinds.includes(site.kind)" class="form-field">
+			<label>{{ commandLabel }}</label>
 			<p-input-text
 				v-model="command"
-				placeholder="如 npm start 或 node server.js"
+				:placeholder="commandPlaceholder"
 				class="font-mono"
 			/>
 		</div>
 
-		<!-- 随应用启动开关 -->
-		<div class="switch-row">
+		<!-- Web 项目随应用启动开关，Electron 由用户手动启动 -->
+		<div v-if="site.kind !== 'electron'" class="switch-row">
 			<div class="switch-info">
 				<span class="section-title">随应用启动</span>
 				<span class="sub-hint">打开 DevEnv 时自动启动该站点</span>
@@ -83,12 +83,54 @@ const command = ref('')
 // 随应用自动启动开关
 const autostart = ref(true)
 
+const versionKinds = ['php', 'node', 'python', 'go', 'java', 'electron']
+const commandKinds = ['node', 'python', 'go', 'rust', 'java', 'electron']
+
+const commandLabel = computed(() => {
+	if (props.site.kind === 'electron') {
+		return 'Electron 启动命令'
+	}
+	if (props.site.kind === 'python') {
+		return `Python 启动命令（支持 %PORT% 占位符，项目分配端口：${props.site.port}）`
+	}
+	if (props.site.kind === 'go') {
+		return `Go 启动命令（支持 %PORT% 占位符，项目分配端口：${props.site.port}）`
+	}
+	if (props.site.kind === 'rust') {
+		return `Rust 启动命令（支持 %PORT% 占位符，项目分配端口：${props.site.port}）`
+	}
+	if (props.site.kind === 'java') {
+		return `Java 启动命令（支持 %PORT% 占位符，项目分配端口：${props.site.port}）`
+	}
+	return `Node 启动命令（支持 %PORT% 占位符，项目分配端口：${props.site.port}）`
+})
+
+const commandPlaceholder = computed(() => {
+	if (props.site.kind === 'electron') {
+		return 'pnpm dev'
+	}
+	if (props.site.kind === 'python') {
+		return '如 python app.py'
+	}
+	if (props.site.kind === 'go') {
+		return '如 go run .'
+	}
+	if (props.site.kind === 'rust') {
+		return '如 cargo run'
+	}
+	if (props.site.kind === 'java') {
+		return '如 java Main.java 或 mvn spring-boot:run'
+	}
+	return '如 npm start 或 node server.js'
+})
+
 // 可选运行环境版本下拉项
 const versionOptions = computed(() => {
 	let targetKind = 'php'
-	if (props.site.kind === 'node') {
-		targetKind = 'nodejs'
-	}
+	if (props.site.kind === 'node' || props.site.kind === 'electron') targetKind = 'nodejs'
+	if (props.site.kind === 'python') targetKind = 'python'
+	if (props.site.kind === 'go') targetKind = 'go'
+	if (props.site.kind === 'java') targetKind = 'java'
 	return props.softwareList
 		.filter((item) => item.kind === targetKind && item.state === 'installed')
 		.map((item) => ({

@@ -17,7 +17,13 @@ export function Logs(arg1:number,arg2:string,arg3:number):Promise<Array<string>>
 
 export function OpenNginxConfig(arg1:number):Promise<wails.Result>;
 
+export function Plugins(arg1:number):Promise<Array<wails.ProjectPluginDTO>>;
+
+export function ReadNginxConfig(arg1:number):Promise<string>;
+
 export function Restart(arg1:number):Promise<wails.Result>;
+
+export function RunPlugin(arg1:wails.PluginActionInput):Promise<wails.Result>;
 
 export function SetContext(arg1:context.Context):Promise<void>;
 
@@ -26,3 +32,5 @@ export function Start(arg1:number):Promise<wails.Result>;
 export function Stop(arg1:number):Promise<wails.Result>;
 
 export function Update(arg1:wails.UpdateInput):Promise<wails.SiteDTO>;
+
+export function WriteNginxConfig(arg1:number,arg2:string):Promise<wails.Result>;

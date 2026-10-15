@@ -75,6 +75,12 @@ const configVisible = ref(false)
 // 当前正在配置的已安装软件
 const activeSoftware = ref<Software | null>(null)
 
+// 服务启停中的按钮状态
+const serviceBusy = reactive<Record<number, boolean>>({})
+
+// 服务当前操作方向
+const serviceOperation = reactive<Record<number, string>>({})
+
 // 软件商店与已安装管理组合式函数
 export function useSoftware() {
 	// 筛选后的软件商店列表
@@ -141,6 +147,15 @@ export function useSoftware() {
 			const [market, installed] = await Promise.all([loadMarket(), listSoftware()])
 			marketItems.value = market
 			installedList.value = installed
+			for (const item of installed) {
+				const operation = serviceOperation[item.id]
+				if (operation === 'start' && item.running) {
+					clearServiceBusy(item.id)
+				}
+				if (operation === 'stop' && !item.running) {
+					clearServiceBusy(item.id)
+				}
+			}
 			if (activeSoftware.value !== null) {
 				const activeId = activeSoftware.value.id
 				const found = installed.find((item) => item.id === activeId)
@@ -243,32 +258,55 @@ export function useSoftware() {
 
 	// 启动守护进程服务
 	async function startItem(item: Software): Promise<void> {
+		setServiceBusy(item.id, 'start')
 		try {
 			const result = await startSoftware(item.id)
 			if (!result.ok) {
+				clearServiceBusy(item.id)
 				toast.error('启动失败', result.message, 4000)
 				return
 			}
-			toast.success('服务已启动', `${item.kind} ${item.version}`)
+			toast.info('服务启动中', `${item.kind} ${item.version}`)
 			await refreshAll()
 		} catch (err: unknown) {
+			clearServiceBusy(item.id)
 			toast.error('启动失败', formatError(err))
 		}
 	}
 
 	// 停止守护进程服务
 	async function stopItem(item: Software): Promise<void> {
+		setServiceBusy(item.id, 'stop')
 		try {
 			const result = await stopSoftware(item.id)
 			if (!result.ok) {
+				clearServiceBusy(item.id)
 				toast.error('停止失败', result.message, 3500)
 				return
 			}
-			toast.info('服务已停止', `${item.kind} ${item.version}`)
+			toast.info('服务停止中', `${item.kind} ${item.version}`)
 			await refreshAll()
 		} catch (err: unknown) {
+			clearServiceBusy(item.id)
 			toast.error('停止失败', formatError(err))
 		}
+	}
+
+	// 设置服务操作中的状态
+	function setServiceBusy(id: number, operation: string): void {
+		serviceBusy[id] = true
+		serviceOperation[id] = operation
+	}
+
+	// 清理服务操作中的状态
+	function clearServiceBusy(id: number): void {
+		delete serviceBusy[id]
+		delete serviceOperation[id]
+	}
+
+	// 查询指定服务是否正在操作
+	function isServiceBusy(id: number): boolean {
+		return serviceBusy[id] === true
 	}
 
 	// 切换守护进程随应用启动开关
@@ -342,6 +380,9 @@ export function useSoftware() {
 		)
 		stops.push(
 			listenEvent('service:status-changed', (payload: ServiceEvent) => {
+				if (payload.id > 0) {
+					clearServiceBusy(payload.id)
+				}
 				if (payload.message !== '') {
 					toast.warn('服务状态变更', payload.message, 4000)
 				}
@@ -383,6 +424,7 @@ export function useSoftware() {
 		markMain,
 		startItem,
 		stopItem,
+		isServiceBusy,
 		toggleAutostart,
 		browseDir,
 		openConfig,

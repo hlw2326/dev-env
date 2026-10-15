@@ -20,6 +20,7 @@ import (
 	"devenv/internal/infra/autostart"
 	"devenv/internal/infra/installer"
 	"devenv/internal/infra/process"
+	"devenv/internal/infra/windowsservice"
 	"devenv/internal/ports"
 	appErrors "devenv/internal/shared/errors"
 	"devenv/internal/shared/paths"
@@ -57,6 +58,7 @@ type SoftwareService struct {
 
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
+	busy    map[int64]bool
 }
 
 func NewSoftwareService(
@@ -85,6 +87,7 @@ func NewSoftwareService(
 		bus:       bus,
 		installed: installed,
 		cancels:   make(map[string]context.CancelFunc),
+		busy:      make(map[int64]bool),
 	}
 }
 
@@ -128,7 +131,7 @@ func (s *SoftwareService) StartAuto(ctx context.Context) {
 			continue
 		}
 		if item.Autostart {
-			if registryErr := s.ensureSystemAutostart(ctx, item); registryErr != nil {
+			if serviceErr := s.ensureSystemAutostart(ctx, item); serviceErr != nil {
 				continue
 			}
 		} else {
@@ -731,8 +734,16 @@ func (s *SoftwareService) Remove(ctx context.Context, id int64) error {
 		}
 		return appErrors.New(
 			appErrors.RUNTIME_IN_USE,
-			fmt.Sprintf("该版本正被以下网站使用，请先修改网站版本后再卸载: %s", strings.Join(names, "、")),
+			fmt.Sprintf("该版本正被以下项目使用，请先修改项目版本后再卸载: %s", strings.Join(names, "、")),
 		)
+	}
+	if software.IsDaemon(item.Kind) {
+		if err := s.unregisterManagedService(*item); err != nil {
+			return err
+		}
+		if item.Kind == software.KIND_POSTGRESQL {
+			_ = s.unregisterPostgresService(*item)
+		}
 	}
 
 	if item.Path != "" {
@@ -783,26 +794,37 @@ func (s *SoftwareService) SetMain(ctx context.Context, id int64) error {
 	return s.repo.SetMain(ctx, item.Kind, item.ID)
 }
 
-func (s *SoftwareService) Start(ctx context.Context, id int64) error {
-	item, err := s.repo.Get(ctx, id)
-	if err != nil {
+func (s *SoftwareService) StartAsync(ctx context.Context, id int64) error {
+	if _, err := s.serviceItem(ctx, id); err != nil {
 		return err
 	}
-	if item == nil {
-		return appErrors.New(appErrors.NOT_FOUND, "软件版本不存在")
+	if !s.beginServiceOperation(id) {
+		return nil
 	}
-	if !software.IsService(item.Kind) {
-		return appErrors.New(appErrors.INVALID_ARGUMENT, "该软件不是可管理的服务")
-	}
-	if item.State != software.STATE_INSTALLED {
-		return appErrors.New(appErrors.INVALID_ARGUMENT, "软件尚未安装完成")
+	go func() {
+		defer s.endServiceOperation(id)
+		if err := s.Start(context.Background(), id); err != nil {
+			s.emitServiceStatus(id, false, 0, err.Error())
+		}
+	}()
+	return nil
+}
+
+func (s *SoftwareService) Start(ctx context.Context, id int64) error {
+	item, err := s.serviceItem(ctx, id)
+	if err != nil {
+		return err
 	}
 	if item.Kind == software.KIND_NGINX {
 		return s.startNginx(ctx, *item)
 	}
+	if software.IsDaemon(item.Kind) {
+		return s.startManagedService(ctx, *item)
+	}
 
 	key := daemonKey(item.ID)
 	if status := s.runner.Status(key); status.Running {
+		s.emitServiceStatus(item.ID, true, status.PID, "")
 		return nil
 	}
 	if status := s.externalStatus(*item); status.Running {
@@ -824,28 +846,15 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 		return err
 	}
 
-	softwareID := item.ID
 	if item.Autostart {
 		if err := s.ensureSystemAutostart(ctx, *item); err != nil {
 			return err
 		}
-	} else {
-		options.OnExit = func(_ string, message string) {
-			s.bus.Emit("service:status-changed", map[string]interface{}{
-				"id":      softwareID,
-				"running": false,
-				"pid":     0,
-				"message": message,
-			})
-		}
 	}
 
-	var pid int
-	if item.Autostart {
-		pid, err = s.startDetached(ctx, *item)
-	} else {
-		pid, err = s.runner.Start(key, options)
-	}
+	// 后台服务必须脱离 DevEnv 进程运行，避免 Windows 作业对象在
+	// DevEnv 退出时结束 MySQL、Redis 等服务。
+	pid, err := s.startDetached(ctx, *item)
 	if err != nil {
 		return err
 	}
@@ -861,22 +870,19 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 			})
 			return nil
 		}
-		status := s.runner.Status(key)
-		if item.Autostart {
-			status = s.externalStatus(*item)
-		}
-		if !status.Running {
+		// Database servers need a short warm-up after process creation. Do not
+		// treat a temporarily closed port as an exited process, otherwise the
+		// initialization phase is killed before the server can listen.
+		if !process.IsRunning(pid) {
 			break
 		}
 		time.Sleep(POLL_INTERVAL)
 	}
 
-	if item.Autostart {
+	if process.IsRunning(pid) {
 		if stopErr := process.StopPID(pid); stopErr != nil {
 			return stopErr
 		}
-	} else if stopErr := s.runner.Stop(key); stopErr != nil {
-		return appErrors.Wrap(stopErr, appErrors.PROCESS_START_FAILED, "停止超时服务失败")
 	}
 	tail := process.ReadTail(options.Log, LOG_TAIL_LIMIT)
 	detail := strings.Join(tail, "\n")
@@ -884,30 +890,28 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 }
 
 func (s *SoftwareService) Stop(ctx context.Context, id int64) error {
-	item, err := s.repo.Get(ctx, id)
+	item, err := s.serviceItem(ctx, id)
 	if err != nil {
 		return err
-	}
-	if item == nil {
-		return appErrors.New(appErrors.NOT_FOUND, "软件版本不存在")
 	}
 	if item.Kind == software.KIND_NGINX {
 		return s.stopNginx(*item)
 	}
+	if software.IsDaemon(item.Kind) {
+		return s.stopManagedService(*item)
+	}
 	key := daemonKey(item.ID)
-	if !s.runner.Status(key).Running {
-		if status := s.externalStatus(*item); status.Running {
-			if err := process.StopPID(status.PID); err != nil {
-				return err
-			}
-			s.bus.Emit("service:status-changed", map[string]interface{}{
-				"id":      item.ID,
-				"running": false,
-				"pid":     0,
-				"message": "",
-			})
-			return nil
+	if status := s.externalStatus(*item); status.Running {
+		if err := process.StopPID(status.PID); err != nil {
+			return err
 		}
+		s.bus.Emit("service:status-changed", map[string]interface{}{
+			"id":      item.ID,
+			"running": false,
+			"pid":     0,
+			"message": "",
+		})
+		return nil
 	}
 	if err := s.runner.Stop(key); err != nil {
 		return err
@@ -919,6 +923,64 @@ func (s *SoftwareService) Stop(ctx context.Context, id int64) error {
 		"message": "",
 	})
 	return nil
+}
+
+func (s *SoftwareService) StopAsync(ctx context.Context, id int64) error {
+	if _, err := s.serviceItem(ctx, id); err != nil {
+		return err
+	}
+	if !s.beginServiceOperation(id) {
+		return nil
+	}
+	go func() {
+		defer s.endServiceOperation(id)
+		if err := s.Stop(context.Background(), id); err != nil {
+			s.emitServiceStatus(id, false, 0, err.Error())
+		}
+	}()
+	return nil
+}
+
+func (s *SoftwareService) serviceItem(ctx context.Context, id int64) (*software.Software, error) {
+	item, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if item == nil {
+		return nil, appErrors.New(appErrors.NOT_FOUND, "软件版本不存在")
+	}
+	if !software.IsService(item.Kind) {
+		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "该软件不是可管理的服务")
+	}
+	if item.State != software.STATE_INSTALLED {
+		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "软件尚未安装完成")
+	}
+	return item, nil
+}
+
+func (s *SoftwareService) beginServiceOperation(id int64) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.busy[id] {
+		return false
+	}
+	s.busy[id] = true
+	return true
+}
+
+func (s *SoftwareService) endServiceOperation(id int64) {
+	s.mu.Lock()
+	delete(s.busy, id)
+	s.mu.Unlock()
+}
+
+func (s *SoftwareService) emitServiceStatus(id int64, running bool, pid int, message string) {
+	s.bus.Emit("service:status-changed", map[string]interface{}{
+		"id":      id,
+		"running": running,
+		"pid":     pid,
+		"message": message,
+	})
 }
 
 func (s *SoftwareService) buildOptions(ctx context.Context, item software.Software) (ports.Options, error) {
@@ -1011,6 +1073,25 @@ func (s *SoftwareService) SetAutostart(ctx context.Context, id int64, on bool) e
 	}
 	if item.State != software.STATE_INSTALLED {
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "软件尚未安装完成")
+	}
+
+	if software.IsDaemon(item.Kind) {
+		options, optionsErr := s.buildOptions(ctx, *item)
+		if optionsErr != nil {
+			return optionsErr
+		}
+		if err := s.configureManagedService(ctx, *item, options, on); err != nil {
+			return err
+		}
+		_ = autostart.Remove(systemAutostartName(*item))
+		item.Autostart = on
+		if err := s.repo.Update(ctx, item); err != nil {
+			return err
+		}
+		if on && !s.externalStatus(*item).Running && !s.runner.Status(daemonKey(item.ID)).Running {
+			return s.startManagedService(ctx, *item)
+		}
+		return nil
 	}
 
 	if on {
@@ -1269,19 +1350,9 @@ func (s *SoftwareService) Logs(ctx context.Context, id int64, limit int) ([]stri
 }
 
 func (s *SoftwareService) StopAll() error {
-	list, err := s.repo.List(context.Background())
-	if err != nil {
-		return err
-	}
-	stopErrors := make([]error, 0)
-	for _, item := range list {
-		if software.IsDaemon(item.Kind) {
-			if err := s.runner.Stop(daemonKey(item.ID)); err != nil {
-				stopErrors = append(stopErrors, err)
-			}
-		}
-	}
-	return errors.Join(stopErrors...)
+	// 后台服务使用 startDetached 启动，不属于 DevEnv 的生命周期。
+	// 应用退出时不能停止它们，重新打开 DevEnv 后通过端口和进程名重新识别。
+	return nil
 }
 
 func (s *SoftwareService) findPort(ctx context.Context, kind string) int {
@@ -1396,6 +1467,479 @@ func (s *SoftwareService) preparePostgres(ctx context.Context, item software.Sof
 		}
 	}
 	return args, nil
+}
+
+const windowsServiceAccount = `NT AUTHORITY\LocalService`
+
+func managedServiceName(item software.Software) string {
+	value := strings.NewReplacer("\\", "-", "/", "-", ":", "-", "*", "-", "?", "-", `"`, "-", "<", "-", ">", "-", "|", "-").Replace(item.Version)
+	value = strings.Trim(strings.ReplaceAll(value, " ", "-"), "-")
+	if value == "" {
+		value = "unknown"
+	}
+	return "DevEnvService-" + item.Kind + "-" + value
+}
+
+func (s *SoftwareService) configureManagedService(ctx context.Context, item software.Software, options ports.Options, autostart bool) error {
+	serviceName := managedServiceName(item)
+	configPath := paths.ServiceConfig(s.base, serviceName)
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建服务定义目录失败")
+	}
+	definition, err := windowsservice.Encode(windowsservice.Definition{
+		ServiceName: serviceName,
+		Binary:      options.Binary,
+		Arguments:   detachedArguments(options.Args),
+		Directory:   options.Directory,
+		Log:         options.Log,
+	})
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "生成服务定义失败")
+	}
+	temporaryPath := configPath + ".tmp"
+	if err := os.WriteFile(temporaryPath, definition, 0o644); err != nil {
+		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "写入服务定义失败")
+	}
+	// Windows does not replace an existing destination with os.Rename.
+	if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
+		_ = os.Remove(temporaryPath)
+		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "鏇存柊鏈嶅姟瀹氫箟澶辫触")
+	}
+	if err := os.Rename(temporaryPath, configPath); err != nil {
+		_ = os.Remove(temporaryPath)
+		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "更新服务定义失败")
+	}
+
+	for _, accessPath := range serviceTraversalPaths(s.base) {
+		if err := ensureWindowsServiceAccess(accessPath, "X", false); err != nil {
+			return err
+		}
+	}
+	accesses := []struct {
+		path  string
+		right string
+	}{
+		{path: s.base, right: "RX"},
+		{path: item.Path, right: "RX"},
+		{path: filepath.Dir(configPath), right: "RX"},
+		{path: filepath.Dir(options.Log), right: "M"},
+	}
+	if software.HasData(item.Kind) {
+		accesses = append(accesses, struct {
+			path  string
+			right string
+		}{path: paths.DatabaseData(s.base, item.Kind, item.Version), right: "M"})
+	}
+	for _, access := range accesses {
+		if access.path == "." || access.path == "" {
+			continue
+		}
+		if err := os.MkdirAll(access.path, 0o755); err != nil {
+			return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建服务目录失败")
+		}
+		if err := ensureWindowsServiceAccess(access.path, access.right, true); err != nil {
+			return err
+		}
+	}
+	// Existing files do not always receive a newly-added inheritable ACE on
+	// Windows. Grant the service account direct read/execute access to the
+	// executable and the descriptor it must read at service startup.
+	for _, filePath := range []string{options.Binary, configPath} {
+		if filePath == "" {
+			continue
+		}
+		if err := ensureWindowsServiceAccess(filePath, "RX", false); err != nil {
+			return err
+		}
+	}
+	if options.Log != "" {
+		if _, statErr := os.Stat(options.Log); statErr == nil {
+			if err := ensureWindowsServiceAccess(options.Log, "M", false); err != nil {
+				return err
+			}
+		}
+	}
+
+	exists, err := managedServiceExists(serviceName)
+	if err != nil {
+		return err
+	}
+	startType := "demand"
+	if autostart {
+		startType = "auto"
+	}
+	currentExecutable, executableErr := windowsservice.CurrentExecutable()
+	if executableErr != nil {
+		return appErrors.Wrap(executableErr, appErrors.PROCESS_START_FAILED, "service executable unavailable")
+	}
+	serviceCommand := windowsCommand(currentExecutable, []string{"--devenv-service-config", configPath})
+	if exists {
+		if output, configErr := runWindowsCommand("sc.exe", "config", serviceName, "binPath=", serviceCommand, "start=", startType, "obj=", windowsServiceAccount); configErr != nil {
+			return appErrors.Wrap(configErr, appErrors.PROCESS_START_FAILED, "更新 Windows 服务失败: "+strings.TrimSpace(string(output)))
+		}
+		return nil
+	}
+	executable, err := windowsservice.CurrentExecutable()
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "获取 DevEnv 服务宿主失败")
+	}
+	_ = windowsCommand(executable, []string{"--devenv-service-config", configPath})
+	arguments := []string{
+		"create", serviceName,
+		"binPath=", serviceCommand,
+		"start=", startType,
+		"obj=", windowsServiceAccount,
+		"DisplayName=", serviceName,
+	}
+	if output, createErr := runWindowsCommand("sc.exe", arguments...); createErr != nil {
+		return appErrors.Wrap(createErr, appErrors.PROCESS_START_FAILED, "注册 Windows 服务失败: "+strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func managedServiceExists(serviceName string) (bool, error) {
+	output, err := runWindowsCommand("sc.exe", "query", serviceName)
+	if err == nil {
+		return true, nil
+	}
+	if strings.Contains(string(output), "1060") {
+		return false, nil
+	}
+	return false, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "查询 Windows 服务失败: "+strings.TrimSpace(string(output)))
+}
+
+func managedServiceState(serviceName string) (int, error) {
+	output, err := runWindowsCommand("sc.exe", "query", serviceName)
+	if err != nil {
+		return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "查询 Windows 服务状态失败: "+strings.TrimSpace(string(output)))
+	}
+	matches := regexp.MustCompile(`STATE\s*:\s*(\d+)`).FindStringSubmatch(string(output))
+	if len(matches) != 2 {
+		return 0, appErrors.New(appErrors.PROCESS_START_FAILED, "无法读取 Windows 服务状态")
+	}
+	state, parseErr := strconv.Atoi(matches[1])
+	if parseErr != nil {
+		return 0, appErrors.Wrap(parseErr, appErrors.PROCESS_START_FAILED, "解析 Windows 服务状态失败")
+	}
+	return state, nil
+}
+
+func (s *SoftwareService) startManagedService(ctx context.Context, item software.Software) error {
+	if status := s.externalStatus(item); status.Running {
+		s.emitServiceStatus(item.ID, true, status.PID, "")
+		return nil
+	}
+	if !s.probe.Available(item.Port) {
+		return appErrors.New(appErrors.PORT_ALREADY_IN_USE, fmt.Sprintf("端口 %d 已被占用", item.Port))
+	}
+	options, err := s.buildOptions(ctx, item)
+	if err != nil {
+		return err
+	}
+	if err := s.configureManagedService(ctx, item, options, item.Autostart); err != nil {
+		return err
+	}
+	serviceName := managedServiceName(item)
+	if output, startErr := runWindowsCommand("sc.exe", "start", serviceName); startErr != nil && !strings.Contains(string(output), "1056") {
+		return appErrors.Wrap(startErr, appErrors.PROCESS_START_FAILED, "启动 Windows 服务失败: "+strings.TrimSpace(string(output)))
+	}
+	deadline := time.Now().Add(START_TIMEOUT)
+	for time.Now().Before(deadline) {
+		status := s.externalStatus(item)
+		if status.Running {
+			s.emitServiceStatus(item.ID, true, status.PID, "")
+			return nil
+		}
+		if state, stateErr := managedServiceState(serviceName); stateErr == nil && state == 1 {
+			tail := process.ReadTail(options.Log, LOG_TAIL_LIMIT)
+			return appErrors.New(appErrors.PROCESS_START_FAILED, "服务启动失败:\n"+strings.Join(tail, "\n"))
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(POLL_INTERVAL):
+		}
+	}
+	_ = s.stopManagedService(item)
+	tail := process.ReadTail(options.Log, LOG_TAIL_LIMIT)
+	return appErrors.New(appErrors.PROCESS_START_FAILED, "服务启动超时或退出:\n"+strings.Join(tail, "\n"))
+}
+
+func (s *SoftwareService) stopManagedService(item software.Software) error {
+	serviceName := managedServiceName(item)
+	exists, err := managedServiceExists(serviceName)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if status := s.externalStatus(item); status.Running {
+			if stopErr := process.StopPID(status.PID); stopErr != nil {
+				return stopErr
+			}
+		}
+		s.emitServiceStatus(item.ID, false, 0, "")
+		return nil
+	}
+	if output, stopErr := runWindowsCommand("sc.exe", "stop", serviceName); stopErr != nil && !strings.Contains(string(output), "1062") && !strings.Contains(string(output), "1061") {
+		return appErrors.Wrap(stopErr, appErrors.PROCESS_START_FAILED, "停止 Windows 服务失败: "+strings.TrimSpace(string(output)))
+	}
+	deadline := time.Now().Add(START_TIMEOUT)
+	for time.Now().Before(deadline) {
+		if !s.externalStatus(item).Running {
+			s.emitServiceStatus(item.ID, false, 0, "")
+			return nil
+		}
+		time.Sleep(POLL_INTERVAL)
+	}
+	return appErrors.New(appErrors.PROCESS_START_FAILED, "停止 Windows 服务超时")
+}
+
+func (s *SoftwareService) unregisterManagedService(item software.Software) error {
+	serviceName := managedServiceName(item)
+	exists, err := managedServiceExists(serviceName)
+	if err != nil {
+		return err
+	}
+	if exists {
+		if output, deleteErr := runWindowsCommand("sc.exe", "delete", serviceName); deleteErr != nil && !strings.Contains(string(output), "1060") {
+			return appErrors.Wrap(deleteErr, appErrors.PROCESS_START_FAILED, "移除 Windows 服务失败: "+strings.TrimSpace(string(output)))
+		}
+	}
+	_ = os.Remove(paths.ServiceConfig(s.base, serviceName))
+	return nil
+}
+
+const postgresServiceAccount = `NT AUTHORITY\LocalService`
+
+func postgresServiceName(item software.Software) string {
+	version := strings.NewReplacer("\\", "-", "/", "-", ":", "-", "*", "-", "?", "-", `"`, "-", "<", "-", ">", "-", "|", "-").Replace(item.Version)
+	version = strings.Trim(strings.ReplaceAll(version, " ", "-"), "-")
+	if version == "" {
+		version = "unknown"
+	}
+	return "DevEnvPostgreSQL-" + version
+}
+
+func runWindowsCommand(commandName string, arguments ...string) ([]byte, error) {
+	command := exec.Command(commandName, arguments...)
+	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return command.CombinedOutput()
+}
+
+func postgresServiceTraversalPaths(target string) []string {
+	paths := make([]string, 0, 3)
+	current := filepath.Clean(target)
+	for {
+		parent := filepath.Dir(current)
+		if parent == current || strings.EqualFold(filepath.Base(parent), "Users") {
+			break
+		}
+		paths = append(paths, parent)
+		current = parent
+	}
+	return paths
+}
+
+func serviceTraversalPaths(target string) []string {
+	return postgresServiceTraversalPaths(target)
+}
+
+func ensureWindowsServiceAccess(target, right string, inherit bool) error {
+	currentAccess, _ := runWindowsCommand("icacls", target)
+	if right != "M" && strings.Contains(strings.ToLower(string(currentAccess)), "local service:") {
+		return nil
+	}
+	permission := "(" + right + ")"
+	if inherit {
+		permission = "(OI)(CI)" + right
+	}
+	grant := windowsServiceAccount + ":" + permission
+	if output, err := runWindowsCommand("icacls", target, "/grant", grant); err != nil {
+		return appErrors.Wrap(err, appErrors.PERMISSION_DENIED, "授予 PostgreSQL 服务目录权限失败: "+strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func (s *SoftwareService) configurePostgresService(ctx context.Context, item software.Software, autostart bool) error {
+	logPath := paths.SoftwareLog(s.base, item.Kind, item.Version)
+	if _, err := s.preparePostgres(ctx, item, logPath); err != nil {
+		return err
+	}
+
+	dataFolder := paths.DatabaseData(s.base, item.Kind, item.Version)
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "创建 PostgreSQL 日志目录失败")
+	}
+	for _, accessPath := range postgresServiceTraversalPaths(s.base) {
+		if err := ensureWindowsServiceAccess(accessPath, "X", false); err != nil {
+			return err
+		}
+	}
+	for _, access := range []struct {
+		path  string
+		right string
+	}{
+		{path: s.base, right: "RX"},
+		{path: item.Path, right: "RX"},
+		{path: dataFolder, right: "M"},
+		{path: filepath.Dir(logPath), right: "M"},
+	} {
+		if err := os.MkdirAll(access.path, 0o755); err != nil {
+			return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建 PostgreSQL 服务目录失败")
+		}
+		grant := postgresServiceAccount + ":(OI)(CI)" + access.right
+		if output, err := runWindowsCommand("icacls", access.path, "/grant", grant); err != nil {
+			return appErrors.Wrap(err, appErrors.PERMISSION_DENIED, "授予 PostgreSQL 服务目录权限失败: "+strings.TrimSpace(string(output)))
+		}
+	}
+
+	serviceName := postgresServiceName(item)
+	exists, err := postgresServiceExists(serviceName)
+	if err != nil {
+		return err
+	}
+	startType := "demand"
+	if autostart {
+		startType = "auto"
+	}
+	if exists {
+		if output, configErr := runWindowsCommand("sc.exe", "config", serviceName, "start=", startType); configErr != nil {
+			return appErrors.Wrap(configErr, appErrors.PROCESS_START_FAILED, "更新 PostgreSQL Windows 服务启动方式失败: "+strings.TrimSpace(string(output)))
+		}
+		return nil
+	}
+
+	port := item.Port
+	if port <= 0 {
+		port = POSTGRES_START_PORT
+	}
+	logDirectory := filepath.ToSlash(filepath.Dir(logPath))
+	logFileName := filepath.Base(logPath)
+	serviceOptions := fmt.Sprintf(
+		" -p %d -h %s -c logging_collector=on -c log_directory=%s -c log_filename=%s",
+		port,
+		paths.LOOPBACK,
+		quoteWindowsArgument(logDirectory),
+		quoteWindowsArgument(logFileName),
+	)
+	postgresControl := filepath.Join(item.Path, "bin", "pg_ctl.exe")
+	arguments := []string{
+		"register",
+		"-N", serviceName,
+		"-D", dataFolder,
+		"-U", postgresServiceAccount,
+		"-S", startType,
+		"-o", serviceOptions,
+	}
+	if output, registerErr := runWindowsCommand(postgresControl, arguments...); registerErr != nil {
+		return appErrors.Wrap(registerErr, appErrors.PROCESS_START_FAILED, "注册 PostgreSQL Windows 服务失败: "+strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func postgresServiceExists(serviceName string) (bool, error) {
+	output, err := runWindowsCommand("sc.exe", "query", serviceName)
+	if err == nil {
+		return true, nil
+	}
+	if strings.Contains(string(output), "1060") {
+		return false, nil
+	}
+	return false, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "查询 PostgreSQL Windows 服务失败: "+strings.TrimSpace(string(output)))
+}
+
+func postgresServiceState(serviceName string) (int, error) {
+	output, err := runWindowsCommand("sc.exe", "query", serviceName)
+	if err != nil {
+		return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "查询 PostgreSQL Windows 服务状态失败: "+strings.TrimSpace(string(output)))
+	}
+	matches := regexp.MustCompile(`STATE\s*:\s*(\d+)`).FindStringSubmatch(string(output))
+	if len(matches) != 2 {
+		return 0, appErrors.New(appErrors.PROCESS_START_FAILED, "无法读取 PostgreSQL Windows 服务状态")
+	}
+	state, parseErr := strconv.Atoi(matches[1])
+	if parseErr != nil {
+		return 0, appErrors.Wrap(parseErr, appErrors.PROCESS_START_FAILED, "解析 PostgreSQL Windows 服务状态失败")
+	}
+	return state, nil
+}
+
+func (s *SoftwareService) startPostgres(ctx context.Context, item software.Software) error {
+	logPath := paths.SoftwareLog(s.base, item.Kind, item.Version)
+	if _, err := s.preparePostgres(ctx, item, logPath); err != nil {
+		return err
+	}
+	if err := s.configurePostgresService(ctx, item, item.Autostart); err != nil {
+		return err
+	}
+	serviceName := postgresServiceName(item)
+	if output, startErr := runWindowsCommand("sc.exe", "start", serviceName); startErr != nil && !strings.Contains(string(output), "1056") {
+		return appErrors.Wrap(startErr, appErrors.PROCESS_START_FAILED, "启动 PostgreSQL Windows 服务失败: "+strings.TrimSpace(string(output)))
+	}
+
+	deadline := time.Now().Add(START_TIMEOUT)
+	for time.Now().Before(deadline) {
+		status := s.externalStatus(item)
+		if status.Running {
+			s.emitServiceStatus(item.ID, true, status.PID, "")
+			return nil
+		}
+		if state, stateErr := postgresServiceState(serviceName); stateErr == nil && state == 1 {
+			tail := process.ReadTail(logPath, LOG_TAIL_LIMIT)
+			return appErrors.New(appErrors.PROCESS_START_FAILED, "PostgreSQL 服务启动失败:\n"+strings.Join(tail, "\n"))
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(POLL_INTERVAL):
+		}
+	}
+
+	_ = s.stopPostgres(item)
+	tail := process.ReadTail(logPath, LOG_TAIL_LIMIT)
+	return appErrors.New(appErrors.PROCESS_START_FAILED, "PostgreSQL 服务启动超时或退出:\n"+strings.Join(tail, "\n"))
+}
+
+func (s *SoftwareService) stopPostgres(item software.Software) error {
+	serviceName := postgresServiceName(item)
+	exists, err := postgresServiceExists(serviceName)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if status := s.externalStatus(item); status.Running {
+			if stopErr := process.StopPID(status.PID); stopErr != nil {
+				return stopErr
+			}
+		}
+		s.emitServiceStatus(item.ID, false, 0, "")
+		return nil
+	}
+	if output, stopErr := runWindowsCommand("sc.exe", "stop", serviceName); stopErr != nil && !strings.Contains(string(output), "1062") {
+		return appErrors.Wrap(stopErr, appErrors.PROCESS_START_FAILED, "停止 PostgreSQL Windows 服务失败: "+strings.TrimSpace(string(output)))
+	}
+	deadline := time.Now().Add(START_TIMEOUT)
+	for time.Now().Before(deadline) {
+		if !s.externalStatus(item).Running {
+			s.emitServiceStatus(item.ID, false, 0, "")
+			return nil
+		}
+		time.Sleep(POLL_INTERVAL)
+	}
+	return appErrors.New(appErrors.PROCESS_START_FAILED, "停止 PostgreSQL Windows 服务超时")
+}
+
+func (s *SoftwareService) unregisterPostgresService(item software.Software) error {
+	serviceName := postgresServiceName(item)
+	exists, err := postgresServiceExists(serviceName)
+	if err != nil || !exists {
+		return err
+	}
+	postgresControl := filepath.Join(item.Path, "bin", "pg_ctl.exe")
+	if output, unregisterErr := runWindowsCommand(postgresControl, "unregister", "-N", serviceName); unregisterErr != nil && !strings.Contains(string(output), "1060") {
+		return appErrors.Wrap(unregisterErr, appErrors.PROCESS_START_FAILED, "移除 PostgreSQL Windows 服务失败: "+strings.TrimSpace(string(output)))
+	}
+	return nil
 }
 
 func (s *SoftwareService) prepareMongoDB(item software.Software) ([]string, error) {
@@ -1632,6 +2176,7 @@ func (s *SoftwareService) startNginx(ctx context.Context, item software.Software
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "Nginx 监听端口无效")
 	}
 	if s.nginx.Port() > 0 {
+		s.emitServiceStatus(item.ID, true, s.listeningPID(s.nginx.Port(), "nginx.exe"), "")
 		return nil
 	}
 	if err := s.nginx.Start(settings.Port); err != nil {
@@ -1726,6 +2271,17 @@ func systemAutostartName(item software.Software) string {
 }
 
 func (s *SoftwareService) ensureSystemAutostart(ctx context.Context, item software.Software) error {
+	if software.IsDaemon(item.Kind) {
+		options, err := s.buildOptions(ctx, item)
+		if err != nil {
+			return err
+		}
+		if err := s.configureManagedService(ctx, item, options, true); err != nil {
+			return err
+		}
+		_ = autostart.Remove(systemAutostartName(item))
+		return nil
+	}
 	options, err := s.buildOptions(ctx, item)
 	if err != nil {
 		return err

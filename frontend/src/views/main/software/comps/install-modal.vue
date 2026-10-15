@@ -38,6 +38,7 @@
 					v-for="row in versions"
 					:key="row.version"
 					:row="row"
+					:installed="row.installed || isInstalled(row.version)"
 					:task="findTask(row.version)"
 					:busy="isBusy"
 					@install="emit('install', item.kind, $event)"
@@ -106,6 +107,19 @@ function findTask(version: string): { progress: number; message: string } | null
 		return { progress: found.progress, message: '正在准备下载...' }
 	}
 	return null
+}
+
+function isInstalled(version: string): boolean {
+	const current = props.item
+	if (!current) {
+		return false
+	}
+	return props.installedList.some(
+		(entry) =>
+			entry.kind === current.kind &&
+			entry.version === version &&
+			entry.state === 'installed',
+	)
 }
 </script>
 

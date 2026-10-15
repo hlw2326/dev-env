@@ -11,6 +11,8 @@ import {
 	openFolder,
 	loadSettings,
 	listSoftware,
+	listProjectPlugins,
+	runProjectPlugin,
 	listVersions,
 	installSoftware,
 	listenEvent,
@@ -23,6 +25,9 @@ import type {
 	Software,
 	SiteEvent,
 	CompletedEvent,
+	ProjectPlugin,
+	PluginActionInput,
+	ProjectPluginEvent,
 } from '@/types'
 
 // 网站列表状态
@@ -54,6 +59,12 @@ const detailVisible = ref(false)
 
 // 正在一键安装的软件类型
 const installingKind = ref('')
+
+// 当前项目可用插件
+const projectPlugins = ref<ProjectPlugin[]>([])
+
+// 当前正在执行的插件
+const pluginBusy = ref('')
 
 // 站点管理组合式函数
 export function useSites() {
@@ -100,11 +111,22 @@ export function useSites() {
 		}
 	}
 
+	// 加载项目详情插件
+	async function loadPlugins(id: number): Promise<void> {
+		projectPlugins.value = []
+		pluginBusy.value = ''
+		try {
+			projectPlugins.value = await listProjectPlugins(id)
+		} catch (err: unknown) {
+			toast.error('加载项目插件失败', formatError(err))
+		}
+	}
+
 	// 提交创建新网站
 	async function submitCreate(input: CreateInput): Promise<boolean> {
 		try {
 			await createSite(input)
-			toast.success('创建成功', `网站 ${input.name} 已创建`)
+			toast.success('创建成功', `项目 ${input.name} 已创建`)
 			await refreshAll()
 			return true
 		} catch (err: unknown) {
@@ -119,7 +141,7 @@ export function useSites() {
 			const updated = await updateSite(input)
 			activeSite.value = updated
 			await refreshAll()
-			toast.success('已保存', '站点设置已生效')
+			toast.success('已保存', '项目设置已生效')
 			return true
 		} catch (err: unknown) {
 			toast.error('保存失败', formatError(err), 3500)
@@ -243,6 +265,27 @@ export function useSites() {
 	function openDetail(item: Site): void {
 		activeSite.value = item
 		detailVisible.value = true
+		loadPlugins(item.id)
+	}
+
+	// 执行项目插件操作
+	async function runPlugin(input: PluginActionInput): Promise<void> {
+		if (pluginBusy.value !== '') {
+			return
+		}
+		pluginBusy.value = input.pluginId
+		try {
+			const result = await runProjectPlugin(input)
+			if (!result.ok) {
+				pluginBusy.value = ''
+				toast.error('插件操作失败', result.message, 4000)
+				return
+			}
+			toast.info('插件任务已启动', input.pluginId)
+		} catch (err: unknown) {
+			pluginBusy.value = ''
+			toast.error('插件操作失败', formatError(err))
+		}
 	}
 
 	// 绑定站点与安装完成事件监听
@@ -266,7 +309,24 @@ export function useSites() {
 					toast.error('环境安装失败', payload.error, 4000)
 				}
 				refreshAll()
+				const current = activeSite.value
+				if (current !== null) {
+					loadPlugins(current.id)
+				}
 			}),
+		)
+		stops.push(
+			listenEvent('project:plugin-status-changed', (payload: ProjectPluginEvent) => {
+				const current = activeSite.value
+				if (current !== null && payload.id === current.id && !payload.running) {
+					pluginBusy.value = ''
+					if (payload.ok) {
+						toast.success('插件操作完成', payload.plugin)
+					} else {
+						toast.error('插件操作失败', payload.message, 4500)
+					}
+				}
+			})
 		)
 		return () => {
 			for (const stop of stops) {
@@ -286,7 +346,9 @@ export function useSites() {
 		createVisible,
 		activeSite,
 		detailVisible,
-		installingKind,
+	installingKind,
+	projectPlugins,
+	pluginBusy,
 		refreshAll,
 		submitCreate,
 		submitUpdate,
@@ -297,6 +359,8 @@ export function useSites() {
 		openSite,
 		browseFolder,
 		openDetail,
+		loadPlugins,
+		runPlugin,
 		bindEvents,
 	}
 }

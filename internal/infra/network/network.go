@@ -44,14 +44,17 @@ func (c *Checker) Listening(port int) bool {
 	if port <= 0 || port > ports.MAX_PORT {
 		return false
 	}
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", paths.LOOPBACK, port), DIAL_TIMEOUT)
-	if err != nil {
-		return false
+	for _, address := range []string{
+		fmt.Sprintf("%s:%d", paths.LOOPBACK, port),
+		fmt.Sprintf("[::1]:%d", port),
+	} {
+		conn, err := net.DialTimeout("tcp", address, DIAL_TIMEOUT)
+		if err == nil {
+			_ = conn.Close()
+			return true
+		}
 	}
-	if err := conn.Close(); err != nil {
-		return false
-	}
-	return true
+	return false
 }
 
 // ListeningPID returns the process ID owning a listening TCP port.

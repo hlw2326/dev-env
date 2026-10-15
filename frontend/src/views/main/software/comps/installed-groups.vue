@@ -26,6 +26,7 @@
 						:key="item.id"
 						:item="item"
 						:progress-map="progressMap"
+						:busy="isServiceBusy(item.id)"
 						@start="startItem"
 						@stop="stopItem"
 						@main="markMain"
@@ -55,6 +56,7 @@ const {
 	markMain,
 	startItem,
 	stopItem,
+	isServiceBusy,
 	openConfig,
 } = useSoftware()
 </script>

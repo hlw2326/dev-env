@@ -2,7 +2,10 @@ package main
 
 import (
 	"embed"
+	"fmt"
+	"os"
 
+	"devenv/internal/infra/windowsservice"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -13,6 +16,13 @@ import (
 var assets embed.FS
 
 func main() {
+	if configPath, ok := windowsservice.ConfigPathFromArguments(os.Args); ok {
+		if err := windowsservice.Run(configPath); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	app := NewApp()
 
 	err := wails.Run(&options.App{

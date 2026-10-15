@@ -5,6 +5,7 @@
 		<div class="log-toolbar">
 			<div class="log-tabs">
 				<button
+					v-if="site.kind !== 'electron'"
 					type="button"
 					class="tab-btn"
 					:class="{ active: logKind === 'access' }"
@@ -13,7 +14,7 @@
 					访问日志
 				</button>
 				<button
-					v-if="site.kind === 'node'"
+					v-if="processKinds.includes(site.kind)"
 					type="button"
 					class="tab-btn"
 					:class="{ active: logKind === 'run' }"
@@ -59,6 +60,8 @@ const LOG_LIMIT = 200
 // 当前查看的日志类型
 const logKind = ref('access')
 
+const processKinds = ['node', 'python', 'go', 'rust', 'java', 'electron']
+
 // 日志文本行列表
 const lines = ref<string[]>([])
 
@@ -81,7 +84,11 @@ function switchKind(kind: string): void {
 watch(
 	() => props.site.id,
 	() => {
-		logKind.value = 'access'
+		if (processKinds.includes(props.site.kind)) {
+			logKind.value = 'run'
+		} else {
+			logKind.value = 'access'
+		}
 		fetchLogs()
 	},
 	{ immediate: true },

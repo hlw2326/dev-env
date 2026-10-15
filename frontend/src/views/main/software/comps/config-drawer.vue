@@ -26,6 +26,7 @@
 		<comp-config-daemon
 			v-else-if="item.daemon"
 			:item="item"
+			:busy="busy"
 			@start="emit('start', $event)"
 			@stop="emit('stop', $event)"
 			@main="emit('main', $event)"
@@ -37,6 +38,7 @@
 		<comp-config-overview
 			v-else
 			:item="item"
+			:busy="busy"
 			@main="emit('main', $event)"
 			@folder="emit('folder', $event)"
 		/>
@@ -49,9 +51,10 @@ import CompConfigDaemon from './config-daemon.vue'
 import CompConfigOverview from './config-overview.vue'
 import type { Software } from '@/types'
 
-// 接收当前软件属性
+// 接收当前软件属性与服务操作状态
 defineProps<{
 	item: Software | null
+	busy: boolean
 }>()
 
 // 弹窗显隐双向绑定
@@ -65,4 +68,5 @@ const emit = defineEmits<{
 	autostart: [item: Software, on: boolean]
 	folder: [id: number]
 }>()
+
 </script>

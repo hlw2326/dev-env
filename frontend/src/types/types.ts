@@ -15,6 +15,15 @@ export type CreateInput = wails.CreateInput
 // 更新站点入参
 export type UpdateInput = wails.UpdateInput
 
+// 项目插件动作
+export type PluginAction = wails.PluginActionDTO
+
+// 项目详情插件
+export type ProjectPlugin = wails.ProjectPluginDTO
+
+// 执行项目插件操作入参
+export type PluginActionInput = wails.PluginActionInput
+
 // 软件商店卡片项
 export type MarketItem = wails.ItemDTO
 
@@ -89,5 +98,15 @@ export interface SiteEvent {
 	// 站点状态码
 	state: string
 	// 状态或错误说明
+	message: string
+}
+
+// 项目插件状态变更事件载荷
+export interface ProjectPluginEvent {
+	id: number
+	plugin: string
+	action: string
+	running: boolean
+	ok: boolean
 	message: string
 }

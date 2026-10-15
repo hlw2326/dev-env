@@ -1,7 +1,7 @@
 <template>
-	<!-- 站点筛选与搜索工具栏 -->
+	<!-- 项目筛选与搜索工具栏 -->
 	<div class="toolbar surface-card">
-		<!-- 站点类型筛选按钮组 -->
+		<!-- 项目类型筛选按钮组 -->
 		<div class="filter-tabs">
 			<button
 				v-for="tab in filterOptions"
@@ -15,12 +15,12 @@
 			</button>
 		</div>
 
-		<!-- 站点名称与域名搜索框 -->
+		<!-- 项目名称与域名搜索框 -->
 		<div class="search-box">
 			<i class="pi pi-search search-icon"></i>
 			<p-input-text
 				v-model="search"
-				placeholder="搜索站点名称或域名..."
+				placeholder="搜索项目名称或域名..."
 				class="search-input"
 			/>
 		</div>
@@ -33,12 +33,17 @@ import { useSites } from '../use-sites'
 // 筛选与搜索状态
 const { search, kindFilter } = useSites()
 
-// 站点类型筛选项
+	// 项目类型筛选项
 const filterOptions = [
 	{ value: 'all', label: '全部' },
 	{ value: 'php', label: 'PHP' },
 	{ value: 'node', label: 'Node.js' },
+	{ value: 'python', label: 'Python' },
+	{ value: 'go', label: 'Go' },
+	{ value: 'rust', label: 'Rust' },
+	{ value: 'java', label: 'Java' },
 	{ value: 'static', label: '静态' },
+	{ value: 'electron', label: 'Electron' },
 ]
 </script>
 

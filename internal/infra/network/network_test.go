@@ -29,3 +29,16 @@ func TestChecker(t *testing.T) {
 		t.Errorf("expected port %d to be available after close", port)
 	}
 }
+
+func TestCheckerDetectsIPv6Listener(t *testing.T) {
+	listener, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 loopback is unavailable: %v", err)
+	}
+	defer listener.Close()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	if !NewChecker().Listening(port) {
+		t.Fatalf("expected IPv6 port %d to be listening", port)
+	}
+}

@@ -22,6 +22,7 @@ const (
 	NGINX_FOLDER    = "nginx"
 	VHOST_FOLDER    = "vhosts"
 	TEMP_FOLDER     = "temp"
+	SERVICE_FOLDER  = "services"
 	DB_FILE         = "devenv.db"
 	NGINX_CONFIG    = "nginx.conf"
 	NGINX_PID       = "nginx.pid"
@@ -62,6 +63,10 @@ func SiteLog(base, name, file string) string {
 
 func SoftwareLog(base, kind, version string) string {
 	return filepath.Join(base, LOG_FOLDER, SOFTWARE_FOLDER, fmt.Sprintf("%s-%s.log", kind, version))
+}
+
+func ServiceConfig(base, serviceName string) string {
+	return filepath.Join(base, DATA_FOLDER, SERVICE_FOLDER, serviceName+".json")
 }
 
 func Nginx(base string) string {

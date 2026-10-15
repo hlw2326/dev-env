@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"devenv/internal/app"
+	"devenv/internal/domain/plugin"
 	"devenv/internal/domain/site"
 )
 
@@ -86,32 +87,68 @@ func (a *SiteAPI) Start(id int64) Result {
 	if err := a.service.Start(a.ctx, id); err != nil {
 		return Result{OK: false, Message: err.Error()}
 	}
-	return Result{OK: true, Message: "站点已启动"}
+	return Result{OK: true, Message: "项目已启动"}
 }
 
 func (a *SiteAPI) Stop(id int64) Result {
 	if err := a.service.Stop(a.ctx, id); err != nil {
 		return Result{OK: false, Message: err.Error()}
 	}
-	return Result{OK: true, Message: "站点已停止"}
+	return Result{OK: true, Message: "项目已停止"}
 }
 
 func (a *SiteAPI) Restart(id int64) Result {
 	if err := a.service.Restart(a.ctx, id); err != nil {
 		return Result{OK: false, Message: err.Error()}
 	}
-	return Result{OK: true, Message: "站点已重启"}
+	return Result{OK: true, Message: "项目已重启"}
 }
 
 func (a *SiteAPI) Delete(id int64) Result {
 	if err := a.service.Delete(a.ctx, id); err != nil {
 		return Result{OK: false, Message: err.Error()}
 	}
-	return Result{OK: true, Message: "站点记录已删除"}
+	return Result{OK: true, Message: "项目记录已删除"}
 }
 
 func (a *SiteAPI) Logs(id int64, kind string, limit int) ([]string, error) {
 	return a.service.Logs(a.ctx, id, kind, limit)
+}
+
+func (a *SiteAPI) Plugins(id int64) ([]ProjectPluginDTO, error) {
+	list, err := a.service.Plugins(a.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ProjectPluginDTO, 0, len(list))
+	for _, item := range list {
+		actions := make([]PluginActionDTO, 0, len(item.Actions))
+		for _, action := range item.Actions {
+			actions = append(actions, PluginActionDTO{ID: action.ID, Name: action.Name})
+		}
+		result = append(result, ProjectPluginDTO{
+			ID:          item.ID,
+			Name:        item.Name,
+			Description: item.Description,
+			Available:   item.Available,
+			Reason:      item.Reason,
+			Version:     item.Version,
+			Actions:     actions,
+		})
+	}
+	return result, nil
+}
+
+func (a *SiteAPI) RunPlugin(in PluginActionInput) Result {
+	err := a.service.RunPlugin(a.ctx, plugin.ActionInput{
+		ProjectID: in.ProjectID,
+		PluginID:  in.PluginID,
+		ActionID:  in.ActionID,
+	})
+	if err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "插件任务已启动"}
 }
 
 func (a *SiteAPI) OpenNginxConfig(id int64) Result {
@@ -119,6 +156,17 @@ func (a *SiteAPI) OpenNginxConfig(id int64) Result {
 		return Result{OK: false, Message: err.Error()}
 	}
 	return Result{OK: true, Message: ""}
+}
+
+func (a *SiteAPI) ReadNginxConfig(id int64) (string, error) {
+	return a.service.ReadNginxConfig(a.ctx, id)
+}
+
+func (a *SiteAPI) WriteNginxConfig(id int64, content string) Result {
+	if err := a.service.WriteNginxConfig(a.ctx, id, content); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "Nginx 配置已保存"}
 }
 
 func convertSite(view app.SiteView) SiteDTO {

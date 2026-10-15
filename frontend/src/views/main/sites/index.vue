@@ -1,9 +1,9 @@
 <template>
-	<!-- 网站管理页面 -->
-	<h-page title="网站" description="管理本地 PHP、Node.js 与静态网站，所有网站通过 Nginx 访问" padding>
+	<!-- 项目管理页面 -->
+	<h-page title="项目管理" description="管理本地 PHP、Node.js、Python、Go、Rust、Java、静态与 Electron 项目" padding>
 		<!-- 页面右上角创建按钮 -->
 		<template #extra>
-			<p-button icon="pi pi-plus" label="创建网站" @click="createVisible = true" />
+			<p-button icon="pi pi-plus" label="创建项目" @click="createVisible = true" />
 		</template>
 
 		<!-- 顶部筛选与搜索工具栏 -->
@@ -13,10 +13,10 @@
 		<div v-if="filteredSites.length === 0" class="surface-card">
 			<h-empty
 				icon="pi pi-globe"
-				title="还没有创建任何网站"
-				description="选择站点类型、填写名称和域名即可一键创建本地网站"
+				title="还没有创建任何项目"
+				description="选择项目类型并填写项目目录，即可创建本地开发项目"
 			>
-				<p-button icon="pi pi-plus" label="创建第一个网站" @click="createVisible = true" />
+				<p-button icon="pi pi-plus" label="创建第一个项目" @click="createVisible = true" />
 			</h-empty>
 		</div>
 
@@ -48,7 +48,10 @@
 			v-model:visible="detailVisible"
 			:site="activeSite"
 			:software-list="softwareList"
+			:plugins="projectPlugins"
+			:plugin-busy="pluginBusy"
 			@save="submitUpdate"
+			@plugin="runPlugin"
 		/>
 	</h-page>
 </template>
@@ -71,6 +74,8 @@ const {
 	activeSite,
 	detailVisible,
 	installingKind,
+	projectPlugins,
+	pluginBusy,
 	refreshAll,
 	submitCreate,
 	submitUpdate,
@@ -80,6 +85,7 @@ const {
 	openSite,
 	browseFolder,
 	openDetail,
+	runPlugin,
 	bindEvents,
 } = useSites()
 

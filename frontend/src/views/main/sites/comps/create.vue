@@ -1,8 +1,8 @@
 <template>
-	<!-- 创建网站弹窗 -->
+	<!-- 创建项目弹窗 -->
 	<h-modal
 		v-model:visible="visible"
-		title="创建网站"
+		title="创建项目"
 		width="32rem"
 		:modal="true"
 		:closable="true"
@@ -14,34 +14,22 @@
 		:loading="submitting"
 		@ok="submitForm"
 	>
-		<!-- 创建网站表单 -->
+		<!-- 创建项目表单 -->
 		<div class="create-form">
-			<!-- 站点类型选择 -->
+			<!-- 项目类型选择 -->
 			<div class="form-field">
-				<label>站点类型</label>
-				<div class="kind-options">
-					<button
-						v-for="item in kindOptions"
-						:key="item.value"
-						type="button"
-						class="kind-btn"
-						:class="{ active: form.kind === item.value }"
-						@click="selectKind(item.value)"
-					>
-						<i :class="[item.icon, 'kind-icon']"></i>
-						<span>{{ item.label }}</span>
-					</button>
-				</div>
+				<label>项目类型</label>
+				<comp-kind-select v-model="form.kind" @update:model-value="selectKind" />
 			</div>
 
-			<!-- 网站名称输入 -->
+			<!-- 项目名称输入 -->
 			<div class="form-field">
-				<label>网站名称</label>
+				<label>项目名称</label>
 				<p-input-text v-model="form.name" placeholder="如 blog" @input="syncName" />
 			</div>
 
-			<!-- 域名输入 -->
-			<div class="form-field">
+			<!-- 域名输入，Electron 项目不使用 Nginx -->
+			<div v-if="form.kind !== 'electron'" class="form-field">
 				<label>域名</label>
 				<p-input-text
 					v-model="form.host"
@@ -51,9 +39,9 @@
 				/>
 			</div>
 
-			<!-- 根目录选择 -->
+			<!-- 项目目录选择 -->
 			<div class="form-field">
-				<label>根目录</label>
+				<label>项目目录</label>
 				<div class="row-line">
 					<p-input-text
 						v-model="form.root"
@@ -72,21 +60,21 @@
 				</div>
 			</div>
 
-			<!-- 运行目录选择 -->
-			<comp-run-field v-model="form.run" :root="form.root" />
+			<!-- Web 项目运行目录选择 -->
+			<comp-run-field v-if="form.kind !== 'electron'" v-model="form.run" :root="form.root" />
 
-			<!-- Node 更多设置折叠区 -->
-			<div v-if="form.kind === 'node'" class="more-box">
+			<!-- 进程项目启动命令设置 -->
+			<div v-if="commandKinds.includes(form.kind)" class="more-box">
 				<button type="button" class="more-toggle" @click="moreOpen = !moreOpen">
 					<i class="pi" :class="{ 'pi-chevron-down': moreOpen, 'pi-chevron-right': !moreOpen }"></i>
-					<span>更多设置（启动命令）</span>
+					<span>启动设置</span>
 				</button>
 				<div v-if="moreOpen" class="more-body">
 					<div class="form-field">
-						<label>启动命令（留空则自动探测 package.json）</label>
+						<label>{{ commandLabel }}</label>
 						<p-input-text
 							v-model="form.command"
-							placeholder="如 npm start 或 node server.js"
+						:placeholder="commandPlaceholder"
 							class="font-mono"
 						/>
 					</div>
@@ -97,33 +85,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { computed, ref, reactive, watch } from 'vue'
 import { pickFolder, findRun } from '@/api'
 import { joinPath, trimSlash, toast, formatError } from '@/utils'
 import CompRunField from './run-field.vue'
+import CompKindSelect from './kind-select.vue'
 import type { CreateInput } from '@/types'
 
-// 接收默认站点父目录
 const props = defineProps<{
 	defaultRoot: string
 }>()
 
-// 弹窗显隐双向绑定
 const visible = defineModel<boolean>('visible', { required: true })
 
-// 提交创建事件
 const emit = defineEmits<{
 	submit: [input: CreateInput]
 }>()
 
-// 站点类型选项列表
-const kindOptions = [
-	{ value: 'php', label: 'PHP', icon: 'pi pi-code' },
-	{ value: 'node', label: 'Node.js', icon: 'pi pi-bolt' },
-	{ value: 'static', label: '静态', icon: 'pi pi-file' },
-]
+const commandKinds = ['node', 'python', 'go', 'rust', 'java', 'electron']
 
-// 创建表单数据
 const form = reactive<CreateInput>({
 	kind: 'php',
 	name: '',
@@ -133,22 +113,60 @@ const form = reactive<CreateInput>({
 	command: '',
 })
 
-// 域名是否已手动修改
 const hostTouched = ref(false)
-// 根目录是否已手动修改
 const rootTouched = ref(false)
-// 更多设置展开状态
 const moreOpen = ref(false)
-// 提交加载状态
 const submitting = ref(false)
 
-// 切换站点类型并探测运行目录
+const commandPlaceholder = computed(() => {
+	if (form.kind === 'electron') {
+		return 'pnpm dev'
+	}
+	if (form.kind === 'python') {
+		return '如 python app.py'
+	}
+	if (form.kind === 'go') {
+		return '如 go run .'
+	}
+	if (form.kind === 'rust') {
+		return '如 cargo run'
+	}
+	if (form.kind === 'java') {
+		return '如 java Main.java 或 mvn spring-boot:run'
+	}
+	return '如 npm start 或 node server.js'
+})
+
+const commandLabel = computed(() => {
+	if (form.kind === 'electron') {
+		return 'Electron 启动命令'
+	}
+	if (form.kind === 'python') {
+		return 'Python 启动命令（留空则自动探测）'
+	}
+	if (form.kind === 'go') {
+		return 'Go 启动命令（留空则自动探测 go.mod）'
+	}
+	if (form.kind === 'rust') {
+		return 'Rust 启动命令（留空则自动探测 Cargo.toml）'
+	}
+	if (form.kind === 'java') {
+		return 'Java 启动命令（留空则自动探测）'
+	}
+	return 'Node 启动命令（留空则自动探测 package.json）'
+})
+
 function selectKind(kind: string): void {
 	form.kind = kind
+	if (kind === 'electron' && form.command.trim() === '') {
+		form.command = 'pnpm dev'
+	}
+	if (kind !== 'electron' && form.command === 'pnpm dev') {
+		form.command = ''
+	}
 	detectRun()
 }
 
-// 根据站点名称自动同步域名与目录
 function syncName(): void {
 	const clean = form.name.trim()
 	if (!hostTouched.value) {
@@ -163,7 +181,6 @@ function syncName(): void {
 	}
 }
 
-// 选择站点根目录并自动回填名称
 async function pickRoot(): Promise<void> {
 	try {
 		const picked = await pickFolder('选择站点根目录')
@@ -188,7 +205,6 @@ async function pickRoot(): Promise<void> {
 	}
 }
 
-// 调用后端自动探测运行目录
 async function detectRun(): Promise<void> {
 	const root = form.root.trim()
 	if (root === '') {
@@ -201,7 +217,6 @@ async function detectRun(): Promise<void> {
 	}
 }
 
-// 提交创建表单
 function submitForm(): void {
 	emit('submit', { ...form })
 }
@@ -218,70 +233,25 @@ watch(visible, (open) => {
 </script>
 
 <style scoped lang="scss">
-/* 表单外框 */
 .create-form {
 	display: flex;
 	flex-direction: column;
 }
 
-/* 三列类型按钮网格 */
-.kind-options {
-	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: 0.625rem;
-}
-
-/* 类型选择按钮 */
-.kind-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 0.5rem;
-	height: 2.5rem;
-	border: 1px solid var(--border-color);
-	border-radius: var(--h-radius);
-	background: var(--bg-app);
-	color: var(--text-secondary);
-	font-size: var(--font-sm);
-	cursor: pointer;
-
-	/* 悬停态 */
-	&:hover {
-		border-color: var(--border-hover);
-		color: var(--text-primary);
-	}
-
-	/* 选中态 */
-	&.active {
-		background: var(--p-primary-color);
-		color: var(--on-primary);
-		border-color: var(--p-primary-color);
-	}
-
-	/* 类型图标 */
-	.kind-icon {
-		font-size: var(--icon-md);
-	}
-}
-
-/* 水平输入行 */
 .row-line {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
 }
 
-/* 自适应输入框 */
 .flex-input {
 	flex: 1;
 }
 
-/* 更多设置容器 */
 .more-box {
 	margin-top: 0.25rem;
 }
 
-/* 更多设置折叠按钮 */
 .more-toggle {
 	display: inline-flex;
 	align-items: center;
@@ -293,13 +263,11 @@ watch(visible, (open) => {
 	cursor: pointer;
 	padding: 0.25rem 0;
 
-	/* 折叠箭头图标 */
 	i {
 		font-size: var(--icon-xs);
 	}
 }
 
-/* 更多设置展开内容 */
 .more-body {
 	margin-top: 0.5rem;
 }

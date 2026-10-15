@@ -61,7 +61,6 @@
 					icon="pi pi-stop"
 					size="small"
 					severity="danger"
-					variant="outlined"
 					:loading="busy"
 					@click="emit('stop', item.id)"
 				/>

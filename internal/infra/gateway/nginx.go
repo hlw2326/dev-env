@@ -560,7 +560,7 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
         fastcgi_param REDIRECT_STATUS 200;
     }
 `, root, NGINX_PHP_CONCURRENCY, PHP_REQUEST_TIMEOUT, paths.LOOPBACK, fastCGIPort)
-	case site.KIND_NODE:
+	case site.KIND_NODE, site.KIND_PYTHON, site.KIND_GO, site.KIND_RUST, site.KIND_JAVA:
 		body = fmt.Sprintf(`    location / {
         proxy_pass http://%s:%d;
         proxy_http_version 1.1;
