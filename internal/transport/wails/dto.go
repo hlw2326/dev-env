@@ -201,17 +201,19 @@ type InstallInput struct {
 }
 
 type SettingsDTO struct {
-	Theme     string `json:"theme"`
-	Root      string `json:"root"`
-	Port      int    `json:"port"`
-	Hosts     bool   `json:"hosts"`
-	Listening bool   `json:"listening"`
-	Error     string `json:"error"`
+	Theme             string `json:"theme"`
+	Root              string `json:"root"`
+	Port              int    `json:"port"`
+	Hosts             bool   `json:"hosts"`
+	DeveloperToolsCLI string `json:"developerToolsCLI"`
+	Listening         bool   `json:"listening"`
+	Error             string `json:"error"`
 }
 
 type SettingsInput struct {
-	Theme string `json:"theme"`
-	Root  string `json:"root"`
-	Port  int    `json:"port"`
-	Hosts bool   `json:"hosts"`
+	Theme             string `json:"theme"`
+	Root              string `json:"root"`
+	Port              int    `json:"port"`
+	Hosts             bool   `json:"hosts"`
+	DeveloperToolsCLI string `json:"developerToolsCLI"`
 }

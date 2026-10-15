@@ -31,7 +31,7 @@
 			</div>
 		</div>
 		<div v-if="config !== ''" class="preview-shell">
-			<div class="line-numbers" aria-hidden="true">
+			<div ref="lineNumbers" class="line-numbers" aria-hidden="true">
 				<span v-for="line in lineCount" :key="line">{{ line }}</span>
 			</div>
 			<textarea
@@ -40,6 +40,7 @@
 				:readonly="!editing"
 				wrap="off"
 				aria-label="完整 Nginx 配置"
+				@scroll="syncScroll"
 				@keydown="handleEditorKeydown"
 			/>
 		</div>
@@ -62,6 +63,7 @@ const message = ref('')
 const loading = ref(false)
 const editing = ref(false)
 const saving = ref(false)
+const lineNumbers = ref<HTMLDivElement | null>(null)
 const lineCount = computed(() => Math.max(1, draft.value.split('\n').length))
 
 async function loadConfig(showToast = false): Promise<void> {
@@ -124,6 +126,13 @@ function handleEditorKeydown(event: KeyboardEvent): void {
 	draft.value = target.value
 }
 
+function syncScroll(event: Event): void {
+	const target = event.target
+	if (lineNumbers.value !== null && target instanceof HTMLTextAreaElement) {
+		lineNumbers.value.scrollTop = target.scrollTop
+	}
+}
+
 watch(() => props.projectId, () => loadConfig(), { immediate: true })
 </script>
 
@@ -163,7 +172,8 @@ watch(() => props.projectId, () => loadConfig(), { immediate: true })
 .preview-shell {
 	display: grid;
 	grid-template-columns: 3rem minmax(0, 1fr);
-	max-height: 24rem;
+	height: min(60vh, 42rem);
+	min-height: 16rem;
 	overflow: hidden;
 	border: 1px solid var(--border-color);
 	border-radius: var(--h-radius);
@@ -172,6 +182,7 @@ watch(() => props.projectId, () => loadConfig(), { immediate: true })
 
 .line-numbers {
 	overflow: hidden;
+	min-height: 0;
 	padding: 0.85rem 0.65rem;
 	background: color-mix(in srgb, var(--code-bg) 86%, var(--border-color));
 	color: var(--text-muted);
@@ -188,7 +199,8 @@ watch(() => props.projectId, () => loadConfig(), { immediate: true })
 .preview-editor {
 	width: 100%;
 	min-width: 0;
-	min-height: 16rem;
+	height: 100%;
+	min-height: 0;
 	padding: 0.85rem;
 	resize: none;
 	overflow: auto;

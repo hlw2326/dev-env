@@ -30,21 +30,23 @@ func (a *SystemAPI) Settings() (SettingsDTO, error) {
 		return SettingsDTO{}, err
 	}
 	return SettingsDTO{
-		Theme:     view.Theme,
-		Root:      view.Root,
-		Port:      view.Port,
-		Hosts:     view.Hosts,
-		Listening: view.Listening,
-		Error:     view.Error,
+		Theme:             view.Theme,
+		Root:              view.Root,
+		Port:              view.Port,
+		Hosts:             view.Hosts,
+		DeveloperToolsCLI: view.DeveloperToolsCLI,
+		Listening:         view.Listening,
+		Error:             view.Error,
 	}, nil
 }
 
 func (a *SystemAPI) SaveSettings(in SettingsInput) Result {
 	err := a.service.SaveSettings(a.ctx, setting.Settings{
-		Theme: in.Theme,
-		Root:  in.Root,
-		Port:  in.Port,
-		Hosts: in.Hosts,
+		Theme:             in.Theme,
+		Root:              in.Root,
+		Port:              in.Port,
+		Hosts:             in.Hosts,
+		DeveloperToolsCLI: in.DeveloperToolsCLI,
 	})
 	if err != nil {
 		return Result{OK: false, Message: err.Error()}

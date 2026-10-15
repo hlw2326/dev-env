@@ -10,13 +10,14 @@ import (
 )
 
 const (
-	PROVIDER_SFTP     = "sftp"
-	PROVIDER_WECHAT   = "wechat"
-	STATE_RUNNING     = "running"
-	STATE_SUCCESS     = "success"
-	STATE_FAILED      = "failed"
-	STATE_CANCELLED   = "cancelled"
-	STATE_INTERRUPTED = "interrupted"
+	PROVIDER_SFTP         = "sftp"
+	PROVIDER_WECHAT       = "wechat"
+	DEFAULT_WECHAT_SOURCE = "dist/dev/mp-weixin"
+	STATE_RUNNING         = "running"
+	STATE_SUCCESS         = "success"
+	STATE_FAILED          = "failed"
+	STATE_CANCELLED       = "cancelled"
+	STATE_INTERRUPTED     = "interrupted"
 )
 
 // Config contains only non-secret settings. Passwords and key passphrases are never persisted.
@@ -31,13 +32,13 @@ type Config struct {
 	PrivateKey  string `json:"privateKey"`
 	Fingerprint string `json:"fingerprint"`
 	Remote      string `json:"remote"`
-	AppID       string `json:"appId"`
-	UploadKey   string `json:"uploadKey"`
-	NodePath    string `json:"nodePath"`
-	ModulePath  string `json:"modulePath"`
-	Version     string `json:"version"`
-	Description string `json:"description"`
-	Robot       int    `json:"robot"`
+	// AppID is kept for backwards compatibility with configurations created before multi-AppID support.
+	AppID             string   `json:"appId,omitempty"`
+	AppIDs            []string `json:"appIds"`
+	DeveloperToolsCLI string   `json:"developerToolsCLI"`
+	Version           string   `json:"version"`
+	Description       string   `json:"description"`
+	Robot             int      `json:"robot"`
 }
 
 type File struct {
@@ -72,6 +73,34 @@ type Credentials struct {
 	Passphrase string
 }
 
+// AppIDValues returns configured AppIDs and includes the legacy single value when present.
+func (config Config) AppIDValues() []string {
+	values := make([]string, 0, len(config.AppIDs))
+	seen := make(map[string]bool)
+	items := config.AppIDs
+	if len(items) == 0 && config.AppID != "" {
+		items = []string{config.AppID}
+	}
+	for _, value := range items {
+		value = strings.TrimSpace(value)
+		if value != "" && !seen[value] {
+			values = append(values, value)
+			seen[value] = true
+		}
+	}
+	return values
+}
+
+// NormalizeAppIDs upgrades the legacy single AppID and removes duplicate or blank tags.
+func NormalizeAppIDs(config *Config) {
+	values := config.AppIDValues()
+	config.AppIDs = values
+	config.AppID = ""
+	if len(values) > 0 {
+		config.AppID = values[0]
+	}
+}
+
 func ProviderFor(kind string) string {
 	if project.HasCapability(kind, project.CAPABILITY_SERVER_SYNC) {
 		return PROVIDER_SFTP
@@ -83,7 +112,11 @@ func ProviderFor(kind string) string {
 }
 
 func Default(projectID int64, kind string) Config {
-	return Config{ProjectID: projectID, Provider: ProviderFor(kind), Source: ".", Port: 22, Robot: 1}
+	source := "."
+	if kind == project.KIND_MINIPROGRAM {
+		source = DEFAULT_WECHAT_SOURCE
+	}
+	return Config{ProjectID: projectID, Provider: ProviderFor(kind), Source: source, Port: 22, Robot: 1, AppIDs: []string{}}
 }
 
 func Validate(config Config, kind string) error {
@@ -107,11 +140,14 @@ func Validate(config Config, kind string) error {
 			return fmt.Errorf("远端必须是明确的 Linux 项目绝对目录，如 /var/www/my-project，不能使用根目录或 ..")
 		}
 	} else {
-		if !regexp.MustCompile(`^wx[0-9a-fA-F]{16}$`).MatchString(config.AppID) {
-			return fmt.Errorf("请填写有效的微信小程序 AppID")
+		appIDs := config.AppIDValues()
+		if len(appIDs) == 0 {
+			return fmt.Errorf("请至少填写一个有效的微信小程序 AppID")
 		}
-		if config.UploadKey == "" {
-			return fmt.Errorf("请选择微信代码上传私钥文件")
+		for _, appID := range appIDs {
+			if !regexp.MustCompile(`^wx[0-9a-fA-F]{16}$`).MatchString(appID) {
+				return fmt.Errorf("无效的微信小程序 AppID: %s", appID)
+			}
 		}
 		if strings.TrimSpace(config.Version) == "" || len(config.Version) > 64 {
 			return fmt.Errorf("请填写上传版本号（最多 64 字节）")

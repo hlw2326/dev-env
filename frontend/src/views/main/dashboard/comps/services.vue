@@ -28,6 +28,7 @@
 				:key="item.id"
 				:item="item"
 				:busy="busyId === item.id"
+				:configurable="false"
 				@start="startService"
 				@stop="stopService"
 				@manage="$router.push('/software')"

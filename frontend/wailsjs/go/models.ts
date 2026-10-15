@@ -92,10 +92,9 @@ export namespace wails {
 	    privateKey: string;
 	    fingerprint: string;
 	    remote: string;
-	    appId: string;
-	    uploadKey: string;
-	    nodePath: string;
-	    modulePath: string;
+	    appId?: string;
+	    appIds: string[];
+	    developerToolsCLI: string;
 	    version: string;
 	    description: string;
 	    robot: number;
@@ -117,9 +116,8 @@ export namespace wails {
 	        this.fingerprint = source["fingerprint"];
 	        this.remote = source["remote"];
 	        this.appId = source["appId"];
-	        this.uploadKey = source["uploadKey"];
-	        this.nodePath = source["nodePath"];
-	        this.modulePath = source["modulePath"];
+	        this.appIds = source["appIds"];
+	        this.developerToolsCLI = source["developerToolsCLI"];
 	        this.version = source["version"];
 	        this.description = source["description"];
 	        this.robot = source["robot"];
@@ -642,6 +640,7 @@ export namespace wails {
 	    root: string;
 	    port: number;
 	    hosts: boolean;
+	    developerToolsCLI: string;
 	    listening: boolean;
 	    error: string;
 	
@@ -655,6 +654,7 @@ export namespace wails {
 	        this.root = source["root"];
 	        this.port = source["port"];
 	        this.hosts = source["hosts"];
+	        this.developerToolsCLI = source["developerToolsCLI"];
 	        this.listening = source["listening"];
 	        this.error = source["error"];
 	    }
@@ -664,6 +664,7 @@ export namespace wails {
 	    root: string;
 	    port: number;
 	    hosts: boolean;
+	    developerToolsCLI: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SettingsInput(source);
@@ -675,6 +676,7 @@ export namespace wails {
 	        this.root = source["root"];
 	        this.port = source["port"];
 	        this.hosts = source["hosts"];
+	        this.developerToolsCLI = source["developerToolsCLI"];
 	    }
 	}
 	export class SoftwareDTO {

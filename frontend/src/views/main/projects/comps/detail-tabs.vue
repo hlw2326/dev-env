@@ -1,15 +1,16 @@
 <template>
 	<div class="panel-tabs detail-tabs">
-		<button
+		<p-button
 			v-for="tab in tabs"
 			:key="tab.value"
 			type="button"
+			unstyled
 			class="panel-tab"
 			:class="{ active: currentTab === tab.value }"
 			@click="currentTab = tab.value"
 		>
 			{{ tab.label }}
-		</button>
+		</p-button>
 	</div>
 </template>
 

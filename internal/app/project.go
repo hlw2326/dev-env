@@ -33,6 +33,7 @@ const (
 type ProjectView struct {
 	project.Project
 	Path    string
+	EnvironmentFiles []string
 	Version string
 	State   string
 	URL     string
@@ -322,6 +323,10 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 			command = project.FindCommand(root, kind)
 		}
 	}
+	environmentFile := ""
+	if kind == project.KIND_PHP {
+		environmentFile = project.DefaultEnvironmentFile(root)
+	}
 
 	created := &project.Project{
 		Name:      name,
@@ -331,6 +336,7 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 		Run:       runFolder,
 		Software:  softwareID,
 		Command:   command,
+		EnvironmentFile: environmentFile,
 		Port:      port,
 		Autostart: !isLocal,
 	}
@@ -412,12 +418,17 @@ func (s *ProjectService) Update(ctx context.Context, in project.UpdateInput) (*P
 	} else {
 		nginxConfig = ""
 	}
+	environmentFile, err := project.NormalizeEnvironmentFile(root, in.EnvironmentFile)
+	if err != nil {
+		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, err.Error())
+	}
 
 	current.Hosts = cleanHosts
 	current.Root = root
 	current.Run = runFolder
 	current.Software = in.Software
 	current.Command = strings.TrimSpace(in.Command)
+	current.EnvironmentFile = environmentFile
 	if template, ok := project.ProjectTemplateForKind(current.Kind); ok && current.Command == "" && template.DefaultCommand != "" {
 		current.Command = template.DefaultCommand
 	}
@@ -925,9 +936,16 @@ func (s *ProjectService) syncRoutes(ctx context.Context) error {
 			continue
 		}
 		phpBinary := ""
+		environmentFile := ""
 		if item.Kind == project.KIND_PHP && item.Software != nil {
 			if found, ok := softwareMap[*item.Software]; ok && found.State == software.STATE_INSTALLED {
 				phpBinary = filepath.Join(found.Path, "php-cgi.exe")
+			}
+		}
+		if item.Kind == project.KIND_PHP {
+			environmentFile, err = project.ResolveEnvironmentFile(item.Root, item.EnvironmentFile)
+			if err != nil {
+				return err
 			}
 		}
 		routes = append(routes, ports.Route{
@@ -938,6 +956,7 @@ func (s *ProjectService) syncRoutes(ctx context.Context) error {
 			Path:  project.ResolvePath(item.Root, item.Run),
 			PHP:   phpBinary,
 			Nginx: item.Nginx,
+			EnvironmentFile: environmentFile,
 			Port:  item.Port,
 			Log:   paths.ProjectLog(s.base, item.Name, "access.log"),
 		})
@@ -968,6 +987,9 @@ func (s *ProjectService) syncHosts(ctx context.Context) error {
 
 func (s *ProjectService) buildView(item project.Project, softwareMap map[int64]software.Software, port int) ProjectView {
 	docPath := project.ResolvePath(item.Root, item.Run)
+	if item.EnvironmentFile == "" {
+		item.EnvironmentFile = project.DefaultEnvironmentFile(item.Root)
+	}
 	version := ""
 	need := ""
 
@@ -1027,6 +1049,7 @@ func (s *ProjectService) buildView(item project.Project, softwareMap map[int64]s
 		State:   state,
 		URL:     projectURL,
 		Need:    need,
+		EnvironmentFiles: project.FindEnvironmentFiles(item.Root),
 	}
 }
 

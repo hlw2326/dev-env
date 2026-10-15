@@ -6,17 +6,18 @@
 			<div class="form-field">
 				<label>色彩模式（点击即生效）</label>
 				<div class="theme-options">
-					<button
+					<p-button
 						v-for="item in modeOptions"
 						:key="item.value"
 						type="button"
+						unstyled
 						class="theme-btn"
 						:class="{ active: theme.mode === item.value }"
 						@click="selectTheme(item.value)"
 					>
 						<i :class="[item.icon, 'theme-icon']"></i>
 						<span>{{ item.label }}</span>
-					</button>
+					</p-button>
 				</div>
 			</div>
 
@@ -29,10 +30,11 @@
 					</span>
 				</div>
 				<div class="color-options">
-					<button
+					<p-button
 						v-for="item in THEME_COLORS"
 						:key="item.value"
 						type="button"
+						unstyled
 						class="color-wrap"
 						:class="{ active: isSameColor(item.value) }"
 						:title="item.name"
@@ -41,16 +43,13 @@
 						<span class="color-dot" :style="{ backgroundColor: item.value }">
 							<i v-if="isSameColor(item.value)" class="pi pi-check check-icon"></i>
 						</span>
-					</button>
-					<label class="color-picker-btn" title="自定义强调色">
-						<input
-							type="color"
-							:value="theme.color"
-							class="color-input"
-							@input="onPickColor"
-						/>
-						<i class="pi pi-plus plus-icon"></i>
-					</label>
+					</p-button>
+					<p-color-picker
+						v-model="customColor"
+						format="hex"
+						class="color-picker-control"
+						title="自定义强调色"
+					/>
 				</div>
 			</div>
 
@@ -74,6 +73,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { useSettings } from '@/composables'
 import type { ThemeMode } from '@/composables/theme'
 
@@ -88,6 +88,19 @@ const {
 	openData,
 } = useSettings()
 
+const customColor = ref(theme.color)
+
+watch(customColor, (value) => {
+	if (value !== theme.color) selectColor(value)
+})
+
+watch(
+		() => theme.color,
+		(value) => {
+			if (customColor.value !== value) customColor.value = value
+		},
+)
+
 // 色彩模式选项列表
 const modeOptions: { label: string; value: ThemeMode; icon: string }[] = [
 	{ label: '浅色模式', value: 'light', icon: 'pi pi-sun' },
@@ -100,11 +113,6 @@ function isSameColor(value: string): boolean {
 	return theme.color.toLowerCase() === value.toLowerCase()
 }
 
-// 处理自定义拾色器输入
-function onPickColor(event: Event): void {
-	const target = event.target as HTMLInputElement
-	selectColor(target.value)
-}
 </script>
 
 <style scoped lang="scss">
@@ -211,32 +219,10 @@ function onPickColor(event: Event): void {
 	}
 }
 
-/* 自定义拾色按钮 */
-.color-picker-btn {
+/* PrimeVue 自定义拾色器 */
+.color-picker-control {
 	width: 1.875rem;
 	height: 1.875rem;
-	border-radius: 50%;
-	border: 1px dashed var(--border-color);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-	position: relative;
-
-	/* 隐藏原生拾色输入框 */
-	.color-input {
-		position: absolute;
-		opacity: 0;
-		width: 100%;
-		height: 100%;
-		cursor: pointer;
-	}
-
-	/* 加号图标 */
-	.plus-icon {
-		font-size: var(--icon-xs);
-		color: var(--text-secondary);
-	}
 }
 
 /* 目录行容器 */

@@ -16,12 +16,16 @@
 		<comp-nginx-preview :project-id="project.id" />
 		<div class="editor-toolbar">
 			<label for="nginx-snippet">插入常用指令</label>
-			<select id="nginx-snippet" v-model="selectedSnippet" @change="insertSelectedSnippet">
-				<option value="">选择指令模板</option>
-				<option v-for="snippet in snippets" :key="snippet.label" :value="snippet.value">
-					{{ snippet.label }}
-				</option>
-			</select>
+			<p-select
+				id="nginx-snippet"
+				v-model="selectedSnippet"
+				:options="snippetOptions"
+				option-label="label"
+				option-value="value"
+				placeholder="选择指令模板"
+				class="snippet-select"
+				@change="insertSelectedSnippet"
+			/>
 			<span class="editor-meta">{{ lineCount }} 行 · {{ nginx.length }} 个字符</span>
 		</div>
 
@@ -73,6 +77,11 @@ const snippets = [
 	{ label: '添加安全响应头', value: 'add_header X-Content-Type-Options "nosniff" always;' },
 	{ label: '静态资源缓存', value: 'location ~* \\.(css|js|png|jpg|jpeg|gif|svg|woff2)$ {\n\t expires 7d;\n\t add_header Cache-Control "public, max-age=604800";\n}' },
 ]
+
+const snippetOptions = computed(() => [
+	{ label: '选择指令模板', value: '' },
+	...snippets,
+])
 
 const lineCount = computed(() => Math.max(1, nginx.value.split('\n').length))
 const validationMessage = computed(() => validateNginxConfig(nginx.value))
@@ -224,13 +233,8 @@ watch(
 	line-height: 1.5;
 }
 
-.editor-toolbar select {
+.editor-toolbar .snippet-select {
 	min-width: 12rem;
-	padding: 0.45rem 0.65rem;
-	border: 1px solid var(--border-color);
-	border-radius: var(--h-radius);
-	background: var(--bg-card);
-	color: var(--text-primary);
 }
 
 .editor-meta {

@@ -3,37 +3,40 @@
 	<div class="top-bar surface-card">
 		<!-- 全部软件与已安装页签 -->
 		<div class="main-tabs">
-			<button
+			<p-button
 				type="button"
+				unstyled
 				class="tab-btn"
 				:class="{ active: tab === 'market' }"
 				@click="tab = 'market'"
 			>
 				全部软件
-			</button>
-			<button
+			</p-button>
+			<p-button
 				type="button"
+				unstyled
 				class="tab-btn"
 				:class="{ active: tab === 'installed' }"
 				@click="tab = 'installed'"
 			>
 				已安装 ({{ installedCount }})
-			</button>
+			</p-button>
 		</div>
 
 		<!-- 右侧分类筛选与搜索框 -->
 		<div class="right-filters">
 			<div v-if="tab === 'market'" class="category-tabs">
-				<button
+				<p-button
 					v-for="item in categories"
 					:key="item"
 					type="button"
+					unstyled
 					class="tab-btn"
 					:class="{ active: category === item }"
 					@click="category = item"
 				>
 					{{ item }}
-				</button>
+				</p-button>
 			</div>
 
 			<div class="search-box">

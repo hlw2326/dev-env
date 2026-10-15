@@ -99,6 +99,16 @@ func (s *SettingService) SaveSettings(ctx context.Context, next setting.Settings
 	if next.Port <= 0 || next.Port > ports.MAX_PORT {
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "Nginx 监听端口必须在 1 到 65535 之间")
 	}
+	next.DeveloperToolsCLI = strings.TrimSpace(next.DeveloperToolsCLI)
+	if next.DeveloperToolsCLI != "" {
+		if !filepath.IsAbs(next.DeveloperToolsCLI) {
+			return appErrors.New(appErrors.PATH_INVALID, "微信开发者工具 CLI 必须是绝对路径")
+		}
+		info, statErr := os.Stat(next.DeveloperToolsCLI)
+		if statErr != nil || info.IsDir() {
+			return appErrors.New(appErrors.PATH_NOT_ACCESSIBLE, "微信开发者工具 CLI 文件不存在或不可用")
+		}
+	}
 	if err := os.MkdirAll(next.Root, 0o755); err != nil {
 		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建项目根目录失败")
 	}

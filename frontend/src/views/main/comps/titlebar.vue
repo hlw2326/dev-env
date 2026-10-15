@@ -18,15 +18,16 @@
 
 		<!-- 右侧主题切换与窗口控制 -->
 		<div class="right">
-			<button
+			<p-button
 				type="button"
+				unstyled
 				class="theme-toggle"
 				:title="modeTip"
 				@click="toggleTheme"
 			>
 				<i v-if="theme.mode === 'dark'" class="pi pi-sun toggle-icon"></i>
 				<i v-else class="pi pi-moon toggle-icon"></i>
-			</button>
+			</p-button>
 			<span class="badge font-mono">Win64 · Go & Wails</span>
 			<comp-window />
 		</div>
@@ -83,6 +84,7 @@ async function toggleTheme(): Promise<void> {
 			root: settings.root,
 			port: settings.port,
 			hosts: settings.hosts,
+			developerToolsCLI: settings.developerToolsCLI,
 		})
 	} catch (err: unknown) {
 		toast.error('保存主题设置失败', formatError(err))

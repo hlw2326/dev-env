@@ -34,17 +34,62 @@
 				:busy="busy === item.id"
 				@start="startService"
 				@stop="stopService"
+				@configure="openSettings"
 			/>
 		</div>
+
+		<h-service-config
+			v-model:visible="settingsVisible"
+			:item="activeService"
+			:busy="activeService !== null && busy === activeService.id"
+			@start="startConfiguredService"
+			@stop="stopConfiguredService"
+			@main="markMain"
+			@autostart="toggleAutostart"
+			@folder="browseFolder"
+		/>
 	</h-page>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useServices } from '@/composables'
+import type { Software } from '@/types'
 
 // 服务管理数据与控制方法
-const { services, loading, busy, loadData, startService, stopService, bindEvents } = useServices()
+const {
+	services,
+	loading,
+	busy,
+	loadData,
+	startService,
+	stopService,
+	startConfiguredService,
+	stopConfiguredService,
+	markMain,
+	toggleAutostart,
+	browseFolder,
+	bindEvents,
+} = useServices()
+
+const settingsVisible = ref(false)
+const activeService = ref<Software | null>(null)
+
+function openSettings(item: Software): void {
+	activeService.value = item
+	settingsVisible.value = true
+}
+
+watch(services, (items) => {
+	if (activeService.value === null) {
+		return
+	}
+	const activeID = activeService.value.id
+	const current = items.find((item) => item.id === activeID)
+	if (current) {
+		activeService.value = current
+	}
+})
 
 // 服务事件解绑函数
 let stopEvents: (() => void) | null = null

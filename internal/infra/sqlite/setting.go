@@ -49,6 +49,8 @@ func (r *SettingRepository) Load(ctx context.Context) (setting.Settings, error) 
 			result.Port = port
 		case "hosts":
 			result.Hosts = value == "true"
+		case "developerToolsCLI":
+			result.DeveloperToolsCLI = paths.ExpandProfile(value)
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -66,10 +68,11 @@ func (r *SettingRepository) Save(ctx context.Context, settings setting.Settings)
 	defer rollbackTx(tx)
 
 	pairs := map[string]string{
-		"theme": settings.Theme,
-		"root":  settings.Root,
-		"port":  strconv.Itoa(settings.Port),
-		"hosts": strconv.FormatBool(settings.Hosts),
+		"theme":             settings.Theme,
+		"root":              settings.Root,
+		"port":              strconv.Itoa(settings.Port),
+		"hosts":             strconv.FormatBool(settings.Hosts),
+		"developerToolsCLI": settings.DeveloperToolsCLI,
 	}
 	for key, value := range pairs {
 		if _, err := tx.ExecContext(ctx, `

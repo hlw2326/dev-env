@@ -1,3 +1,21 @@
+/* PrimeVue 表单文字统一使用项目字号与常规字重 */
+.p-inputtext,
+.p-textarea,
+.p-inputnumber-input,
+.p-password-input,
+.p-password input,
+.p-select-label,
+.p-select-option,
+.p-multiselect-label,
+.p-autocomplete-input,
+.p-cascadeselect-label,
+.p-listbox-option {
+	font-family: var(--font-sans) !important;
+	font-size: var(--font-sm) !important;
+	font-weight: 400 !important;
+	line-height: var(--leading-normal) !important;
+}
+
 /* 扁平化 Button */
 .p-button {
 	font-weight: 400 !important;

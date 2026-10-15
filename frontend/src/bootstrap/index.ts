@@ -17,6 +17,16 @@ import '@/assets/css/primevue.css'
 // PrimeVue Aura 主题预设
 export const AuraPreset = definePreset(Aura, {
 	semantic: {
+		formField: {
+			fontSize: '0.8125rem',
+			fontWeight: '400',
+			sm: {
+				fontSize: '0.8125rem',
+			},
+			lg: {
+				fontSize: '0.875rem',
+			},
+		},
 		primary: {
 			50: '{slate.50}',
 			100: '{slate.100}',

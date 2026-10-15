@@ -47,6 +47,7 @@ type Route struct {
 	Path  string
 	PHP   string
 	Nginx string
+	EnvironmentFile string
 	Port  int
 	Log   string
 }

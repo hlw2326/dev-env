@@ -1,5 +1,5 @@
 <template>
-	<button type="button" class="git-status" :class="tone" @click="emit('open')"><i class="pi pi-github"></i>{{ label }}</button>
+	<p-button type="button" unstyled class="git-status" :class="tone" @click="emit('open')"><i class="pi pi-github"></i>{{ label }}</p-button>
 </template>
 
 <script setup lang="ts">

@@ -7,15 +7,16 @@
 			<div class="info">
 				<div class="top-line">
 					<span class="name">{{ project.name }}</span>
-					<button
+					<p-button
 						v-if="project.hosts.length > 0"
 						type="button"
+						unstyled
 						class="domain-link font-mono"
 						@click="emit('open', project)"
 					>
 						<span>{{ project.hosts[0] }}</span>
 						<i class="pi pi-external-link link-icon"></i>
-					</button>
+					</p-button>
 					<span v-else class="project-mode">本地调试</span>
 					<span class="status-pill" :class="project.state">
 						<span class="dot"></span>

@@ -30,7 +30,7 @@
 				<div class="commit-box">
 					<label for="git-commit-message">提交说明</label>
 					<p-input-text id="git-commit-message" v-model="message" placeholder="例如：修复登录页面样式" :disabled="disabled" @keyup.enter="commitChanges" />
-					<label class="version-option"><input v-model="bumpVersion" type="checkbox" :disabled="!status.versionCanBump || disabled" /><span>提交时自动升级版本号</span></label>
+					<label class="version-option"><p-checkbox v-model="bumpVersion" binary :disabled="!status.versionCanBump || disabled" /><span>提交时自动升级版本号</span></label>
 					<span v-if="status.versionCanBump" class="hint font-mono">{{ status.version }} → {{ status.nextVersion }}（{{ status.versionFile }}）</span>
 					<span v-else class="hint">{{ status.versionError }}</span>
 					<p v-if="bumpVersion" class="hint warning">按自定义规则递增（如 1.0.01）。补丁号带前导零不符合严格 SemVer，npm / Cargo 等工具可能拒绝该格式。</p>
@@ -74,5 +74,4 @@ const { status, loading, loadError, busy, disabled, message, bumpVersion, canCom
 .commit-box { border-top: 1px solid var(--border-color); padding-top: 0.875rem; }
 .commit-box > label { color: var(--text-secondary); font-size: var(--font-sm); }
 .version-option { display: flex; align-items: center; gap: 0.4rem; }
-.version-option input { accent-color: var(--ok); }
 </style>

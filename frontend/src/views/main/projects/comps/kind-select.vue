@@ -1,16 +1,17 @@
 <template>
 	<div class="kind-options">
-		<button
+		<p-button
 			v-for="item in templates"
 			:key="item.kind"
 			type="button"
+			unstyled
 			class="kind-btn"
 			:class="{ active: model === item.kind }"
 			@click="model = item.kind"
 		>
 			<i :class="[item.icon, 'kind-icon']"></i>
 			<span>{{ item.label }}</span>
-		</button>
+		</p-button>
 	</div>
 </template>
 

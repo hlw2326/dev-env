@@ -47,6 +47,15 @@
 		<div class="actions">
 			<template v-if="item.service">
 				<p-button
+					v-if="configurable"
+					label="设置"
+					icon="pi pi-cog"
+					size="small"
+					severity="secondary"
+					variant="outlined"
+					@click="emit('configure', item)"
+				/>
+				<p-button
 					v-if="!item.running"
 					label="启动"
 					icon="pi pi-play"
@@ -87,13 +96,16 @@ defineOptions({
 })
 
 // 接收服务数据与操作状态
-defineProps<HServiceProps>()
+withDefaults(defineProps<HServiceProps>(), {
+	configurable: true,
+})
 
 // 定义服务控制事件
 const emit = defineEmits<{
 	start: [id: number]
 	stop: [id: number]
 	manage: []
+	configure: [item: HServiceProps['item']]
 }>()
 </script>
 

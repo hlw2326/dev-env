@@ -5,12 +5,14 @@
 		<div v-else-if="config === null" class="hint"><i class="pi pi-spin pi-spinner"></i> 正在读取发布配置…</div>
 		<template v-else>
 			<fieldset :disabled="disabled" class="form">
-				<label>发布源目录（相对项目根目录）<p-input-text v-model="config.source" placeholder=". 或 dist；小程序示例 dist/build/mp-weixin" /></label>
-				<p class="hint">项目根目录：{{ project.root }}。需要构建的项目请先自行完成构建，再预览并同步产物。</p>
+				<label>{{ config.provider === 'wechat' ? '小程序编译目录（相对项目根目录）' : '发布源目录（相对项目根目录）' }}<p-input-text v-model="config.source" :placeholder="config.provider === 'wechat' ? 'dist/dev/mp-weixin' : '. 或 dist'" /></label>
+				<p class="hint">项目根目录：{{ project.root }}。小程序项目上传的是构建后的 {{ config.source || 'dist/dev/mp-weixin' }} 目录，不是 uni 源码目录；请先完成编译，再预览并发布。</p>
 				<comp-deployment-server v-if="config.provider === 'sftp'" v-model="config" v-model:password="password" v-model:passphrase="passphrase" @pick="pick" />
-				<comp-deployment-wechat v-else-if="config.provider === 'wechat'" v-model="config" @pick="pick" />
-				<label>额外排除规则（每行一条）<p-textarea v-model="config.exclude" rows="3" placeholder="tests/&#10;*.map&#10;public/cache/" /></label>
-				<p class="hint">始终排除 .git、.env*、node_modules、SSH 目录、常见私钥、凭据、数据库文件及 SQL 导出。服务器同步还排除 storage、runtime、logs、uploads；这些目录不会被覆盖。规则支持目录名、相对路径和 *.ext，不支持 **。</p>
+				<comp-deployment-wechat v-else-if="config.provider === 'wechat'" v-model="config" />
+				<template v-if="config.provider === 'sftp'">
+					<label>额外排除规则（每行一条）<p-textarea v-model="config.exclude" rows="3" placeholder="tests/&#10;*.map&#10;public/cache/" /></label>
+					<p class="hint">始终排除 .git、.env*、node_modules、SSH 目录、常见私钥、凭据、数据库文件及 SQL 导出。服务器同步还排除 storage、runtime、logs、uploads；这些目录不会被覆盖。规则支持目录名、相对路径和 *.ext，不支持 **。</p>
+				</template>
 			</fieldset>
 			<p v-if="dirty" class="warning">配置尚未保存，请保存后检查或生成预览。</p>
 			<div class="actions">

@@ -65,10 +65,10 @@
 
 			<!-- 进程项目启动命令设置 -->
 			<div v-if="hasCapability('command')" class="more-box">
-				<button type="button" class="more-toggle" @click="moreOpen = !moreOpen">
+				<p-button type="button" unstyled class="more-toggle" @click="moreOpen = !moreOpen">
 					<i class="pi" :class="{ 'pi-chevron-down': moreOpen, 'pi-chevron-right': !moreOpen }"></i>
 					<span>启动设置</span>
-				</button>
+				</p-button>
 				<div v-if="moreOpen" class="more-body">
 					<comp-command-field
 						v-model="form.command"

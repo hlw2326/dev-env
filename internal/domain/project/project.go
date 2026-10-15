@@ -37,6 +37,7 @@ type Project struct {
 	Software  *int64   `json:"software"`
 	Command   string   `json:"command"`
 	Nginx     string   `json:"nginx"`
+	EnvironmentFile string `json:"environmentFile"`
 	Port      int      `json:"port"`
 	Autostart bool     `json:"autostart"`
 	Created   string   `json:"created"`
@@ -60,6 +61,7 @@ type UpdateInput struct {
 	Software  *int64   `json:"software"`
 	Command   string   `json:"command"`
 	Nginx     string   `json:"nginx"`
+	EnvironmentFile string `json:"environmentFile"`
 	Autostart bool     `json:"autostart"`
 }
 
@@ -170,6 +172,82 @@ func ResolvePath(root, run string) string {
 		return filepath.Clean(root)
 	}
 	return filepath.Join(filepath.Clean(root), filepath.FromSlash(run))
+}
+
+// FindEnvironmentFiles returns environment files directly under the project root.
+func FindEnvironmentFiles(root string) []string {
+	entries, err := os.ReadDir(filepath.Clean(root))
+	if err != nil {
+		return []string{}
+	}
+	files := make([]string, 0)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), ".env") {
+			continue
+		}
+		if entry.Name() == ".env.example" || entry.Name() == ".env.sample" {
+			continue
+		}
+		files = append(files, entry.Name())
+	}
+	sort.Strings(files)
+	return files
+}
+
+// DefaultEnvironmentFile prefers development settings for the local gateway.
+func DefaultEnvironmentFile(root string) string {
+	files := FindEnvironmentFiles(root)
+	for _, preferred := range []string{".env.dev", ".env.development", ".env.local", ".env"} {
+		for _, file := range files {
+			if file == preferred {
+				return file
+			}
+		}
+	}
+	return ""
+}
+
+// NormalizeEnvironmentFile validates a selected environment file and returns a relative path.
+func NormalizeEnvironmentFile(root, value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", nil
+	}
+	if filepath.IsAbs(trimmed) || strings.HasPrefix(trimmed, "/") || strings.HasPrefix(trimmed, `\`) {
+		return "", errors.New("环境变量文件必须位于项目根目录内")
+	}
+	cleaned := filepath.ToSlash(filepath.Clean(trimmed))
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.Contains(cleaned, "/../") {
+		return "", errors.New("环境变量文件不能超出项目根目录")
+	}
+	if !strings.HasPrefix(cleaned, ".env") {
+		return "", errors.New("环境变量文件必须以 .env 开头")
+	}
+	target := filepath.Join(filepath.Clean(root), filepath.FromSlash(cleaned))
+	info, err := os.Stat(target)
+	if err != nil {
+		return "", errors.New("环境变量文件不存在: " + cleaned)
+	}
+	if info.IsDir() {
+		return "", errors.New("环境变量文件不能是目录")
+	}
+	return cleaned, nil
+}
+
+// ResolveEnvironmentFile returns the absolute file used by the local gateway.
+func ResolveEnvironmentFile(root, value string) (string, error) {
+	selected := strings.TrimSpace(value)
+	if selected == "" {
+		selected = DefaultEnvironmentFile(root)
+	}
+	if selected == "" {
+		return "", nil
+	}
+	cleaned, err := NormalizeEnvironmentFile(root, selected)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(filepath.Clean(root), filepath.FromSlash(cleaned)), nil
 }
 
 func FindRun(root, kind string) string {

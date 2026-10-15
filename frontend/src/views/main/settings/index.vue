@@ -1,6 +1,6 @@
 <template>
 	<!-- 全局设置页面 -->
-	<h-page title="全局设置" description="配置默认项目目录、Nginx 监听端口、hosts 自动写入与界面主题">
+	<h-page title="全局设置" description="配置默认项目目录、Nginx 监听端口、微信开发者工具 CLI、hosts 自动写入与界面主题">
 		<!-- 页面右上角保存按钮 -->
 		<template #extra>
 			<p-button
@@ -14,6 +14,7 @@
 		<!-- Nginx 与项目设置卡片 -->
 		<div class="settings-content">
 			<comp-gateway />
+			<comp-wechat />
 			<comp-theme />
 		</div>
 	</h-page>
@@ -23,6 +24,7 @@
 import { onMounted } from 'vue'
 import { useSettings } from '@/composables'
 import CompGateway from './comps/gateway.vue'
+import CompWechat from './comps/wechat.vue'
 import CompTheme from './comps/theme.vue'
 
 // 全局设置状态与操作

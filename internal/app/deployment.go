@@ -3,6 +3,9 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +29,7 @@ type deploymentPlan struct {
 type DeploymentService struct {
 	projects   ports.ProjectRepository
 	repository ports.DeploymentRepository
+	settings   ports.SettingRepository
 	providers  map[string]ports.DeploymentProvider
 	mu         sync.Mutex
 	plans      map[int64]deploymentPlan
@@ -36,8 +40,12 @@ type DeploymentService struct {
 	group      sync.WaitGroup
 }
 
-func NewDeploymentService(projects ports.ProjectRepository, repository ports.DeploymentRepository, providers map[string]ports.DeploymentProvider) *DeploymentService {
-	return &DeploymentService{projects: projects, repository: repository, providers: providers, plans: make(map[int64]deploymentPlan), tasks: make(map[int64]deployment.Task), cancel: make(map[int64]context.CancelFunc), targets: make(map[string]bool)}
+func NewDeploymentService(projects ports.ProjectRepository, repository ports.DeploymentRepository, providers map[string]ports.DeploymentProvider, settings ...ports.SettingRepository) *DeploymentService {
+	var settingRepository ports.SettingRepository
+	if len(settings) > 0 {
+		settingRepository = settings[0]
+	}
+	return &DeploymentService{projects: projects, repository: repository, settings: settingRepository, providers: providers, plans: make(map[int64]deploymentPlan), tasks: make(map[int64]deployment.Task), cancel: make(map[int64]context.CancelFunc), targets: make(map[string]bool)}
 }
 
 func (s *DeploymentService) project(ctx context.Context, id int64) (*project.Project, error) {
@@ -58,19 +66,55 @@ func (s *DeploymentService) Config(ctx context.Context, id int64) (deployment.Co
 	if err != nil {
 		return deployment.Config{}, err
 	}
-	config, err := s.repository.Load(ctx, id)
+	stored, err := s.repository.Load(ctx, id)
 	if err != nil {
 		return deployment.Config{}, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "读取发布配置失败")
 	}
-	if config == nil {
-		return deployment.Default(id, item.Kind), nil
+	config := deployment.Default(id, item.Kind)
+	if stored != nil {
+		config = *stored
 	}
-	return *config, nil
+	deployment.NormalizeAppIDs(&config)
+	if config.Provider == deployment.PROVIDER_WECHAT {
+		config.Exclude = ""
+	}
+	if item.Kind == project.KIND_MINIPROGRAM && s.settings != nil {
+		global, settingsErr := s.settings.Load(ctx)
+		if settingsErr != nil {
+			return deployment.Config{}, appErrors.Wrap(settingsErr, appErrors.DATABASE_ERROR, "读取微信开发者工具设置失败")
+		}
+		if global.DeveloperToolsCLI == "" && config.DeveloperToolsCLI != "" {
+			global.DeveloperToolsCLI = config.DeveloperToolsCLI
+			_ = s.settings.Save(ctx, global)
+		}
+		config.DeveloperToolsCLI = global.DeveloperToolsCLI
+	}
+	if stored == nil {
+		return config, nil
+	}
+	if item.Kind == project.KIND_MINIPROGRAM && (strings.TrimSpace(config.Source) == "" || config.Source == "." || config.Source == "dist/build/mp-weixin") {
+		compiled := filepath.Join(item.Root, filepath.FromSlash(deployment.DEFAULT_WECHAT_SOURCE))
+		if info, statErr := os.Stat(compiled); statErr == nil && info.IsDir() {
+			config.Source = deployment.DEFAULT_WECHAT_SOURCE
+		}
+	}
+	return config, nil
 }
 func (s *DeploymentService) Save(ctx context.Context, config deployment.Config) error {
 	item, err := s.project(ctx, config.ProjectID)
 	if err != nil {
 		return err
+	}
+	deployment.NormalizeAppIDs(&config)
+	if config.Provider == deployment.PROVIDER_WECHAT {
+		config.Exclude = ""
+		if s.settings != nil {
+			global, settingsErr := s.settings.Load(ctx)
+			if settingsErr != nil {
+				return appErrors.Wrap(settingsErr, appErrors.DATABASE_ERROR, "读取微信开发者工具设置失败")
+			}
+			config.DeveloperToolsCLI = global.DeveloperToolsCLI
+		}
 	}
 	if err := deployment.Validate(config, item.Kind); err != nil {
 		return appErrors.Wrap(err, appErrors.INVALID_ARGUMENT, "发布配置无效")
@@ -79,6 +123,9 @@ func (s *DeploymentService) Save(ctx context.Context, config deployment.Config) 
 	defer s.mu.Unlock()
 	if s.closed || s.cancel[config.ProjectID] != nil {
 		return appErrors.New(appErrors.DEPLOYMENT_FAILED, "当前有发布任务运行或应用正在退出，不能修改配置")
+	}
+	if config.Provider == deployment.PROVIDER_WECHAT {
+		config.DeveloperToolsCLI = ""
 	}
 	if err := s.repository.Save(ctx, config); err != nil {
 		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "保存发布配置失败")
@@ -145,30 +192,41 @@ func (s *DeploymentService) Start(ctx context.Context, id int64, token string, c
 		return appErrors.New(appErrors.DEPLOYMENT_FAILED, "当前项目已有发布任务或应用正在退出")
 	}
 	plan, ok := s.plans[id]
-	if !ok || token == "" || plan.plan.Token != token || time.Now().After(plan.expires) || plan.config != config || plan.root != item.Root {
+	if !ok || token == "" || plan.plan.Token != token || time.Now().After(plan.expires) || !reflect.DeepEqual(plan.config, config) || plan.root != item.Root {
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "预览已失效、配置已改变或已被使用，请重新预览并确认")
 	}
-	targetKey := strings.ToLower(config.Host) + fmt.Sprintf(":%d", config.Port) + config.Remote
+	targetKeys := []string{config.Provider + ":" + strings.ToLower(config.Host) + fmt.Sprintf(":%d", config.Port) + config.Remote}
 	if config.Provider == deployment.PROVIDER_WECHAT {
-		targetKey = config.AppID
+		targetKeys = make([]string, 0, len(config.AppIDValues()))
+		for _, appID := range config.AppIDValues() {
+			targetKeys = append(targetKeys, config.Provider+":"+appID)
+		}
 	}
-	if s.targets[targetKey] {
-		return appErrors.New(appErrors.DEPLOYMENT_FAILED, "同一个发布目标已有任务，请等待完成")
+	for _, targetKey := range targetKeys {
+		if s.targets[targetKey] {
+			return appErrors.New(appErrors.DEPLOYMENT_FAILED, "同一个发布目标已有任务，请等待完成")
+		}
 	}
-	task := deployment.Task{ID: uuid.NewString(), ProjectID: id, Provider: config.Provider, State: deployment.STATE_RUNNING, Message: "准备开始手动发布", Target: plan.plan.Target, Total: len(plan.plan.Files), Created: time.Now().UTC().Format(time.RFC3339Nano)}
+	total := len(plan.plan.Files)
+	if config.Provider == deployment.PROVIDER_WECHAT {
+		total *= len(config.AppIDValues())
+	}
+	task := deployment.Task{ID: uuid.NewString(), ProjectID: id, Provider: config.Provider, State: deployment.STATE_RUNNING, Message: "准备开始手动发布", Target: plan.plan.Target, Total: total, Created: time.Now().UTC().Format(time.RFC3339Nano)}
 	if err := s.repository.Record(ctx, task); err != nil {
 		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "保存任务记录失败，未开始上传")
 	}
 	workerContext, cancel := context.WithTimeout(context.Background(), DEPLOYMENT_TIMEOUT)
 	s.cancel[id] = cancel
-	s.targets[targetKey] = true
+	for _, targetKey := range targetKeys {
+		s.targets[targetKey] = true
+	}
 	s.tasks[id] = task
 	delete(s.plans, id)
 	s.group.Add(1)
-	go s.run(workerContext, provider, plan, credentials, task, targetKey)
+	go s.run(workerContext, provider, plan, credentials, task, targetKeys)
 	return nil
 }
-func (s *DeploymentService) run(ctx context.Context, provider ports.DeploymentProvider, plan deploymentPlan, credentials deployment.Credentials, task deployment.Task, targetKey string) {
+func (s *DeploymentService) run(ctx context.Context, provider ports.DeploymentProvider, plan deploymentPlan, credentials deployment.Credentials, task deployment.Task, targetKeys []string) {
 	defer s.group.Done()
 	report := func(completed int, message string) {
 		s.mu.Lock()
@@ -200,7 +258,9 @@ func (s *DeploymentService) run(ctx context.Context, provider ports.DeploymentPr
 	s.tasks[task.ProjectID] = task
 	s.cancel[task.ProjectID]()
 	delete(s.cancel, task.ProjectID)
-	delete(s.targets, targetKey)
+	for _, targetKey := range targetKeys {
+		delete(s.targets, targetKey)
+	}
 }
 func redactDeployment(message string, credentials deployment.Credentials) string {
 	for _, secret := range []string{credentials.Password, credentials.Passphrase} {

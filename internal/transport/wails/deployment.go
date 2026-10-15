@@ -48,7 +48,7 @@ func (a *ProjectAPI) TestDeployment(input DeploymentInput) Result {
 	if err := a.deployment.Test(a.ctx, input.ProjectID, deployment.Credentials{Password: input.Password, Passphrase: input.Passphrase}); err != nil {
 		return Result{OK: false, Message: err.Error()}
 	}
-	return Result{OK: true, Message: "检查通过，未上传任何文件（微信仅检查本地工具与配置）"}
+	return Result{OK: true, Message: "检查通过，未上传任何文件"}
 }
 func (a *ProjectAPI) StartDeployment(input DeploymentInput) Result {
 	if err := a.deployment.Start(a.ctx, input.ProjectID, input.Token, deployment.Credentials{Password: input.Password, Passphrase: input.Passphrase}); err != nil {

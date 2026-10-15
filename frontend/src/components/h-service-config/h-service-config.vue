@@ -1,5 +1,4 @@
 <template>
-	<!-- 软件设置对话框 -->
 	<h-modal
 		v-if="item !== null"
 		v-model:visible="visible"
@@ -7,14 +6,13 @@
 		width="40rem"
 		:modal="true"
 		:closable="true"
-		:mask-close="false"
+		:mask-close="true"
 		:footer="false"
 		ok-text="确定"
 		ok-icon="pi pi-check"
 		cancel-text="取消"
 		:loading="false"
 	>
-		<!-- PHP 配置面板 -->
 		<comp-config-php
 			v-if="item.kind === 'php'"
 			:item="item"
@@ -22,7 +20,6 @@
 			@folder="emit('folder', $event)"
 		/>
 
-		<!-- 守护进程服务配置面板 -->
 		<comp-config-daemon
 			v-else-if="item.daemon"
 			:item="item"
@@ -34,7 +31,6 @@
 			@folder="emit('folder', $event)"
 		/>
 
-		<!-- 非守护进程软件概览面板 -->
 		<comp-config-overview
 			v-else
 			:item="item"
@@ -46,27 +42,14 @@
 </template>
 
 <script setup lang="ts">
-import CompConfigPhp from './config-php.vue'
-import CompConfigDaemon from './config-daemon.vue'
-import CompConfigOverview from './config-overview.vue'
-import type { Software } from '@/types'
+import CompConfigPhp from '@/views/main/software/comps/config-php.vue'
+import CompConfigDaemon from '@/views/main/software/comps/config-daemon.vue'
+import CompConfigOverview from '@/views/main/software/comps/config-overview.vue'
+import type { HServiceConfigEmits, HServiceConfigProps } from './types.d'
 
-// 接收当前软件属性与服务操作状态
-defineProps<{
-	item: Software | null
-	busy: boolean
-}>()
+defineOptions({ name: 'HServiceConfig' })
 
-// 弹窗显隐双向绑定
+defineProps<HServiceConfigProps>()
 const visible = defineModel<boolean>('visible', { required: true })
-
-// 定义设置弹窗操作事件
-const emit = defineEmits<{
-	start: [item: Software]
-	stop: [item: Software]
-	main: [item: Software]
-	autostart: [item: Software, on: boolean]
-	folder: [id: number]
-}>()
-
+const emit = defineEmits<HServiceConfigEmits>()
 </script>

@@ -5,6 +5,7 @@ import (
 	"devenv/internal/domain/deployment"
 	"devenv/internal/domain/project"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -30,7 +31,7 @@ func TestDeploymentConfigHistoryAndInterruptedRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	loaded, err := repository.Load(ctx, item.ID)
-	if err != nil || *loaded != config {
+	if err != nil || !reflect.DeepEqual(*loaded, config) {
 		t.Fatalf("config mismatch: %+v %v", loaded, err)
 	}
 	task := deployment.Task{ID: "test-task", ProjectID: item.ID, Provider: deployment.PROVIDER_SFTP, State: deployment.STATE_RUNNING, Total: 5, Created: "2026-10-15T00:00:00Z"}

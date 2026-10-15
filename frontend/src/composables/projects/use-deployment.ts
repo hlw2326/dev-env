@@ -1,6 +1,6 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useConfirm } from 'primevue/useconfirm'
-import { cancelDeployment, getDeploymentConfig, getDeploymentHistory, pickFile, pickFolder, previewDeployment, saveDeploymentConfig, startDeployment, testDeployment, openURL } from '@/api'
+import { cancelDeployment, getDeploymentConfig, getDeploymentHistory, pickFile, previewDeployment, saveDeploymentConfig, startDeployment, testDeployment, openURL } from '@/api'
 import { formatError, toast } from '@/utils'
 import type { DeploymentConfig, DeploymentPlan, DeploymentTask, Project } from '@/types'
 
@@ -95,12 +95,10 @@ export function useDeployment(project: () => Project) {
 		catch (err: unknown) { toast.error('取消失败', formatError(err)) }
 		finally { busy.value = '' }
 	}
-	async function pick(field: 'privateKey' | 'uploadKey' | 'nodePath' | 'modulePath'): Promise<void> {
+	async function pick(field: 'privateKey'): Promise<void> {
 		if (disabled.value || config.value === null) return
 		try {
-			let value: string
-			if (field === 'modulePath') value = await pickFolder('选择包含 node_modules 的 CI 工具目录')
-			else value = await pickFile('选择本机文件')
+			const value = await pickFile('选择 SSH 私钥文件')
 			if (value !== '' && config.value !== null) config.value[field] = value
 		} catch (err: unknown) { toast.error('选择文件失败', formatError(err)) }
 	}

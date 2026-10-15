@@ -3,6 +3,7 @@ import {
 	loadSettings,
 	saveSettings,
 	pickFolder,
+	pickFile,
 	openFolder,
 	openNginxConfig as openNginxConfigApi,
 	loadFolder,
@@ -16,6 +17,7 @@ const form = reactive({
 	root: '',
 	port: 80,
 	hosts: false,
+	developerToolsCLI: '',
 })
 
 // 网关监听状态
@@ -52,6 +54,7 @@ export function useSettings() {
 			form.root = settings.root
 			form.port = settings.port
 			form.hosts = settings.hosts
+			form.developerToolsCLI = settings.developerToolsCLI
 			listening.value = settings.listening
 			nginxError.value = settings.error
 			dataFolder.value = folder
@@ -76,6 +79,7 @@ export function useSettings() {
 					root: form.root,
 					port: Number(form.port),
 					hosts: form.hosts,
+					developerToolsCLI: form.developerToolsCLI,
 				})
 			} catch (err: unknown) {
 				toast.error('保存主题失败', formatError(err))
@@ -109,6 +113,7 @@ export function useSettings() {
 				root: form.root,
 				port: Number(form.port),
 				hosts: form.hosts,
+				developerToolsCLI: form.developerToolsCLI,
 			})
 			if (form.theme === 'dark' || form.theme === 'system') {
 				setMode(form.theme)
@@ -154,6 +159,17 @@ export function useSettings() {
 		}
 	}
 
+	async function pickDeveloperToolsCLI(): Promise<void> {
+		try {
+			const picked = await pickFile('选择微信开发者工具 CLI')
+			if (picked !== '') {
+				form.developerToolsCLI = picked
+			}
+		} catch (err: unknown) {
+			toast.error('选择 CLI 失败', formatError(err))
+		}
+	}
+
 	return {
 		form,
 		theme,
@@ -170,5 +186,6 @@ export function useSettings() {
 		saveAll,
 		openData,
 		openNginxConfig,
+		pickDeveloperToolsCLI,
 	}
 }

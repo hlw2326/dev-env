@@ -2,33 +2,36 @@
 	<!-- 窗口控制按钮组 -->
 	<div class="window-controls">
 		<!-- 最小化按钮 -->
-		<button
+		<p-button
 			type="button"
+			unstyled
 			class="control-btn"
 			title="最小化"
 			@click="onMin"
 		>
 			<i class="pi pi-minus icon"></i>
-		</button>
+		</p-button>
 		<!-- 最大化与还原按钮 -->
-		<button
+		<p-button
 			type="button"
+			unstyled
 			class="control-btn"
 			:title="maxTip"
 			@click="onToggle"
 		>
 			<i v-if="maximized" class="pi pi-clone icon"></i>
 			<i v-else class="pi pi-stop icon"></i>
-		</button>
+		</p-button>
 		<!-- 关闭窗口按钮 -->
-		<button
+		<p-button
 			type="button"
+			unstyled
 			class="control-btn danger"
 			title="关闭"
 			@click="onQuit"
 		>
 			<i class="pi pi-times icon"></i>
-		</button>
+		</p-button>
 	</div>
 </template>
 

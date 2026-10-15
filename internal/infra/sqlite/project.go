@@ -21,7 +21,7 @@ func NewProjectRepository(db *sql.DB) *ProjectRepository {
 
 func (r *ProjectRepository) List(ctx context.Context) ([]project.Project, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
 		FROM system_project
 		ORDER BY id DESC
 	`)
@@ -50,7 +50,7 @@ func (r *ProjectRepository) List(ctx context.Context) ([]project.Project, error)
 
 func (r *ProjectRepository) Get(ctx context.Context, id int64) (*project.Project, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
 		FROM system_project
 		WHERE id = ?
 	`, id)
@@ -68,7 +68,7 @@ func (r *ProjectRepository) Get(ctx context.Context, id int64) (*project.Project
 
 func (r *ProjectRepository) GetByName(ctx context.Context, name string) (*project.Project, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
 		FROM system_project
 		WHERE name = ?
 	`, name)
@@ -86,7 +86,7 @@ func (r *ProjectRepository) GetByName(ctx context.Context, name string) (*projec
 
 func (r *ProjectRepository) ListBySoftware(ctx context.Context, softwareID int64) ([]project.Project, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
 		FROM system_project
 		WHERE software = ?
 		ORDER BY id ASC
@@ -116,7 +116,7 @@ func (r *ProjectRepository) ListBySoftware(ctx context.Context, softwareID int64
 
 func (r *ProjectRepository) ListMissingSoftware(ctx context.Context, kind string) ([]project.Project, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated
 		FROM system_project
 		WHERE kind = ? AND software IS NULL
 		ORDER BY id ASC
@@ -156,8 +156,8 @@ func (r *ProjectRepository) Create(ctx context.Context, item *project.Project) e
 	defer rollbackTx(tx)
 
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO system_project (name, kind, root, run, software, command, nginx, port, autostart, created, updated)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO system_project (name, kind, root, run, software, command, nginx, environment_file, port, autostart, created, updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		item.Name,
 		item.Kind,
@@ -166,6 +166,7 @@ func (r *ProjectRepository) Create(ctx context.Context, item *project.Project) e
 		item.Software,
 		item.Command,
 		item.Nginx,
+		item.EnvironmentFile,
 		item.Port,
 		formatBool(item.Autostart),
 		item.Created,
@@ -215,7 +216,7 @@ func (r *ProjectRepository) Update(ctx context.Context, item *project.Project) e
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE system_project
-		SET root = ?, run = ?, software = ?, command = ?, nginx = ?, autostart = ?, updated = ?
+		SET root = ?, run = ?, software = ?, command = ?, nginx = ?, environment_file = ?, autostart = ?, updated = ?
 		WHERE id = ?
 	`,
 		item.Root,
@@ -223,6 +224,7 @@ func (r *ProjectRepository) Update(ctx context.Context, item *project.Project) e
 		item.Software,
 		item.Command,
 		item.Nginx,
+		item.EnvironmentFile,
 		formatBool(item.Autostart),
 		item.Updated,
 		item.ID,
@@ -314,6 +316,7 @@ func scanProjects(rows *sql.Rows) ([]project.Project, error) {
 			&softwareID,
 			&item.Command,
 			&item.Nginx,
+			&item.EnvironmentFile,
 			&item.Port,
 			&autostart,
 			&item.Created,
@@ -347,6 +350,7 @@ func scanProject(row *sql.Row) (*project.Project, error) {
 		&softwareID,
 		&item.Command,
 		&item.Nginx,
+		&item.EnvironmentFile,
 		&item.Port,
 		&autostart,
 		&item.Created,

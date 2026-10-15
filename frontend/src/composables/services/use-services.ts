@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { listSoftware, listenEvent, startSoftware, stopSoftware } from '@/api'
+import { listSoftware, listenEvent, startSoftware, stopSoftware, setMain, setAutostart, openSoftware } from '@/api'
 import { formatError, toast } from '@/utils'
 import type { ServiceEvent, Software } from '@/types'
 
@@ -77,6 +77,57 @@ export function useServices() {
 		}
 	}
 
+	// 在设置抽屉中启动指定服务
+	async function startConfiguredService(item: Software): Promise<void> {
+		await startService(item.id)
+	}
+
+	// 在设置抽屉中停止指定服务
+	async function stopConfiguredService(item: Software): Promise<void> {
+		await stopService(item.id)
+	}
+
+	// 设置软件默认版本
+	async function markMain(item: Software): Promise<void> {
+		try {
+			const result = await setMain(item.id)
+			if (!result.ok) {
+				toast.error('设置默认失败', result.message)
+				return
+			}
+			toast.success('已设为默认版本', `${item.kind} ${item.version}`)
+			await loadData()
+		} catch (err: unknown) {
+			toast.error('设置默认失败', formatError(err))
+		}
+	}
+
+	// 切换服务随应用启动
+	async function toggleAutostart(item: Software, on: boolean): Promise<void> {
+		try {
+			const result = await setAutostart(item.id, on)
+			if (!result.ok) {
+				toast.error('设置失败', result.message)
+				return
+			}
+			await loadData()
+		} catch (err: unknown) {
+			toast.error('设置失败', formatError(err))
+		}
+	}
+
+	// 打开软件安装或数据目录
+	async function browseFolder(id: number): Promise<void> {
+		try {
+			const result = await openSoftware(id)
+			if (!result.ok) {
+				toast.error('打开目录失败', result.message)
+			}
+		} catch (err: unknown) {
+			toast.error('打开目录失败', formatError(err))
+		}
+	}
+
 	// 设置服务操作状态
 	function setBusy(id: number, target: string): void {
 		busy.value = id
@@ -109,6 +160,11 @@ export function useServices() {
 		loadData,
 		startService,
 		stopService,
+		startConfiguredService,
+		stopConfiguredService,
+		markMain,
+		toggleAutostart,
+		browseFolder,
 		bindEvents,
 	}
 }

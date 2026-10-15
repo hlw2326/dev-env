@@ -3,16 +3,17 @@
 	<div class="toolbar surface-card">
 		<!-- 项目类型筛选按钮组 -->
 		<div class="filter-tabs">
-			<button
+			<p-button
 				v-for="tab in filterOptions"
 				:key="tab.value"
 				type="button"
+				unstyled
 				class="filter-btn"
 				:class="{ active: kindFilter === tab.value }"
 				@click="kindFilter = tab.value"
 			>
 				{{ tab.label }}
-			</button>
+			</p-button>
 		</div>
 
 		<!-- 项目名称与域名搜索框 -->

@@ -3,16 +3,17 @@
 	<div class="config-panel">
 		<!-- 顶部页签栏 -->
 		<div class="panel-tabs">
-			<button
+			<p-button
 				v-for="tab in tabs"
 				:key="tab.value"
 				type="button"
+				unstyled
 				class="panel-tab"
 				:class="{ active: activeTab === tab.value }"
 				@click="activeTab = tab.value"
 			>
 				{{ tab.label }}
-			</button>
+			</p-button>
 		</div>
 
 		<!-- 概览页签 -->

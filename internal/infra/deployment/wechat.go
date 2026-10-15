@@ -1,14 +1,14 @@
 package deployment
 
 import (
-	"bytes"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,8 +17,7 @@ import (
 	"devenv/internal/shared/paths"
 )
 
-//go:embed wechat.cjs
-var wechatScript string
+const weChatCLIHelp = "--help"
 
 type WeChat struct{ base string }
 
@@ -27,9 +26,9 @@ func NewWeChat(base string) *WeChat { return &WeChat{base: base} }
 func checkWeChat(config model.Config, root string) error {
 	source, err := paths.DeploymentSource(root, config.Source)
 	if err != nil {
-		return err
+		return fmt.Errorf("小程序编译目录 %q 不存在或不可用，请先在项目根目录完成 uni 编译: %w", config.Source, err)
 	}
-	if err := checkPrivateFile(config.UploadKey); err != nil {
+	if err := checkDeveloperToolsCLI(config.DeveloperToolsCLI); err != nil {
 		return err
 	}
 	content, err := os.ReadFile(filepath.Join(source, "project.config.json"))
@@ -38,17 +37,20 @@ func checkWeChat(config model.Config, root string) error {
 	}
 	var projectConfig map[string]json.RawMessage
 	if err := json.Unmarshal(content, &projectConfig); err != nil {
-		return err
+		return fmt.Errorf("project.config.json 格式无效: %w", err)
 	}
 	var appID string
-	if err := json.Unmarshal(projectConfig["appid"], &appID); err != nil || appID != config.AppID {
-		return fmt.Errorf("project.config.json 的 appid 必须与发布配置一致")
+	if err := json.Unmarshal(projectConfig["appid"], &appID); err != nil {
+		return fmt.Errorf("project.config.json 的 appid 格式无效: %w", err)
+	}
+	if strings.TrimSpace(appID) == "" {
+		return fmt.Errorf("project.config.json 的 appid 不能为空")
 	}
 	for _, key := range []string{"miniprogramRoot", "srcMiniprogramRoot", "cloudfunctionRoot", "pluginRoot"} {
 		if raw, ok := projectConfig[key]; ok {
 			var value string
 			if err := json.Unmarshal(raw, &value); err != nil {
-				return err
+				return fmt.Errorf("project.config.json 的 %s 格式无效: %w", key, err)
 			}
 			if value != "" {
 				if _, err := paths.DeploymentSource(source, value); err != nil {
@@ -57,8 +59,22 @@ func checkWeChat(config model.Config, root string) error {
 			}
 		}
 	}
-	if config.ModulePath != "" && !filepath.IsAbs(config.ModulePath) {
-		return fmt.Errorf("CI 工具目录必须是绝对路径（包含 node_modules 的目录）")
+	return nil
+}
+
+func checkDeveloperToolsCLI(binary string) error {
+	if strings.TrimSpace(binary) == "" {
+		return fmt.Errorf("请选择微信开发者工具 CLI；通常是安装目录下的 cli.bat")
+	}
+	if !filepath.IsAbs(binary) {
+		return fmt.Errorf("微信开发者工具 CLI 必须是绝对路径")
+	}
+	info, err := os.Stat(binary)
+	if err != nil {
+		return fmt.Errorf("微信开发者工具 CLI 不存在: %w", err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("微信开发者工具 CLI 不能是目录")
 	}
 	return nil
 }
@@ -71,9 +87,10 @@ func (p *WeChat) Preview(ctx context.Context, config model.Config, root string) 
 		return model.Plan{}, err
 	}
 	plan, err := scan(ctx, config, root)
-	plan.Target = "微信开发版本 · " + config.AppID + " · " + config.Version
+	plan.Target = "微信开发版本 · " + strings.Join(config.AppIDValues(), ", ") + " · " + config.Version
 	return plan, err
 }
+
 func (p *WeChat) Test(ctx context.Context, config model.Config, root string, _ model.Credentials) error {
 	if err := checkWeChat(config, root); err != nil {
 		return err
@@ -82,6 +99,7 @@ func (p *WeChat) Test(ctx context.Context, config model.Config, root string, _ m
 	defer cancel()
 	return runWeChat(checkContext, config, root, "", true)
 }
+
 func (p *WeChat) Run(ctx context.Context, config model.Config, root string, plan model.Plan, _ model.Credentials, report func(int, string)) error {
 	report(0, "正在校验并准备小程序文件快照")
 	snapshot, cleanup, err := stage(ctx, p.base, config, root, plan)
@@ -89,53 +107,127 @@ func (p *WeChat) Run(ctx context.Context, config model.Config, root string, plan
 		return err
 	}
 	defer cleanup()
-	// Revalidate config paths against the filtered snapshot, not the original project.
+	// Revalidate the project configuration against the filtered snapshot.
 	stagedConfig := config
 	stagedConfig.Source = "."
 	if err := checkWeChat(stagedConfig, snapshot); err != nil {
 		return err
 	}
-	report(0, "微信工具正在编译并上传，请稍候；取消或网络中断后需在微信后台核对结果")
+	report(0, "微信开发者工具正在上传，请稍候；取消或网络中断后需在微信后台核对结果")
 	if err := runWeChat(ctx, config, root, snapshot, false); err != nil {
 		return err
 	}
-	report(len(plan.Files), "代码已上传到微信开发版本；请到微信后台手动提审、发布")
+	report(len(plan.Files)*len(config.AppIDValues()), "代码已上传到微信开发版本；请到微信后台手动提审、发布")
 	return nil
 }
 
 func runWeChat(ctx context.Context, config model.Config, root, source string, check bool) error {
-	binary := config.NodePath
-	if binary == "" {
-		var err error
-		binary, err = exec.LookPath("node")
-		if err != nil {
-			return fmt.Errorf("未找到 Node.js，请安装或填写 node.exe 绝对路径")
-		}
-	} else if !filepath.IsAbs(binary) {
-		return fmt.Errorf("Node.js 必须是可执行文件的绝对路径")
+	if err := checkDeveloperToolsCLI(config.DeveloperToolsCLI); err != nil {
+		return err
 	}
-	input := struct {
-		Root   string `json:"root"`
-		Source string `json:"source"`
-		Check  bool   `json:"check"`
-		model.Config
-	}{Root: root, Source: source, Check: check, Config: config}
-	raw, err := json.Marshal(input)
+	if check {
+		return executeWeChatCLI(ctx, config, root, []string{weChatCLIHelp}, true, "")
+	}
+	projectPath := source
+	var err error
+	if projectPath == "" {
+		projectPath, err = paths.DeploymentSource(root, config.Source)
+		if err != nil {
+			return err
+		}
+	} else {
+		if !filepath.IsAbs(projectPath) {
+			return fmt.Errorf("微信上传快照路径必须是绝对路径")
+		}
+		info, err := os.Stat(projectPath)
+		if err != nil {
+			return fmt.Errorf("微信上传快照不存在: %w", err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("微信上传快照必须是目录")
+		}
+	}
+	projectConfigPath := filepath.Join(projectPath, "project.config.json")
+	original, err := os.ReadFile(projectConfigPath)
+	if err != nil {
+		return fmt.Errorf("读取小程序 project.config.json 失败: %w", err)
+	}
+	defer func() { _ = os.WriteFile(projectConfigPath, original, 0o600) }()
+	for _, appID := range config.AppIDValues() {
+		if err := writeWeChatAppID(projectConfigPath, original, appID); err != nil {
+			return err
+		}
+		args := []string{
+			"upload",
+			"--project", projectPath,
+			"--version", config.Version,
+			"--desc", config.Description,
+			"--robot", strconv.Itoa(config.Robot),
+		}
+		if err := executeWeChatCLI(ctx, config, root, args, false, appID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeWeChatAppID(path string, original []byte, appID string) error {
+	var projectConfig map[string]json.RawMessage
+	if err := json.Unmarshal(original, &projectConfig); err != nil {
+		return fmt.Errorf("project.config.json 格式无效: %w", err)
+	}
+	value, err := json.Marshal(appID)
 	if err != nil {
 		return err
 	}
-	command := exec.CommandContext(ctx, binary, "-e", wechatScript)
+	projectConfig["appid"] = value
+	updated, err := json.MarshalIndent(projectConfig, "", "  ")
+	if err != nil {
+		return fmt.Errorf("生成 AppID 配置失败: %w", err)
+	}
+	if err := os.WriteFile(path, updated, 0o600); err != nil {
+		return fmt.Errorf("写入 AppID 配置失败: %w", err)
+	}
+	return nil
+}
+
+func executeWeChatCLI(ctx context.Context, config model.Config, root string, args []string, check bool, appID string) error {
+	command := newWeChatCLICommand(ctx, config.DeveloperToolsCLI, args...)
 	command.Dir = root
-	command.Stdin = bytes.NewReader(raw)
 	command.WaitDelay = 3 * time.Second
 	prepareCommand(command)
 	output := &limitedOutput{}
 	command.Stdout = output
 	command.Stderr = output
 	if err := command.Run(); err != nil {
-		return fmt.Errorf("微信上传工具失败（需预先安装 miniprogram-ci）: %w\n%s", err, output.String())
+		message := "微信开发者工具 CLI 执行失败"
+		if check {
+			message = "微信开发者工具 CLI 检查失败"
+		}
+		if appID != "" {
+			message += "（AppID " + appID + "）"
+		}
+		return fmt.Errorf("%s，请确认已在微信开发者工具中开启服务端口并登录有上传权限的账号: %w\n%s", message, err, output.String())
 	}
 	return nil
+}
+
+func newWeChatCLICommand(ctx context.Context, binary string, args ...string) *exec.Cmd {
+	if runtime.GOOS == "windows" && (strings.EqualFold(filepath.Ext(binary), ".bat") || strings.EqualFold(filepath.Ext(binary), ".cmd")) {
+		commandLine := "call " + quoteWindowsArgument(binary)
+		for _, arg := range args {
+			commandLine += " " + quoteWindowsArgument(arg)
+		}
+		return exec.CommandContext(ctx, "cmd.exe", "/d", "/c", commandLine)
+	}
+	return exec.CommandContext(ctx, binary, args...)
+}
+
+func quoteWindowsArgument(value string) string {
+	if value != "" && !strings.ContainsAny(value, " \t\"&|<>^%!") {
+		return value
+	}
+	return `"` + strings.ReplaceAll(value, `"`, `\"`) + `"`
 }
 
 type limitedOutput struct {
@@ -152,6 +244,7 @@ func (w *limitedOutput) Write(data []byte) (int, error) {
 	}
 	return len(data), nil
 }
+
 func (w *limitedOutput) String() string {
 	w.mu.Lock()
 	defer w.mu.Unlock()

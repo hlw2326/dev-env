@@ -62,7 +62,7 @@ func Bootstrap() (*Container, error) {
 	deploymentService := NewDeploymentService(projectRepo, deploymentRepo, map[string]ports.DeploymentProvider{
 		deployment.PROVIDER_SFTP:   deployinfra.NewSFTP(base),
 		deployment.PROVIDER_WECHAT: deployinfra.NewWeChat(base),
-	})
+	}, settingRepo)
 	nginx := gateway.NewNginx(base, softwareRepo, runner, probe)
 
 	projectService := NewProjectService(base, projectRepo, softwareRepo, settingRepo, nginx, runner, hostsWriter, probe, bus, gitmanager.NewClient())

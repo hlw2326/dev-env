@@ -4,13 +4,12 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -60,6 +59,23 @@ func TestManifestAndStalePreview(t *testing.T) {
 	if _, err := scan(context.Background(), config, root); err == nil {
 		t.Fatal("traversal accepted")
 	}
+}
+
+func TestWeChatManifestIgnoresServerExcludeRules(t *testing.T) {
+	root := t.TempDir()
+	writeFixture(t, root, "project.config.json", `{"appid":"wx1234567890abcdef"}`)
+	writeFixture(t, root, "app.json", `{"pages":[]}`)
+	config := model.Config{Provider: model.PROVIDER_WECHAT, Source: ".", Exclude: "app.json"}
+	plan, err := scan(context.Background(), config, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range plan.Files {
+		if file.Path == "app.json" {
+			return
+		}
+	}
+	t.Fatal("wechat extra exclude should not remove compiled files")
 }
 
 func testSFTPServer(t *testing.T) (model.Config, model.Credentials) {
@@ -199,23 +215,25 @@ func TestSFTPSyncAndFingerprint(t *testing.T) {
 	}
 }
 
-func TestWeChatAdapterUsesSnapshotAndRequiresManualRun(t *testing.T) {
-	node, err := exec.LookPath("node")
-	if err != nil {
-		t.Skip("Node.js is not installed")
-	}
+func TestWeChatAdapterUsesDeveloperToolsCLIAndSnapshot(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 	tools := t.TempDir()
-	output := filepath.Join(tools, "uploaded.json")
-	outputLiteral, _ := json.Marshal(output)
+	output := filepath.Join(tools, "uploaded.txt")
 	writeFixture(t, root, "project.config.json", `{"appid":"wx1234567890abcdef","miniprogramRoot":"./"}`)
 	writeFixture(t, root, "app.json", `{"pages":[]}`)
 	writeFixture(t, root, ".env", "secret")
-	writeFixture(t, tools, "upload.key", "test-only-key")
-	fixture := `const fs=require('node:fs');const path=require('node:path');exports.Project=class {constructor(options){this.options=options}};exports.upload=async function(input){if(fs.existsSync(path.join(input.project.options.projectPath,'.env')))throw Error('secret leaked');if(!fs.existsSync(path.join(input.project.options.projectPath,'app.json')))throw Error('missing snapshot');fs.writeFileSync(` + string(outputLiteral) + `,JSON.stringify(input))}`
-	writeFixture(t, tools, "node_modules/miniprogram-ci/index.js", fixture)
-	config := model.Config{Provider: model.PROVIDER_WECHAT, Source: ".", AppID: "wx1234567890abcdef", UploadKey: filepath.Join(tools, "upload.key"), NodePath: node, ModulePath: tools, Version: "1.0.01", Description: "manual upload", Robot: 3}
+	cli := filepath.Join(tools, "wechat-cli")
+	if runtime.GOOS == "windows" {
+		cli += ".cmd"
+		writeFixture(t, tools, filepath.Base(cli), "@echo off\r\nif \"%1\"==\"--help\" exit /b 0\r\nif not \"%1\"==\"upload\" exit /b 1\r\necho %* >> \""+output+"\"\r\n")
+	} else {
+		writeFixture(t, tools, filepath.Base(cli), "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then exit 0; fi\nif [ \"$1\" != \"upload\" ]; then exit 1; fi\nprintf '%s\\n' \"$*\" > \""+output+"\"\n")
+		if err := os.Chmod(cli, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	config := model.Config{Provider: model.PROVIDER_WECHAT, Source: ".", AppIDs: []string{"wx1111222233334444", "wxabcdef1234567890"}, DeveloperToolsCLI: cli, Version: "1.0.01", Description: "manual upload", Robot: 3}
 	provider := NewWeChat(t.TempDir())
 	plan, err := provider.Preview(ctx, config, root)
 	if err != nil {
@@ -231,22 +249,11 @@ func TestWeChatAdapterUsesSnapshotAndRequiresManualRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var uploaded struct {
-		Version string `json:"version"`
-		Robot   int    `json:"robot"`
-		Project struct {
-			Options struct {
-				ProjectPath string `json:"projectPath"`
-			} `json:"options"`
-		} `json:"project"`
+	commandLine := string(raw)
+	if strings.Count(commandLine, "upload --project") != len(config.AppIDs) || !strings.Contains(commandLine, "--version "+config.Version) || !strings.Contains(commandLine, "--robot 3") || !strings.Contains(commandLine, config.Description) {
+		t.Fatalf("invalid CLI arguments: %s", raw)
 	}
-	if err := json.Unmarshal(raw, &uploaded); err != nil {
-		t.Fatal(err)
-	}
-	if uploaded.Version != config.Version || uploaded.Robot != 3 || uploaded.Project.Options.ProjectPath == root {
-		t.Fatalf("invalid upload: %s", raw)
-	}
-	if _, err := os.Stat(uploaded.Project.Options.ProjectPath); !os.IsNotExist(err) {
-		t.Fatal("snapshot was not cleaned")
+	if strings.Contains(commandLine, root) {
+		t.Fatal("CLI received the original project path instead of the snapshot")
 	}
 }

@@ -26,6 +26,9 @@ func patterns(config model.Config) ([]string, error) {
 	if config.Provider == model.PROVIDER_SFTP {
 		items = append(items, serverPatterns...)
 	}
+	if config.Provider != model.PROVIDER_SFTP {
+		return items, nil
+	}
 	for _, line := range strings.Split(config.Exclude, "\n") {
 		pattern := strings.TrimSpace(line)
 		if pattern == "" {
@@ -88,7 +91,7 @@ func scan(ctx context.Context, config model.Config, root string) (model.Plan, er
 			return err
 		}
 		relative = filepath.ToSlash(relative)
-		if excluded(relative, items) || sameFilePath(file, config.PrivateKey) || sameFilePath(file, config.UploadKey) {
+		if excluded(relative, items) || sameFilePath(file, config.PrivateKey) {
 			plan.Excluded++
 			if entry.IsDir() {
 				return filepath.SkipDir

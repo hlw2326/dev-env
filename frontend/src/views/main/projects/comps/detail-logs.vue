@@ -4,24 +4,26 @@
 		<!-- 日志类型切换与刷新栏 -->
 		<div class="log-toolbar">
 			<div class="log-tabs">
-				<button
+				<p-button
 					v-if="hasAccessLog"
 					type="button"
+					unstyled
 					class="tab-btn"
 					:class="{ active: logKind === 'access' }"
 					@click="switchKind('access')"
 				>
 					访问日志
-				</button>
-				<button
+				</p-button>
+				<p-button
 					v-if="hasRunLog"
 					type="button"
+					unstyled
 					class="tab-btn"
 					:class="{ active: logKind === 'run' }"
 					@click="switchKind('run')"
 				>
 					运行日志
-				</button>
+				</p-button>
 			</div>
 			<p-button
 				size="small"
