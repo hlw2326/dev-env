@@ -80,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { useSettings } from '../use-settings'
+import { useSettings } from '@/composables'
 
 // 网关与项目设置状态与方法
 	const { form, listening, nginxError, pickRoot, openNginxConfig } = useSettings()

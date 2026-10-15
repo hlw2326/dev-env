@@ -32,7 +32,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useDashboard } from '../use-dashboard'
+import { useDashboard } from '@/composables'
 import CompProjectRow from './project-row.vue'
 
 // 概览项目数据

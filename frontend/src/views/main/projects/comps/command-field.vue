@@ -7,13 +7,13 @@
 			:options="commandOptions"
 			:placeholder="commandPlaceholder"
 			editable
-			class="font-mono"
+			class="command-input font-mono"
 		/>
 		<p-input-text
 			v-else
 			v-model="command"
 			:placeholder="commandPlaceholder"
-			class="font-mono"
+			class="command-input font-mono"
 		/>
 		<span v-if="isPackageScriptTemplate && commandOptions.length === 0" class="hint-text">
 			未找到可识别的运行脚本，可直接输入命令。
@@ -78,3 +78,25 @@ watch(
 	{ immediate: true },
 )
 </script>
+
+<style scoped lang="scss">
+.form-field label {
+	font-size: var(--font-sm);
+	color: var(--text-secondary);
+}
+
+.command-input {
+	width: 100%;
+	font-size: var(--font-sm);
+}
+
+.command-input :deep(.p-select-label),
+.command-input :deep(.p-inputtext) {
+	font-size: var(--font-sm) !important;
+}
+
+.hint-text {
+	font-size: var(--font-xs);
+	color: var(--text-muted);
+}
+</style>

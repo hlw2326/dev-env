@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 import { listenEvent } from '@/api'
-import { useDashboard } from '../use-dashboard'
+import { useDashboard } from '@/composables'
 import type { ServiceEvent } from '@/types'
 
 // 概览软件数据与刷新方法

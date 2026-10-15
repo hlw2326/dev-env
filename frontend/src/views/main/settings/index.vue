@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useSettings } from './use-settings'
+import { useSettings } from '@/composables'
 import CompGateway from './comps/gateway.vue'
 import CompTheme from './comps/theme.vue'
 

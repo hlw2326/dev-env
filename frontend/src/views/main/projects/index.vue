@@ -61,7 +61,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { useProjects } from './use-projects'
+import { useProjects } from '@/composables'
 import CompToolbar from './comps/toolbar.vue'
 import CompRow from './comps/row.vue'
 import CompCreate from './comps/create.vue'

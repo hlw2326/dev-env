@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useDashboard } from '../use-dashboard'
+import { useDashboard } from '@/composables'
 
 // 概览统计状态
 const { projects, readySoftware, daemonList, runningProjects, runningDaemons } = useDashboard()

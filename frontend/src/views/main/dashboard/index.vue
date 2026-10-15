@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useDashboard } from './use-dashboard'
+import { useDashboard } from '@/composables'
 import CompStats from './comps/stats.vue'
 import CompServices from './comps/services.vue'
 import CompProjects from './comps/projects.vue'

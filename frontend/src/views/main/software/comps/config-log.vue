@@ -26,7 +26,7 @@
 
 <script setup lang="ts">
 import { watch } from 'vue'
-import { useConfig } from '../use-config'
+import { useConfig } from '@/composables'
 
 // 接收软件标识属性
 const props = defineProps<{

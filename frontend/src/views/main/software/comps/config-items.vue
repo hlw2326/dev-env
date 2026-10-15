@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { watch } from 'vue'
-import { useConfig } from '../use-config'
+import { useConfig } from '@/composables'
 import type { Software } from '@/types'
 
 // 接收软件条目属性

@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { useSettings } from '../use-settings'
+import { useSettings } from '@/composables'
 import type { ThemeMode } from '@/composables/theme'
 
 // 外观与存储状态与方法

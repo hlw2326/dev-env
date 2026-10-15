@@ -29,7 +29,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useProjects } from '../use-projects'
+import { useProjects } from '@/composables'
 import type { ProjectTemplate } from '@/types'
 
 const props = defineProps<{

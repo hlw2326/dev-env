@@ -58,7 +58,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { useSoftware } from './use-software'
+import { useSoftware } from '@/composables'
 import CompToolbar from './comps/toolbar.vue'
 import CompMarketCard from './comps/market-card.vue'
 import CompInstalledGroups from './comps/installed-groups.vue'

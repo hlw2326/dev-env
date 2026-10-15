@@ -1,7 +1,7 @@
 <template>
 	<!-- 运行目录选择与路径预览字段 -->
 	<div class="form-field">
-		<label>运行目录（Nginx 文档根）</label>
+		<label class="field-label">运行目录</label>
 		<div class="row-line">
 			<p-select
 				v-model="runPreset"
@@ -101,6 +101,12 @@ watch(
 /* 自适应输入框 */
 .flex-input {
 	flex: 1;
+}
+
+/* 运行目录字段标题与其他表单字段保持一致 */
+.field-label {
+	font-size: var(--font-sm);
+	color: var(--text-secondary);
 }
 
 /* 运行目录选择器沿用表单字号，避免 PrimeVue 默认字号偏大 */

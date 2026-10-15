@@ -41,7 +41,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { useServices } from './use-services'
+import { useServices } from '@/composables'
 
 // 服务管理数据与控制方法
 const { services, loading, busy, loadData, startService, stopService, bindEvents } = useServices()

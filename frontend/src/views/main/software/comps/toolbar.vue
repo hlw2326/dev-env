@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { useSoftware } from '../use-software'
+import { useSoftware } from '@/composables'
 
 // 软件商店筛选状态
 const { tab, category, search, installedCount } = useSoftware()

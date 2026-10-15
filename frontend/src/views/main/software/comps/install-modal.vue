@@ -5,6 +5,7 @@
 		v-model:visible="visible"
 		:title="`安装 ${item.name}`"
 		width="34rem"
+		class="install-version-modal"
 		:modal="true"
 		:closable="true"
 		:mask-close="false"
@@ -129,6 +130,7 @@ function isInstalled(version: string): boolean {
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
+	width: 100%;
 }
 
 /* 加载或错误状态盒 */
@@ -174,6 +176,11 @@ function isInstalled(version: string): boolean {
 	gap: 0.625rem;
 	max-height: 24rem;
 	overflow-y: auto;
-	padding-right: 0.25rem;
+	padding: 1.25rem;
+	box-sizing: border-box;
+}
+
+:global(.p-dialog.install-version-modal .p-dialog-content) {
+	padding: 0 !important;
 }
 </style>

@@ -61,7 +61,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useConfig } from '../use-config'
+import { useConfig } from '@/composables'
 import CompConfigOverview from './config-overview.vue'
 import CompConfigItems from './config-items.vue'
 import CompConfigFile from './config-file.vue'

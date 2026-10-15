@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { useSoftware } from '../use-software'
+import { useSoftware } from '@/composables'
 import CompInstalledRow from './installed-row.vue'
 
 // 已安装分组状态与操作方法
