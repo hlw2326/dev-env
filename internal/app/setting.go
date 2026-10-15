@@ -11,6 +11,7 @@ import (
 	"devenv/internal/domain/setting"
 	"devenv/internal/ports"
 	appErrors "devenv/internal/shared/errors"
+	"devenv/internal/shared/paths"
 )
 
 type SettingsView struct {
@@ -20,11 +21,11 @@ type SettingsView struct {
 }
 
 type SettingService struct {
-	base    string
-	repo    ports.SettingRepository
-	sites   ports.SiteRepository
-	gateway ports.Gateway
-	hosts   ports.HostsWriter
+	base  string
+	repo  ports.SettingRepository
+	sites ports.SiteRepository
+	nginx ports.Gateway
+	hosts ports.HostsWriter
 
 	mu        sync.RWMutex
 	lastError string
@@ -34,19 +35,19 @@ func NewSettingService(
 	base string,
 	repo ports.SettingRepository,
 	sites ports.SiteRepository,
-	gateway ports.Gateway,
+	nginx ports.Gateway,
 	hosts ports.HostsWriter,
 ) *SettingService {
 	return &SettingService{
-		base:    base,
-		repo:    repo,
-		sites:   sites,
-		gateway: gateway,
-		hosts:   hosts,
+		base:  base,
+		repo:  repo,
+		sites: sites,
+		nginx: nginx,
+		hosts: hosts,
 	}
 }
 
-func (s *SettingService) StartGateway(ctx context.Context) {
+func (s *SettingService) StartNginx(ctx context.Context) {
 	current, err := s.repo.Load(ctx)
 	if err != nil {
 		s.setError(err.Error())
@@ -58,7 +59,7 @@ func (s *SettingService) StartGateway(ctx context.Context) {
 			return
 		}
 	}
-	if err := s.gateway.Start(current.Port); err != nil {
+	if err := s.nginx.Start(current.Port); err != nil {
 		s.setError(err.Error())
 		return
 	}
@@ -82,7 +83,7 @@ func (s *SettingService) Settings(ctx context.Context) (SettingsView, error) {
 
 	return SettingsView{
 		Settings:  current,
-		Listening: s.gateway.Port() > 0 && errText == "",
+		Listening: s.nginx.Port() > 0 && errText == "",
 		Error:     errText,
 	}, nil
 }
@@ -96,7 +97,7 @@ func (s *SettingService) SaveSettings(ctx context.Context, next setting.Settings
 		return appErrors.New(appErrors.PATH_INVALID, "站点根目录必须是绝对路径")
 	}
 	if next.Port <= 0 || next.Port > ports.MAX_PORT {
-		return appErrors.New(appErrors.INVALID_ARGUMENT, "网关端口必须在 1 到 65535 之间")
+		return appErrors.New(appErrors.INVALID_ARGUMENT, "Nginx 监听端口必须在 1 到 65535 之间")
 	}
 	if err := os.MkdirAll(next.Root, 0o755); err != nil {
 		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建站点根目录失败")
@@ -111,8 +112,8 @@ func (s *SettingService) SaveSettings(ctx context.Context, next setting.Settings
 		return err
 	}
 
-	if prev.Port != next.Port || s.gateway.Port() == 0 {
-		if err := s.gateway.Start(next.Port); err != nil {
+	if prev.Port != next.Port || s.nginx.Port() == 0 {
+		if err := s.nginx.Start(next.Port); err != nil {
 			s.setError(err.Error())
 			return err
 		}
@@ -154,5 +155,18 @@ func (s *SettingService) OpenFolder(path string) error {
 		return appErrors.New(appErrors.PATH_NOT_ACCESSIBLE, "目录不存在: "+clean)
 	}
 	command := exec.Command("explorer.exe", clean)
+	return command.Start()
+}
+
+func (s *SettingService) OpenNginxConfig() error {
+	configPath := paths.NginxConfig(s.base)
+	info, err := os.Stat(configPath)
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "Nginx 配置文件尚未生成")
+	}
+	if info.IsDir() {
+		return appErrors.New(appErrors.PATH_NOT_ACCESSIBLE, "Nginx 配置文件路径指向了目录")
+	}
+	command := exec.Command("explorer.exe", configPath)
 	return command.Start()
 }

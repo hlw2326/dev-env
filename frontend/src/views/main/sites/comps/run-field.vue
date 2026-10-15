@@ -1,7 +1,7 @@
 <template>
 	<!-- 运行目录选择与路径预览字段 -->
 	<div class="form-field">
-		<label>运行目录（网关文档根）</label>
+		<label>运行目录（Nginx 文档根）</label>
 		<div class="row-line">
 			<p-select
 				v-model="runPreset"

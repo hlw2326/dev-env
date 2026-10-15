@@ -218,6 +218,7 @@ export namespace wails {
 	    software?: number;
 	    version: string;
 	    command: string;
+	    nginx: string;
 	    port: number;
 	    autostart: boolean;
 	    state: string;
@@ -242,6 +243,7 @@ export namespace wails {
 	        this.software = source["software"];
 	        this.version = source["version"];
 	        this.command = source["command"];
+	        this.nginx = source["nginx"];
 	        this.port = source["port"];
 	        this.autostart = source["autostart"];
 	        this.state = source["state"];
@@ -266,6 +268,7 @@ export namespace wails {
 	    running: boolean;
 	    pid: number;
 	    daemon: boolean;
+	    service: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new SoftwareDTO(source);
@@ -287,6 +290,7 @@ export namespace wails {
 	        this.running = source["running"];
 	        this.pid = source["pid"];
 	        this.daemon = source["daemon"];
+	        this.service = source["service"];
 	    }
 	}
 	export class UpdateInput {
@@ -296,6 +300,7 @@ export namespace wails {
 	    run: string;
 	    software?: number;
 	    command: string;
+	    nginx: string;
 	    autostart: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -310,6 +315,7 @@ export namespace wails {
 	        this.run = source["run"];
 	        this.software = source["software"];
 	        this.command = source["command"];
+	        this.nginx = source["nginx"];
 	        this.autostart = source["autostart"];
 	    }
 	}

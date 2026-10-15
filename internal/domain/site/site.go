@@ -29,6 +29,7 @@ type Site struct {
 	Run       string   `json:"run"`
 	Software  *int64   `json:"software"`
 	Command   string   `json:"command"`
+	Nginx     string   `json:"nginx"`
 	Port      int      `json:"port"`
 	Autostart bool     `json:"autostart"`
 	Created   string   `json:"created"`
@@ -51,11 +52,33 @@ type UpdateInput struct {
 	Run       string   `json:"run"`
 	Software  *int64   `json:"software"`
 	Command   string   `json:"command"`
+	Nginx     string   `json:"nginx"`
 	Autostart bool     `json:"autostart"`
 }
 
 func IsValidKind(kind string) bool {
 	return kind == KIND_STATIC || kind == KIND_PHP || kind == KIND_NODE
+}
+
+func ValidateNginxConfig(config string) error {
+	depth := 0
+	for _, line := range strings.Split(config, "\n") {
+		trimmed := strings.TrimSpace(strings.ToLower(line))
+		for _, block := range []string{"server", "http", "events"} {
+			if strings.HasPrefix(trimmed, block+" ") || strings.HasPrefix(trimmed, block+"{") {
+				return errors.New("nginx 高级配置不能包含 " + block + " 区块")
+			}
+		}
+		depth += strings.Count(line, "{")
+		depth -= strings.Count(line, "}")
+		if depth < 0 {
+			return errors.New("nginx 高级配置的花括号不匹配")
+		}
+	}
+	if depth != 0 {
+		return errors.New("nginx 高级配置的花括号不匹配")
+	}
+	return nil
 }
 
 func NormalizeRun(root, run string) (string, error) {

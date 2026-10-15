@@ -45,7 +45,7 @@
 			<p-button
 				v-if="site.state === 'running'"
 				size="small"
-				severity="secondary"
+				severity="danger"
 				variant="outlined"
 				icon="pi pi-stop"
 				label="停止"

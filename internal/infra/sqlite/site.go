@@ -21,7 +21,7 @@ func NewSiteRepository(db *sql.DB) *SiteRepository {
 
 func (r *SiteRepository) List(ctx context.Context) ([]site.Site, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
 		FROM system_sites
 		ORDER BY id DESC
 	`)
@@ -50,7 +50,7 @@ func (r *SiteRepository) List(ctx context.Context) ([]site.Site, error) {
 
 func (r *SiteRepository) Get(ctx context.Context, id int64) (*site.Site, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
 		FROM system_sites
 		WHERE id = ?
 	`, id)
@@ -68,7 +68,7 @@ func (r *SiteRepository) Get(ctx context.Context, id int64) (*site.Site, error) 
 
 func (r *SiteRepository) GetByName(ctx context.Context, name string) (*site.Site, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
 		FROM system_sites
 		WHERE name = ?
 	`, name)
@@ -86,7 +86,7 @@ func (r *SiteRepository) GetByName(ctx context.Context, name string) (*site.Site
 
 func (r *SiteRepository) ListBySoftware(ctx context.Context, softwareID int64) ([]site.Site, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
 		FROM system_sites
 		WHERE software = ?
 		ORDER BY id ASC
@@ -116,7 +116,7 @@ func (r *SiteRepository) ListBySoftware(ctx context.Context, softwareID int64) (
 
 func (r *SiteRepository) ListMissingSoftware(ctx context.Context, kind string) ([]site.Site, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, kind, root, run, software, command, port, autostart, created, updated
+		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
 		FROM system_sites
 		WHERE kind = ? AND software IS NULL
 		ORDER BY id ASC
@@ -156,8 +156,8 @@ func (r *SiteRepository) Create(ctx context.Context, item *site.Site) error {
 	defer rollbackTx(tx)
 
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO system_sites (name, kind, root, run, software, command, port, autostart, created, updated)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO system_sites (name, kind, root, run, software, command, nginx, port, autostart, created, updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		item.Name,
 		item.Kind,
@@ -165,6 +165,7 @@ func (r *SiteRepository) Create(ctx context.Context, item *site.Site) error {
 		item.Run,
 		item.Software,
 		item.Command,
+		item.Nginx,
 		item.Port,
 		formatBool(item.Autostart),
 		item.Created,
@@ -214,13 +215,14 @@ func (r *SiteRepository) Update(ctx context.Context, item *site.Site) error {
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE system_sites
-		SET root = ?, run = ?, software = ?, command = ?, autostart = ?, updated = ?
+		SET root = ?, run = ?, software = ?, command = ?, nginx = ?, autostart = ?, updated = ?
 		WHERE id = ?
 	`,
 		item.Root,
 		item.Run,
 		item.Software,
 		item.Command,
+		item.Nginx,
 		formatBool(item.Autostart),
 		item.Updated,
 		item.ID,
@@ -311,6 +313,7 @@ func scanSites(rows *sql.Rows) ([]site.Site, error) {
 			&item.Run,
 			&softwareID,
 			&item.Command,
+			&item.Nginx,
 			&item.Port,
 			&autostart,
 			&item.Created,
@@ -343,6 +346,7 @@ func scanSite(row *sql.Row) (*site.Site, error) {
 		&item.Run,
 		&softwareID,
 		&item.Command,
+		&item.Nginx,
 		&item.Port,
 		&autostart,
 		&item.Created,

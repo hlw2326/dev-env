@@ -22,7 +22,7 @@ type Container struct {
 	Base     string
 	DB       *sqlite.DB
 	Bus      *events.Publisher
-	Gateway  ports.Gateway
+	Nginx    ports.Gateway
 	Runner   *process.Manager
 	Site     *SiteService
 	Software *SoftwareService
@@ -50,19 +50,19 @@ func Bootstrap() (*Container, error) {
 	softwareRepo := sqlite.NewSoftwareRepository(db.DB)
 	siteRepo := sqlite.NewSiteRepository(db.DB)
 	settingRepo := sqlite.NewSettingRepository(db.DB)
-	gw := gateway.NewNginx(base, softwareRepo, runner, probe)
+	nginx := gateway.NewNginx(base, softwareRepo, runner, probe)
 
-	siteService := NewSiteService(base, siteRepo, softwareRepo, settingRepo, gw, runner, hostsWriter, probe, bus)
-	softwareService := NewSoftwareService(base, softwareRepo, siteRepo, catalogClient, installerManager, runner, probe, bus, func(ctx context.Context, item software.Software) {
+	siteService := NewSiteService(base, siteRepo, softwareRepo, settingRepo, nginx, runner, hostsWriter, probe, bus)
+	softwareService := NewSoftwareService(base, softwareRepo, siteRepo, catalogClient, installerManager, runner, probe, nginx, bus, func(ctx context.Context, item software.Software) {
 		siteService.BindInstalled(ctx, item)
 	})
-	settingService := NewSettingService(base, settingRepo, siteRepo, gw, hostsWriter)
+	settingService := NewSettingService(base, settingRepo, siteRepo, nginx, hostsWriter)
 
 	return &Container{
 		Base:     base,
 		DB:       db,
 		Bus:      bus,
-		Gateway:  gw,
+		Nginx:    nginx,
 		Runner:   runner,
 		Site:     siteService,
 		Software: softwareService,
@@ -72,7 +72,7 @@ func Bootstrap() (*Container, error) {
 
 func (c *Container) Start(ctx context.Context) {
 	c.Software.StartAuto(ctx)
-	c.Setting.StartGateway(ctx)
+	c.Setting.StartNginx(ctx)
 	c.Site.StartAuto(ctx)
 }
 
@@ -83,8 +83,8 @@ func (c *Container) Shutdown() {
 	if err := c.Software.StopAll(); err != nil {
 		log.Printf("停止软件进程失败: %v", err)
 	}
-	if err := c.Gateway.Stop(); err != nil {
-		log.Printf("停止 Nginx 网关失败: %v", err)
+	if err := c.Nginx.Stop(); err != nil {
+		log.Printf("停止 Nginx 失败: %v", err)
 	}
 	if err := c.DB.Close(); err != nil {
 		log.Printf("关闭数据库失败: %v", err)

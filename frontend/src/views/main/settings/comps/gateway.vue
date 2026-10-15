@@ -1,25 +1,39 @@
 <template>
 	<!-- 网关与站点设置卡片 -->
-	<h-card title="网关与站点">
+	<h-card title="Nginx 与站点">
 		<div class="settings-block">
-			<!-- 本地网关监听状态 -->
+			<!-- Nginx 监听状态 -->
 			<div class="gateway-status">
-				<span class="section-title">本地网关状态</span>
+				<span class="section-title">Nginx 状态</span>
 				<div class="status-right">
 					<span v-if="listening" class="status-pill ok">
 						<span class="dot"></span>
-						<span>正在监听 127.0.0.1:{{ form.port }}</span>
+						<span>Nginx 正在监听 127.0.0.1:{{ form.port }}</span>
 					</span>
 					<span v-else class="status-pill error">
 						<span class="dot"></span>
-						<span>未监听</span>
+						<span>Nginx 未监听</span>
 					</span>
 				</div>
 			</div>
 
+			<div class="config-row">
+				<div class="toggle-info">
+					<span class="section-title">Nginx 配置文件</span>
+				<span class="field-hint">打开 Nginx 主配置文件 nginx.conf</span>
+				</div>
+				<p-button
+					severity="secondary"
+					variant="outlined"
+					icon="pi pi-file-edit"
+					label="打开配置文件"
+					@click="openNginxConfig"
+				/>
+			</div>
+
 			<!-- 网关启动错误提示 -->
-			<div v-if="gatewayError !== ''" class="gateway-err">
-				{{ gatewayError }}
+			<div v-if="nginxError !== ''" class="gateway-err">
+				{{ nginxError }}
 			</div>
 
 			<!-- 新站点默认父目录 -->
@@ -38,9 +52,9 @@
 				<span class="field-hint">创建新网站时默认使用该目录作为父目录</span>
 			</div>
 
-			<!-- 本地网关端口 -->
+			<!-- Nginx 监听端口 -->
 			<div class="form-field">
-				<label>本地网关端口</label>
+				<label>Nginx 监听端口</label>
 				<p-input-number
 					v-model="form.port"
 					:use-grouping="false"
@@ -48,7 +62,7 @@
 					:max="65535"
 					class="port-input"
 				/>
-				<span class="field-hint">所有站点共用此网关端口（默认 80），端口被占用时请修改此项并保存</span>
+				<span class="field-hint">所有网站通过 Nginx 共用此端口（默认 80），端口被占用时请修改并保存</span>
 			</div>
 
 			<!-- 自动写入系统 hosts 开关 -->
@@ -69,7 +83,7 @@
 import { useSettings } from '../use-settings'
 
 // 网关与站点设置状态与方法
-const { form, listening, gatewayError, pickRoot } = useSettings()
+	const { form, listening, nginxError, pickRoot, openNginxConfig } = useSettings()
 </script>
 
 <style scoped lang="scss">
@@ -132,6 +146,15 @@ const { form, listening, gatewayError, pickRoot } = useSettings()
 
 /* 开关配置行 */
 .toggle-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--border-color);
+	gap: 1rem;
+}
+
+.config-row {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;

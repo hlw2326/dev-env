@@ -10,6 +10,10 @@ export function OpenFolder(arg1) {
   return window['go']['wails']['SystemAPI']['OpenFolder'](arg1);
 }
 
+export function OpenNginxConfig() {
+  return window['go']['wails']['SystemAPI']['OpenNginxConfig']();
+}
+
 export function OpenURL(arg1) {
   return window['go']['wails']['SystemAPI']['OpenURL'](arg1);
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -43,7 +44,7 @@ type SiteService struct {
 	sites    ports.SiteRepository
 	software ports.SoftwareRepository
 	settings ports.SettingRepository
-	gateway  ports.Gateway
+	nginx    ports.Gateway
 	runner   ports.Runner
 	hosts    ports.HostsWriter
 	probe    ports.PortChecker
@@ -59,7 +60,7 @@ func NewSiteService(
 	sites ports.SiteRepository,
 	softwareRepo ports.SoftwareRepository,
 	settings ports.SettingRepository,
-	gateway ports.Gateway,
+	nginx ports.Gateway,
 	runner ports.Runner,
 	hosts ports.HostsWriter,
 	probe ports.PortChecker,
@@ -70,7 +71,7 @@ func NewSiteService(
 		sites:    sites,
 		software: softwareRepo,
 		settings: settings,
-		gateway:  gateway,
+		nginx:    nginx,
 		runner:   runner,
 		hosts:    hosts,
 		probe:    probe,
@@ -189,7 +190,7 @@ func (s *SiteService) FindRun(root, kind string) string {
 	return site.FindRun(root, kind)
 }
 
-func (s *SiteService) requireGateway(ctx context.Context) error {
+func (s *SiteService) requireNginx(ctx context.Context) error {
 	installed, err := s.software.GetMain(ctx, software.KIND_NGINX)
 	if err != nil {
 		return err
@@ -205,14 +206,14 @@ func (s *SiteService) requireGateway(ctx context.Context) error {
 	if info.IsDir() {
 		return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "nginx.exe 路径指向了目录")
 	}
-	if s.gateway.Port() > 0 {
+	if s.nginx.Port() > 0 {
 		return nil
 	}
 	settings, err := s.settings.Load(ctx)
 	if err != nil {
 		return err
 	}
-	return s.gateway.Start(settings.Port)
+	return s.nginx.Start(settings.Port)
 }
 
 func (s *SiteService) deleteCreated(ctx context.Context, id int64, source error) error {
@@ -240,7 +241,7 @@ func (s *SiteService) Create(ctx context.Context, in site.CreateInput) (*SiteVie
 	if host == "" {
 		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "站点域名不能为空")
 	}
-	if err := s.requireGateway(ctx); err != nil {
+	if err := s.requireNginx(ctx); err != nil {
 		return nil, err
 	}
 
@@ -344,6 +345,9 @@ func (s *SiteService) Update(ctx context.Context, in site.UpdateInput) (*SiteVie
 		return nil, appErrors.New(appErrors.NOT_FOUND, "站点不存在")
 	}
 
+	original := *current
+	original.Hosts = append([]string(nil), current.Hosts...)
+
 	var cleanHosts []string
 	seen := make(map[string]bool)
 	for _, host := range in.Hosts {
@@ -371,12 +375,17 @@ func (s *SiteService) Update(ctx context.Context, in site.UpdateInput) (*SiteVie
 	if err := os.MkdirAll(docPath, 0o755); err != nil {
 		return nil, appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "创建运行目录失败")
 	}
+	nginxConfig := strings.TrimSpace(in.Nginx)
+	if err := site.ValidateNginxConfig(nginxConfig); err != nil {
+		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, err.Error())
+	}
 
 	current.Hosts = cleanHosts
 	current.Root = root
 	current.Run = runFolder
 	current.Software = in.Software
 	current.Command = strings.TrimSpace(in.Command)
+	current.Nginx = nginxConfig
 	current.Autostart = in.Autostart
 
 	if err := s.sites.Update(ctx, current); err != nil {
@@ -384,9 +393,18 @@ func (s *SiteService) Update(ctx context.Context, in site.UpdateInput) (*SiteVie
 	}
 
 	if err := s.syncRoutes(ctx); err != nil {
+		if restoreErr := s.sites.Update(ctx, &original); restoreErr != nil {
+			return nil, errors.Join(err, restoreErr)
+		}
 		return nil, err
 	}
 	if err := s.syncHosts(ctx); err != nil {
+		if restoreErr := s.sites.Update(ctx, &original); restoreErr != nil {
+			return nil, errors.Join(err, restoreErr)
+		}
+		if restoreErr := s.syncRoutes(ctx); restoreErr != nil {
+			return nil, errors.Join(err, restoreErr)
+		}
 		return nil, err
 	}
 
@@ -554,6 +572,25 @@ func (s *SiteService) Logs(ctx context.Context, id int64, kind string, limit int
 	return process.ReadTail(logFile, limit), nil
 }
 
+func (s *SiteService) OpenNginxConfig(ctx context.Context, id int64) error {
+	item, err := s.sites.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if item == nil {
+		return appErrors.New(appErrors.NOT_FOUND, "网站不存在")
+	}
+	configPath := paths.NginxSiteConfig(s.base, item.ID, item.Name)
+	info, err := os.Stat(configPath)
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "该网站的 Nginx 配置文件尚未生成，请先启动网站")
+	}
+	if info.IsDir() {
+		return appErrors.New(appErrors.PATH_NOT_ACCESSIBLE, "网站 Nginx 配置文件路径指向了目录")
+	}
+	return exec.Command("explorer.exe", configPath).Start()
+}
+
 func (s *SiteService) StopAll() error {
 	list, err := s.sites.List(context.Background())
 	if err != nil {
@@ -668,15 +705,17 @@ func (s *SiteService) syncRoutes(ctx context.Context) error {
 		}
 		routes = append(routes, ports.Route{
 			ID:    item.ID,
+			Name:  item.Name,
 			Hosts: item.Hosts,
 			Kind:  item.Kind,
 			Path:  site.ResolvePath(item.Root, item.Run),
 			PHP:   phpBinary,
+			Nginx: item.Nginx,
 			Port:  item.Port,
 			Log:   paths.SiteLog(s.base, item.Name, "access.log"),
 		})
 	}
-	return s.gateway.SetRoutes(routes)
+	return s.nginx.SetRoutes(routes)
 }
 
 func (s *SiteService) syncHosts(ctx context.Context) error {

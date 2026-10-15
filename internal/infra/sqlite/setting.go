@@ -44,7 +44,7 @@ func (r *SettingRepository) Load(ctx context.Context) (setting.Settings, error) 
 		case "port":
 			port, convErr := strconv.Atoi(value)
 			if convErr != nil {
-				return setting.Settings{}, appErrors.Wrap(convErr, appErrors.DATABASE_ERROR, "解析网关端口设置失败")
+				return setting.Settings{}, appErrors.Wrap(convErr, appErrors.DATABASE_ERROR, "解析 Nginx 监听端口设置失败")
 			}
 			result.Port = port
 		case "hosts":

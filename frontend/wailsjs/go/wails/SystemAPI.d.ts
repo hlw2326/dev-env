@@ -7,6 +7,8 @@ export function DataFolder():Promise<string>;
 
 export function OpenFolder(arg1:string):Promise<wails.Result>;
 
+export function OpenNginxConfig():Promise<wails.Result>;
+
 export function OpenURL(arg1:string):Promise<wails.Result>;
 
 export function PickFolder(arg1:string):Promise<string>;

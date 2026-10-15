@@ -85,3 +85,10 @@ defineExpose<HModalExpose>({
 	close,
 })
 </script>
+
+<style scoped lang="scss">
+/* 弹窗正文由内容组件自行控制内边距 */
+:deep(.p-dialog-content) {
+	padding: 0 !important;
+}
+</style>

@@ -15,6 +15,8 @@ export function List():Promise<Array<wails.SiteDTO>>;
 
 export function Logs(arg1:number,arg2:string,arg3:number):Promise<Array<string>>;
 
+export function OpenNginxConfig(arg1:number):Promise<wails.Result>;
+
 export function Restart(arg1:number):Promise<wails.Result>;
 
 export function SetContext(arg1:context.Context):Promise<void>;

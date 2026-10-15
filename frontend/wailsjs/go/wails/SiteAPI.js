@@ -26,6 +26,10 @@ export function Logs(arg1, arg2, arg3) {
   return window['go']['wails']['SiteAPI']['Logs'](arg1, arg2, arg3);
 }
 
+export function OpenNginxConfig(arg1) {
+  return window['go']['wails']['SiteAPI']['OpenNginxConfig'](arg1);
+}
+
 export function Restart(arg1) {
   return window['go']['wails']['SiteAPI']['Restart'](arg1);
 }

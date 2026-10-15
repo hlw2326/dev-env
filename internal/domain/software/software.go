@@ -17,6 +17,7 @@ const (
 	KIND_DENO       = "deno"
 	KIND_BUN        = "bun"
 	KIND_NGINX      = "nginx"
+	KIND_APACHE     = "apache"
 	KIND_CADDY      = "caddy"
 	KIND_SQLITE     = "sqlite"
 	KIND_GRADLE     = "gradle"
@@ -97,6 +98,7 @@ func AllKinds() []string {
 		KIND_DENO,
 		KIND_BUN,
 		KIND_NGINX,
+		KIND_APACHE,
 		KIND_CADDY,
 		KIND_SQLITE,
 		KIND_GRADLE,
@@ -163,6 +165,8 @@ func Name(kind string) string {
 		return "Bun"
 	case KIND_NGINX:
 		return "Nginx"
+	case KIND_APACHE:
+		return "Apache"
 	case KIND_CADDY:
 		return "Caddy"
 	case KIND_SQLITE:

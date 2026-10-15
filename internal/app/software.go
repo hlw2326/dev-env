@@ -48,6 +48,7 @@ type SoftwareService struct {
 	installer ports.Installer
 	runner    ports.Runner
 	probe     ports.PortChecker
+	nginx     ports.Gateway
 	bus       ports.EventPublisher
 	installed func(ctx context.Context, item software.Software)
 
@@ -63,6 +64,7 @@ func NewSoftwareService(
 	inst ports.Installer,
 	runner ports.Runner,
 	probe ports.PortChecker,
+	nginx ports.Gateway,
 	bus ports.EventPublisher,
 	installed func(ctx context.Context, item software.Software),
 ) *SoftwareService {
@@ -74,6 +76,7 @@ func NewSoftwareService(
 		installer: inst,
 		runner:    runner,
 		probe:     probe,
+		nginx:     nginx,
 		bus:       bus,
 		installed: installed,
 		cancels:   make(map[string]context.CancelFunc),
@@ -266,6 +269,9 @@ func checkBinary(kind, folder string) bool {
 	case software.KIND_NGINX:
 		_, err := os.Stat(filepath.Join(folder, "nginx.exe"))
 		return err == nil
+	case software.KIND_APACHE:
+		_, err := os.Stat(filepath.Join(folder, "bin", "httpd.exe"))
+		return err == nil
 	case software.KIND_CADDY:
 		_, err := os.Stat(filepath.Join(folder, "caddy.exe"))
 		return err == nil
@@ -399,6 +405,11 @@ func (s *SoftwareService) Market(ctx context.Context) ([]software.Item, error) {
 			Category:    "Web 服务", Count: counts[software.KIND_NGINX],
 		},
 		{
+			Kind: software.KIND_APACHE, Name: "Apache",
+			Description: "成熟稳定的开源 Web 服务器，适合运行传统 PHP 与多模块网站",
+			Category:    "Web 服务", Count: counts[software.KIND_APACHE],
+		},
+		{
 			Kind: software.KIND_CADDY, Name: "Caddy",
 			Description: "配置简洁的现代 Web 服务器，支持反向代理与自动 HTTPS",
 			Category:    "Web 服务", Count: counts[software.KIND_CADDY],
@@ -455,6 +466,8 @@ func (s *SoftwareService) List(ctx context.Context) ([]SoftwareView, error) {
 			status := s.runner.Status(daemonKey(item.ID))
 			view.Running = status.Running
 			view.PID = status.PID
+		} else if item.Kind == software.KIND_NGINX && s.nginx != nil {
+			view.Running = s.nginx.Port() > 0
 		}
 		views = append(views, view)
 	}

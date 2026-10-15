@@ -167,6 +167,39 @@ func TestMySQLAndRedis(t *testing.T) {
 	}
 }
 
+func TestRedisAtomFeed(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/redis.atom", func(writer http.ResponseWriter, request *http.Request) {
+		payload := `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <link rel="alternate" type="text/html" href="https://github.com/redis-windows/redis-windows/releases/tag/8.10.2"/>
+    <content type="html">&lt;p&gt;Path : D:\\a\\redis-windows\\redis-windows\\Redis-8.10.2-Windows-x64-msys2.zip&lt;/p&gt;</content>
+  </entry>
+</feed>`
+		writer.Header().Set("Content-Type", "application/atom+xml")
+		if _, err := writer.Write([]byte(payload)); err != nil {
+			t.Error(err)
+		}
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := catalog.NewWithEndpoints(server.Client(), catalog.Endpoints{RedisAPI: server.URL + "/redis.atom"})
+	redisList, err := client.Versions(context.Background(), software.KIND_REDIS)
+	if err != nil {
+		t.Fatalf("Redis Atom Versions failed: %v", err)
+	}
+	if len(redisList) != 1 || redisList[0].Version != "8.10.2" {
+		t.Fatalf("unexpected Redis Atom versions: %+v", redisList)
+	}
+	wantURL := "https://github.com/redis-windows/redis-windows/releases/download/8.10.2/Redis-8.10.2-Windows-x64-msys2.zip"
+	if redisList[0].URL != wantURL {
+		t.Fatalf("unexpected Redis Atom download URL: %s", redisList[0].URL)
+	}
+}
+
 func TestExtendedCatalogs(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/go", func(writer http.ResponseWriter, request *http.Request) {
@@ -253,6 +286,9 @@ func TestPortableDeveloperCatalogs(t *testing.T) {
 		case request.URL.Path == "/nginx":
 			writer.Header().Set("Content-Type", "text/html")
 			writeResponse(t, writer, `<a href="/download/nginx-1.29.0.zip">nginx-1.29.0.zip</a><a href="/download/nginx-1.28.0.zip">nginx-1.28.0.zip</a>`)
+		case request.URL.Path == "/apache":
+			writer.Header().Set("Content-Type", "text/html")
+			writeResponse(t, writer, `<a href="/download/VS18/binaries/httpd-2.4.69-261002-Win64-VS18.zip">httpd-2.4.69-261002-Win64-VS18.zip</a>`)
 		case request.URL.Path == "/sqlite":
 			writer.Header().Set("Content-Type", "text/html")
 			writeResponse(t, writer, `PRODUCT,3.51.0,2026/sqlite-tools-win-x64-3510000.zip,123`)
@@ -271,13 +307,14 @@ func TestPortableDeveloperCatalogs(t *testing.T) {
 		JavaAPI: server.URL + "/java", DotnetIndex: server.URL + "/dotnet-index",
 		DenoAPI: server.URL + "/deno", BunAPI: server.URL + "/bun",
 		NginxList: server.URL + "/nginx", NginxBase: server.URL,
+		ApacheList: server.URL + "/apache", ApacheBase: server.URL,
 		CaddyAPI: server.URL + "/caddy", SQLiteList: server.URL + "/sqlite",
 		GradleList: server.URL + "/gradle", MavenMeta: server.URL + "/maven", MavenBase: server.URL,
 	})
 
 	for _, kind := range []string{
 		software.KIND_JAVA, software.KIND_DOTNET, software.KIND_DENO,
-		software.KIND_BUN, software.KIND_NGINX, software.KIND_CADDY,
+		software.KIND_BUN, software.KIND_NGINX, software.KIND_APACHE, software.KIND_CADDY,
 		software.KIND_SQLITE, software.KIND_GRADLE, software.KIND_MAVEN,
 	} {
 		list, err := client.Versions(context.Background(), kind)

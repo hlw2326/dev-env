@@ -22,6 +22,7 @@ type SiteDTO struct {
 	Software  *int64   `json:"software"`
 	Version   string   `json:"version"`
 	Command   string   `json:"command"`
+	Nginx     string   `json:"nginx"`
 	Port      int      `json:"port"`
 	Autostart bool     `json:"autostart"`
 	State     string   `json:"state"`
@@ -47,6 +48,7 @@ type UpdateInput struct {
 	Run       string   `json:"run"`
 	Software  *int64   `json:"software"`
 	Command   string   `json:"command"`
+	Nginx     string   `json:"nginx"`
 	Autostart bool     `json:"autostart"`
 }
 
@@ -74,6 +76,7 @@ type SoftwareDTO struct {
 	Running   bool   `json:"running"`
 	PID       int    `json:"pid"`
 	Daemon    bool   `json:"daemon"`
+	Service   bool   `json:"service"`
 }
 
 type VersionDTO struct {

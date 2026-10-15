@@ -41,10 +41,12 @@ type SettingRepository interface {
 
 type Route struct {
 	ID    int64
+	Name  string
 	Hosts []string
 	Kind  string
 	Path  string
 	PHP   string
+	Nginx string
 	Port  int
 	Log   string
 }

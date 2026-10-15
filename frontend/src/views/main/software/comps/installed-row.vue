@@ -17,11 +17,11 @@
 						<span class="dot"></span>
 						<span>安装失败</span>
 					</span>
-					<span v-else-if="item.daemon && item.running" class="status-pill running">
+					<span v-else-if="item.service && item.running" class="status-pill running">
 						<span class="dot"></span>
 						<span>运行中 (PID {{ item.pid }})</span>
 					</span>
-					<span v-else-if="item.daemon && !item.running" class="status-pill stopped">
+					<span v-else-if="item.service && !item.running" class="status-pill stopped">
 						<span class="dot"></span>
 						<span>已停止</span>
 					</span>

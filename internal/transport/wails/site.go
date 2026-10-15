@@ -68,6 +68,7 @@ func (a *SiteAPI) Update(in UpdateInput) (*SiteDTO, error) {
 		Run:       in.Run,
 		Software:  in.Software,
 		Command:   in.Command,
+		Nginx:     in.Nginx,
 		Autostart: in.Autostart,
 	})
 	if err != nil {
@@ -113,6 +114,13 @@ func (a *SiteAPI) Logs(id int64, kind string, limit int) ([]string, error) {
 	return a.service.Logs(a.ctx, id, kind, limit)
 }
 
+func (a *SiteAPI) OpenNginxConfig(id int64) Result {
+	if err := a.service.OpenNginxConfig(a.ctx, id); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: ""}
+}
+
 func convertSite(view app.SiteView) SiteDTO {
 	hosts := view.Hosts
 	if hosts == nil {
@@ -129,6 +137,7 @@ func convertSite(view app.SiteView) SiteDTO {
 		Software:  view.Software,
 		Version:   view.Version,
 		Command:   view.Command,
+		Nginx:     view.Nginx,
 		Port:      view.Port,
 		Autostart: view.Autostart,
 		State:     view.State,

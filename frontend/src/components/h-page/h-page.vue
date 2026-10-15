@@ -97,6 +97,14 @@ const {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+
+	&::-webkit-scrollbar {
+		display: none;
+		width: 0;
+		height: 0;
+	}
 
 	/* 页面正文独立滚动 */
 	&.scrollable {

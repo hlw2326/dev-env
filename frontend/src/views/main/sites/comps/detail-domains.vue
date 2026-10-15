@@ -66,6 +66,7 @@ function addHost(): void {
 		run: props.site.run,
 		software: props.site.software,
 		command: props.site.command,
+		nginx: props.site.nginx,
 		autostart: props.site.autostart,
 	})
 }
@@ -83,6 +84,7 @@ function removeHost(target: string): void {
 		run: props.site.run,
 		software: props.site.software,
 		command: props.site.command,
+		nginx: props.site.nginx,
 		autostart: props.site.autostart,
 	})
 }

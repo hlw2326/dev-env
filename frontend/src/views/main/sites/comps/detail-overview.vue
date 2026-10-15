@@ -119,6 +119,7 @@ function saveForm(): void {
 		run: run.value,
 		software: softwareId.value,
 		command: command.value,
+		nginx: props.site.nginx,
 		autostart: autostart.value,
 	})
 }

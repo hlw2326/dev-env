@@ -443,6 +443,8 @@ func checkEntry(kind, folder string) error {
 		return requireEntry(folder, "bun.exe")
 	case software.KIND_NGINX:
 		return requireEntry(folder, "nginx.exe")
+	case software.KIND_APACHE:
+		return requireEntry(folder, filepath.Join("bin", "httpd.exe"))
 	case software.KIND_CADDY:
 		return requireEntry(folder, "caddy.exe")
 	case software.KIND_SQLITE:

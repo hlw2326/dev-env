@@ -99,6 +99,23 @@ func TestRenderStaticRouteReturnsNotFoundWithoutIndexFallback(t *testing.T) {
 	}
 }
 
+func TestRenderRouteIncludesAdvancedConfiguration(t *testing.T) {
+	config, err := renderRoute(8080, ports.Route{
+		ID:    4,
+		Hosts: []string{"advanced.localhost"},
+		Kind:  site.KIND_STATIC,
+		Path:  `C:\sites\advanced`,
+		Log:   `C:\logs\advanced\access.log`,
+		Nginx: "client_max_body_size 20m;\nadd_header X-DevEnv advanced;",
+	}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(config, "client_max_body_size 20m;") || !strings.Contains(config, "add_header X-DevEnv advanced;") {
+		t.Fatalf("expected advanced configuration in generated server block\n%s", config)
+	}
+}
+
 func TestPoolPortIsStable(t *testing.T) {
 	executable := `C:\DevEnv\software\php\8.3.35\php-cgi.exe`
 	first := poolPort(executable)

@@ -47,7 +47,7 @@ type softwareReader interface {
 	GetMain(ctx context.Context, kind string) (*software.Software, error)
 }
 
-// Nginx 管理本地网关及站点使用的 PHP FastCGI 进程。
+// Nginx 管理网站访问入口及站点使用的 PHP FastCGI 进程。
 type Nginx struct {
 	home     string
 	software softwareReader
@@ -74,7 +74,7 @@ func NewNginx(home string, software softwareReader, runner ports.Runner, checker
 
 func (n *Nginx) Start(port int) error {
 	if port < 1 || port > ports.MAX_PORT {
-		return appErrors.New(appErrors.INVALID_ARGUMENT, "Nginx 网关端口无效")
+		return appErrors.New(appErrors.INVALID_ARGUMENT, "Nginx 监听端口无效")
 	}
 
 	n.operation.Lock()
@@ -182,7 +182,7 @@ func (n *Nginx) reconcile() error {
 		return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "nginx.exe 路径指向了目录")
 	}
 	if listening != port && !n.checker.Available(port) {
-		return appErrors.New(appErrors.PORT_ALREADY_IN_USE, fmt.Sprintf("Nginx 网关端口 %d 已被占用", port))
+		return appErrors.New(appErrors.PORT_ALREADY_IN_USE, fmt.Sprintf("Nginx 监听端口 %d 已被占用", port))
 	}
 
 	pools, started, err := n.startPools(routes, port)
@@ -213,7 +213,7 @@ func (n *Nginx) reconcile() error {
 			Binary:    executable,
 			Args:      []string{"-p", nginxPrefix(n.home), "-c", paths.NGINX_CONFIG},
 			Directory: installed.Path,
-			Log:       paths.GatewayLog(n.home, "gateway.log"),
+			Log:       paths.GatewayLog(n.home, "nginx.log"),
 		})
 		if err != nil {
 			return cleanup(err)
@@ -235,7 +235,7 @@ func (n *Nginx) reconcile() error {
 	return nil
 }
 
-func (n *Nginx) startPools(routes []ports.Route, gatewayPort int) (map[string]pool, []pool, error) {
+func (n *Nginx) startPools(routes []ports.Route, nginxPort int) (map[string]pool, []pool, error) {
 	n.mutex.RLock()
 	existing := make(map[string]pool, len(n.pools))
 	for executable, item := range n.pools {
@@ -254,7 +254,7 @@ func (n *Nginx) startPools(routes []ports.Route, gatewayPort int) (map[string]po
 	}
 	sort.Strings(executables)
 
-	used := map[int]bool{gatewayPort: true}
+	used := map[int]bool{nginxPort: true}
 	for _, route := range routes {
 		if route.Port > 0 {
 			used[route.Port] = true
@@ -390,7 +390,7 @@ func (n *Nginx) writeConfig(nginxHome string, port int, routes []ports.Route, po
 		if err != nil {
 			return err
 		}
-		name := fmt.Sprintf("site-%d.conf", route.ID)
+		name := paths.NginxSiteConfigName(route.ID, route.Name)
 		if err := os.WriteFile(filepath.Join(hosts, name), []byte(content), 0o644); err != nil {
 			return appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "写入 Nginx 站点配置失败")
 		}
@@ -518,6 +518,11 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
 		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "站点类型无效: "+route.Kind)
 	}
 
+	advanced := strings.TrimSpace(route.Nginx)
+	if advanced != "" {
+		body += "\n    # DevEnv advanced configuration\n" + indentNginx(advanced) + "\n"
+	}
+
 	return fmt.Sprintf(`server {
     listen %s:%d;
     server_name %s;
@@ -534,6 +539,19 @@ func renderRoute(port int, route ports.Route, fastCGIPort int) (string, error) {
 
 %s}
 `, paths.LOOPBACK, port, strings.Join(hosts, " "), accessLog, errorLog, body), nil
+}
+
+func indentNginx(config string) string {
+	lines := strings.Split(config, "\n")
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			lines[index] = ""
+			continue
+		}
+		lines[index] = "    " + trimmed
+	}
+	return strings.Join(lines, "\n")
 }
 
 func renderOverview(routes []ports.Route) string {

@@ -1,5 +1,12 @@
 import { ref, reactive, computed } from 'vue'
-import { loadSettings, saveSettings, pickFolder, openFolder, loadFolder } from '@/api'
+import {
+	loadSettings,
+	saveSettings,
+	pickFolder,
+	openFolder,
+	openNginxConfig as openNginxConfigApi,
+	loadFolder,
+} from '@/api'
 import { useTheme, type ThemeMode } from '@/composables/theme'
 import { toast, formatError } from '@/utils'
 
@@ -15,7 +22,7 @@ const form = reactive({
 const listening = ref(false)
 
 // 网关错误消息
-const gatewayError = ref('')
+const nginxError = ref('')
 
 // 应用数据目录路径
 const dataFolder = ref('')
@@ -46,7 +53,7 @@ export function useSettings() {
 			form.port = settings.port
 			form.hosts = settings.hosts
 			listening.value = settings.listening
-			gatewayError.value = settings.error
+			nginxError.value = settings.error
 			dataFolder.value = folder
 			if (settings.theme === 'dark' || settings.theme === 'system') {
 				setMode(settings.theme)
@@ -136,13 +143,24 @@ export function useSettings() {
 		}
 	}
 
+	async function openNginxConfig(): Promise<void> {
+		try {
+			const result = await openNginxConfigApi()
+			if (!result.ok) {
+				toast.error('打开 Nginx 配置失败', result.message)
+			}
+		} catch (err: unknown) {
+			toast.error('打开 Nginx 配置失败', formatError(err))
+		}
+	}
+
 	return {
 		form,
 		theme,
 		THEME_COLORS,
 		colorName,
 		listening,
-		gatewayError,
+		nginxError,
 		dataFolder,
 		saving,
 		fetchData,
@@ -151,5 +169,6 @@ export function useSettings() {
 		pickRoot,
 		saveAll,
 		openData,
+		openNginxConfig,
 	}
 }

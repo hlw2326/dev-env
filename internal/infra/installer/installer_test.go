@@ -185,6 +185,7 @@ func TestPortableDeveloperToolEntries(t *testing.T) {
 		{software.KIND_DENO, "deno.exe"},
 		{software.KIND_BUN, "bun.exe"},
 		{software.KIND_NGINX, "nginx.exe"},
+		{software.KIND_APACHE, filepath.Join("bin", "httpd.exe")},
 		{software.KIND_CADDY, "caddy.exe"},
 		{software.KIND_SQLITE, "sqlite3.exe"},
 		{software.KIND_GRADLE, filepath.Join("bin", "gradle.bat")},

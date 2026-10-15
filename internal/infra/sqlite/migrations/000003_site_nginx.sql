@@ -1,0 +1,1 @@
+ALTER TABLE system_sites ADD COLUMN nginx TEXT NOT NULL DEFAULT '';

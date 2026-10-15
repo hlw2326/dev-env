@@ -13,7 +13,7 @@ const installed = ref<Software[]>([])
 const listening = ref(false)
 
 // 网关监听端口
-const gatewayPort = ref(80)
+const nginxPort = ref(80)
 
 // 数据加载中状态
 const loading = ref(false)
@@ -35,7 +35,7 @@ export function useDashboard() {
 
 	// 守护进程类软件列表
 	const daemonList = computed(() => {
-		return readySoftware.value.filter((item) => item.daemon)
+		return readySoftware.value.filter((item) => item.service)
 	})
 
 	// 运行中守护进程数量
@@ -55,7 +55,7 @@ export function useDashboard() {
 			sites.value = siteList
 			installed.value = softwareList
 			listening.value = settings.listening
-			gatewayPort.value = settings.port
+			nginxPort.value = settings.port
 		} catch (err: unknown) {
 			toast.error(formatError(err))
 		} finally {
@@ -105,7 +105,7 @@ export function useDashboard() {
 		readySoftware,
 		daemonList,
 		listening,
-		gatewayPort,
+		nginxPort,
 		loading,
 		busyId,
 		runningSites,

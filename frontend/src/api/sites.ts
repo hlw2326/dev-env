@@ -29,3 +29,6 @@ export const deleteSite = SiteAPI.Delete
 
 // 读取站点日志
 export const readLogs = SiteAPI.Logs
+
+// 打开网站生成的 Nginx 配置文件
+export const openSiteNginxConfig = SiteAPI.OpenNginxConfig

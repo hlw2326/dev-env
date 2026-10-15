@@ -16,7 +16,7 @@ const busy = ref(0)
 export function useServices() {
 	// 当前运行中的守护服务
 	const running = computed(() => {
-		return items.value.filter((item) => item.daemon && item.running)
+		return items.value.filter((item) => item.service && item.running)
 	})
 
 	// 加载服务运行状态

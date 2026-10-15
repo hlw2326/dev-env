@@ -1,6 +1,6 @@
 <template>
 	<!-- 全局设置页面 -->
-	<h-page title="全局设置" description="配置默认站点目录、本地网关端口、hosts 自动写入与界面主题">
+	<h-page title="全局设置" description="配置默认站点目录、Nginx 监听端口、hosts 自动写入与界面主题">
 		<!-- 页面右上角保存按钮 -->
 		<template #extra>
 			<p-button
@@ -11,11 +11,11 @@
 			/>
 		</template>
 
-		<!-- 网关与站点设置卡片 -->
-		<comp-gateway />
-
-		<!-- 外观与存储设置卡片 -->
-		<comp-theme />
+		<!-- Nginx 与站点设置卡片 -->
+		<div class="settings-content">
+			<comp-gateway />
+			<comp-theme />
+		</div>
 	</h-page>
 </template>
 
@@ -33,3 +33,14 @@ onMounted(() => {
 	fetchData()
 })
 </script>
+
+<style scoped lang="scss">
+.settings-content {
+	display: flex;
+	flex: 0 0 auto;
+	flex-direction: column;
+	gap: var(--h-padding);
+	min-height: max-content;
+	width: 100%;
+}
+</style>

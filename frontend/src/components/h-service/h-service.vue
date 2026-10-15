@@ -14,13 +14,13 @@
 						size="small"
 					/>
 					<p-tag
-						v-if="item.daemon && item.running"
+						v-if="item.service && item.running"
 						severity="success"
 						value="运行中"
 						size="small"
 					/>
 					<p-tag
-						v-else-if="item.daemon"
+						v-else-if="item.service"
 						severity="secondary"
 						value="已停止"
 						size="small"
@@ -33,9 +33,9 @@
 					/>
 				</div>
 				<span class="meta font-mono">
-					<template v-if="item.daemon">
+					<template v-if="item.service">
 						<span>端口: {{ item.port }}</span>
-						<span v-if="item.running"> · PID: {{ item.pid }}</span>
+						<span v-if="item.running && item.pid > 0"> · PID: {{ item.pid }}</span>
 						<span v-else> · 空闲</span>
 					</template>
 					<span v-else>{{ item.path }}</span>
@@ -67,7 +67,7 @@
 				/>
 			</template>
 			<p-button
-				v-else
+				v-else-if="!item.service"
 				label="管理"
 				icon="pi pi-cog"
 				size="small"

@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -50,6 +51,8 @@ type Endpoints struct {
 	BunAPI       string
 	NginxList    string
 	NginxBase    string
+	ApacheList   string
+	ApacheBase   string
 	CaddyAPI     string
 	SQLiteList   string
 	GradleList   string
@@ -76,7 +79,7 @@ func DefaultEndpoints() Endpoints {
 		PostgresBase: "https://get.enterprisedb.com/postgresql",
 		MongoList:    "https://endoflife.date/api/mongodb.json",
 		MongoBase:    "https://fastdl.mongodb.org/windows",
-		RedisAPI:     "https://api.github.com/repos/redis-windows/redis-windows/releases?per_page=5",
+		RedisAPI:     "https://github.com/redis-windows/redis-windows/releases.atom",
 		MemcacheList: "https://raw.githubusercontent.com/nono303/memcached/master/bininfo.csv",
 		MemcacheZip:  "https://github.com/nono303/memcached/archive/refs/heads/master.zip",
 		JavaAPI:      "https://api.adoptium.net/v3/assets/feature_releases",
@@ -85,6 +88,8 @@ func DefaultEndpoints() Endpoints {
 		BunAPI:       "https://api.github.com/repos/oven-sh/bun/releases?per_page=5",
 		NginxList:    "https://nginx.org/en/download.html",
 		NginxBase:    "https://nginx.org/download",
+		ApacheList:   "https://www.apachelounge.com/download/",
+		ApacheBase:   "https://www.apachelounge.com",
 		CaddyAPI:     "https://api.github.com/repos/caddyserver/caddy/releases?per_page=5",
 		SQLiteList:   "https://www.sqlite.org/download.html",
 		GradleList:   "https://services.gradle.org/versions/all",
@@ -193,6 +198,8 @@ func (c *Client) Versions(ctx context.Context, kind string) ([]software.Version,
 		versions, err = c.fetchArchives(ctx, c.endpoints.BunAPI, "Bun", "bun-windows-x64.zip")
 	case software.KIND_NGINX:
 		versions, err = c.fetchNginx(ctx)
+	case software.KIND_APACHE:
+		versions, err = c.fetchApache(ctx)
 	case software.KIND_CADDY:
 		versions, err = c.fetchArchives(ctx, c.endpoints.CaddyAPI, "Caddy", "caddy_*_windows_amd64.zip")
 	case software.KIND_SQLITE:
@@ -487,49 +494,87 @@ func (c *Client) fetchRedis(ctx context.Context) ([]software.Version, error) {
 		return nil, err
 	}
 
-	type assetItem struct {
-		Name        string `json:"name"`
-		DownloadURL string `json:"browser_download_url"`
+	// Keep compatibility with JSON release APIs used by custom endpoints and tests.
+	var releases []struct {
+		TagName string `json:"tag_name"`
+		Assets  []struct {
+			Name        string `json:"name"`
+			DownloadURL string `json:"browser_download_url"`
+		} `json:"assets"`
 	}
-	type releaseItem struct {
-		TagName string      `json:"tag_name"`
-		Assets  []assetItem `json:"assets"`
-	}
-	var releases []releaseItem
-	if err := json.Unmarshal(body, &releases); err != nil {
-		return nil, appErrors.Wrap(err, appErrors.DOWNLOAD_FAILED, "解析 Redis 版本清单失败")
-	}
-
-	var list []software.Version
-	for _, release := range releases {
-		version := strings.TrimPrefix(release.TagName, "v")
-		var download string
-		for _, asset := range release.Assets {
-			lower := strings.ToLower(asset.Name)
-			if strings.HasPrefix(lower, "redis-") && strings.Contains(lower, "windows-x64") && strings.HasSuffix(lower, ".zip") {
-				download = asset.DownloadURL
+	if jsonErr := json.Unmarshal(body, &releases); jsonErr == nil {
+		var list []software.Version
+		for _, release := range releases {
+			version := strings.TrimPrefix(release.TagName, "v")
+			var download string
+			for _, asset := range release.Assets {
+				lower := strings.ToLower(asset.Name)
+				if strings.HasPrefix(lower, "redis-") && strings.Contains(lower, "windows-x64") && strings.HasSuffix(lower, ".zip") {
+					download = asset.DownloadURL
+					break
+				}
+			}
+			if download == "" {
+				continue
+			}
+			list = append(list, redisVersion(version, download, len(list) == 0))
+			if len(list) >= MAX_REDIS {
 				break
 			}
 		}
-		if download == "" {
+		return requireRedisVersions(list)
+	}
+
+	// The public GitHub Releases API is rate-limited for unauthenticated clients.
+	// The Atom feed is public and contains the release tag plus the Windows asset
+	// names, so construct the stable release download URL without API access.
+	var feed struct {
+		Entries []struct {
+			Link struct {
+				Href string `xml:"href,attr"`
+			} `xml:"link"`
+			Content string `xml:"content"`
+		} `xml:"entry"`
+	}
+	if xmlErr := xml.Unmarshal(body, &feed); xmlErr != nil {
+		return nil, appErrors.Wrap(xmlErr, appErrors.DOWNLOAD_FAILED, "解析 Redis 版本清单失败")
+	}
+
+	assetPattern := regexp.MustCompile(`(?i)(Redis-[0-9][^<\s"]*-Windows-x64(?:-msys2)?\.zip)`)
+	var list []software.Version
+	for _, entry := range feed.Entries {
+		releaseURL := strings.TrimSpace(entry.Link.Href)
+		marker := "/releases/tag/"
+		markerIndex := strings.Index(releaseURL, marker)
+		if markerIndex < 0 {
 			continue
 		}
-		recommended := len(list) == 0
-		note := "稳定版"
-		if recommended {
-			note = "最新稳定版"
+		tag := strings.Trim(strings.TrimSpace(releaseURL[markerIndex+len(marker):]), "/")
+		if tag == "" {
+			continue
 		}
-		list = append(list, software.Version{
-			Version:     version,
-			Recommended: recommended,
-			Note:        note,
-			URL:         download,
-		})
+		assetMatch := assetPattern.FindStringSubmatch(entry.Content)
+		if len(assetMatch) < 2 {
+			continue
+		}
+		downloadURL := releaseURL[:markerIndex] + "/releases/download/" + tag + "/" + assetMatch[1]
+		list = append(list, redisVersion(strings.TrimPrefix(tag, "v"), downloadURL, len(list) == 0))
 		if len(list) >= MAX_REDIS {
 			break
 		}
 	}
+	return requireRedisVersions(list)
+}
 
+func redisVersion(version, downloadURL string, recommended bool) software.Version {
+	note := "稳定版"
+	if recommended {
+		note = "最新稳定版"
+	}
+	return software.Version{Version: version, Recommended: recommended, Note: note, URL: downloadURL}
+}
+
+func requireRedisVersions(list []software.Version) ([]software.Version, error) {
 	if len(list) == 0 {
 		return nil, appErrors.New(appErrors.DOWNLOAD_FAILED, "未找到可用的 Redis Windows x64 版本")
 	}
@@ -988,6 +1033,37 @@ func (c *Client) fetchNginx(ctx context.Context) ([]software.Version, error) {
 	}
 	if !hasRecommended(list) {
 		list[0].Recommended = true
+	}
+	return list, nil
+}
+
+func (c *Client) fetchApache(ctx context.Context) ([]software.Version, error) {
+	body, err := c.getBytes(ctx, c.endpoints.ApacheList)
+	if err != nil {
+		return nil, err
+	}
+
+	matches := regexp.MustCompile(`(?i)href="(/download/VS[0-9]+/binaries/httpd-([0-9]+\.[0-9]+\.[0-9]+)-[0-9]+-Win64-VS[0-9]+\.zip)"`).FindAllStringSubmatch(string(body), -1)
+	seen := make(map[string]bool)
+	var list []software.Version
+	for _, match := range matches {
+		if len(match) < 3 || seen[match[2]] {
+			continue
+		}
+		seen[match[2]] = true
+		position := len(list)
+		list = append(list, software.Version{
+			Version:     match[2],
+			Recommended: position == 0,
+			Note:        map[bool]string{true: "最新稳定版", false: "稳定版"}[position == 0],
+			URL:         strings.TrimRight(c.endpoints.ApacheBase, "/") + match[1],
+		})
+		if len(list) >= MAX_LTS {
+			break
+		}
+	}
+	if len(list) == 0 {
+		return nil, appErrors.New(appErrors.DOWNLOAD_FAILED, "未找到可用的 Apache Windows x64 版本")
 	}
 	return list, nil
 }

@@ -70,6 +70,13 @@ func (a *SystemAPI) OpenFolder(path string) Result {
 	return Result{OK: true, Message: ""}
 }
 
+func (a *SystemAPI) OpenNginxConfig() Result {
+	if err := a.service.OpenNginxConfig(); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: ""}
+}
+
 func (a *SystemAPI) DataFolder() string {
 	return a.service.DataFolder()
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"devenv/internal/shared/errors"
 )
@@ -81,6 +82,31 @@ func NginxLog(base string) string {
 
 func NginxConfig(base string) string {
 	return filepath.Join(Nginx(base), NGINX_CONFIG)
+}
+
+func NginxSiteConfig(base string, id int64, name string) string {
+	return filepath.Join(NginxHosts(base), NginxSiteConfigName(id, name))
+}
+
+func NginxSiteConfigName(id int64, name string) string {
+	var builder strings.Builder
+	separator := false
+	for _, char := range strings.TrimSpace(name) {
+		if unicode.IsLetter(char) || unicode.IsDigit(char) || char == '-' || char == '_' {
+			builder.WriteRune(char)
+			separator = false
+			continue
+		}
+		if !separator {
+			builder.WriteRune('-')
+			separator = true
+		}
+	}
+	slug := strings.Trim(builder.String(), "-")
+	if slug == "" {
+		return fmt.Sprintf("website-%d.conf", id)
+	}
+	return fmt.Sprintf("website-%d-%s.conf", id, slug)
 }
 
 func NginxPID(base string) string {
