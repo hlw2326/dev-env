@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"devenv/internal/ports"
@@ -77,6 +78,7 @@ func (c *Checker) ListeningPIDs(portsToFind []int) map[int]int {
 		return result
 	}
 	command := exec.Command("netstat", "-ano", "-p", "tcp")
+	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := command.Output()
 	if err != nil {
 		return result

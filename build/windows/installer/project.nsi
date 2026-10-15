@@ -1,4 +1,4 @@
-Unicode true
+﻿Unicode true
 
 ####
 ## Please note: Template replacements don't work in this file. They are provided with default defines like
@@ -49,6 +49,7 @@ VIAddVersionKey "ProductName"     "${INFO_PRODUCTNAME}"
 ManifestDPIAware true
 
 !include "MUI.nsh"
+!include "LogicLib.nsh"
 
 !define MUI_ICON "..\icon.ico"
 !define MUI_UNICON "..\icon.ico"
@@ -83,8 +84,31 @@ OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the inst
 !endif # Default installing folder ($PROGRAMFILES is Program Files folder).
 ShowInstDetails show # This will always show the installation details.
 
+Var DeleteData
+
 Function .onInit
    !insertmacro wails.checkArchitecture
+FunctionEnd
+
+Function un.onInit
+    StrCpy $DeleteData "0"
+    IfSilent done
+    MessageBox MB_ICONQUESTION|MB_YESNO "是否删除 DevEnv 的全部环境与数据？$\r$\n$\r$\n选择“是”将删除 %LOCALAPPDATA%\dev-env 中的软件、数据库、配置、日志和缓存，且无法恢复。$\r$\n$\r$\n选择“否”仅卸载 DevEnv 程序，保留数据供下次安装继续使用。" IDYES deleteData
+    Goto done
+deleteData:
+    StrCpy $DeleteData "1"
+done:
+FunctionEnd
+
+Function un.CleanDevEnv
+    InitPluginsDir
+    File /oname=$PLUGINSDIR\devenv-uninstall-cleanup.ps1 "uninstall-cleanup.ps1"
+    ${If} $DeleteData == "1"
+        nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\devenv-uninstall-cleanup.ps1" -DeleteData'
+    ${Else}
+        nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\devenv-uninstall-cleanup.ps1"'
+    ${EndIf}
+    Pop $0
 FunctionEnd
 
 Section
@@ -107,6 +131,8 @@ SectionEnd
 
 Section "uninstall"
     !insertmacro wails.setShellContext
+
+    Call un.CleanDevEnv
 
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
 

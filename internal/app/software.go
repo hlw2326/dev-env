@@ -1601,6 +1601,7 @@ func (s *SoftwareService) configureManagedService(ctx context.Context, item soft
 		ServiceName: serviceName,
 		Binary:      options.Binary,
 		Arguments:   detachedArguments(options.Args),
+		Environment: options.Environment,
 		Directory:   options.Directory,
 		Log:         options.Log,
 	})
@@ -1679,7 +1680,7 @@ func (s *SoftwareService) configureManagedService(ctx context.Context, item soft
 	if autostart {
 		startType = "auto"
 	}
-	currentExecutable, executableErr := windowsservice.CurrentExecutable()
+	currentExecutable, executableErr := windowsservice.ServiceExecutable(s.base)
 	if executableErr != nil {
 		return appErrors.Wrap(executableErr, appErrors.PROCESS_START_FAILED, "service executable unavailable")
 	}
@@ -1690,7 +1691,7 @@ func (s *SoftwareService) configureManagedService(ctx context.Context, item soft
 		}
 		return nil
 	}
-	executable, err := windowsservice.CurrentExecutable()
+	executable, err := windowsservice.ServiceExecutable(s.base)
 	if err != nil {
 		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "获取 DevEnv 服务宿主失败")
 	}

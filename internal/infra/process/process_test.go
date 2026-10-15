@@ -81,7 +81,7 @@ func TestRedis(t *testing.T) {
 	if base == "" {
 		t.Skip("LOCALAPPDATA not set")
 	}
-	folder := filepath.Join(base, "DevEnv", "software", "redis", "8.10.2")
+	folder := filepath.Join(base, "dev-env", "software", "redis", "8.10.2")
 	binary := filepath.Join(folder, "redis-server.exe")
 	if _, err := os.Stat(binary); err != nil {
 		t.Skip("redis 8.10.2 not installed locally")

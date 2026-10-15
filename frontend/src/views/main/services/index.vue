@@ -21,7 +21,7 @@
 				title="当前没有可管理的服务"
 				description="可以前往软件商店安装数据库、缓存或 Web 服务"
 			>
-				<p-button icon="pi pi-shopping-bag" label="前往软件商店" @click="$router.push('/software')" />
+				<p-button size="small" icon="pi pi-shopping-bag" label="前往软件商店" @click="$router.push('/software')" />
 			</h-empty>
 		</div>
 

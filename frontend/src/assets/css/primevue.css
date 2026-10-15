@@ -18,7 +18,9 @@
 
 /* 扁平化 Button */
 .p-button {
+	font-size: var(--font-sm) !important;
 	font-weight: 400 !important;
+	line-height: var(--leading-normal) !important;
 	box-shadow: none !important;
 	border-radius: var(--radius-md) !important;
 	flex-shrink: 0;
@@ -38,6 +40,10 @@
 .p-button .p-button-label {
 	font-weight: 400 !important;
 	white-space: nowrap;
+}
+
+.p-button.p-button-sm {
+	font-size: var(--font-xs) !important;
 }
 
 /* 扁平化 Tag 徽章 */

@@ -104,6 +104,9 @@ func (service *processService) start() error {
 	}
 	service.command = exec.Command(service.definition.Binary, service.definition.Arguments...)
 	service.command.Dir = service.definition.Directory
+	if len(service.definition.Environment) > 0 {
+		service.command.Env = append(os.Environ(), service.definition.Environment...)
+	}
 	service.command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	if service.logFile != nil {
 		service.command.Stdout = service.logFile

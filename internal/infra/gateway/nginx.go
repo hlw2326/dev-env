@@ -37,6 +37,7 @@ const (
 	NGINX_CONNECTIONS     = "1024"
 	NGINX_KEEPALIVE       = "65"
 	NGINX_UPLOAD_LIMIT    = "100m"
+	NGINX_SERVICE_NAME    = "DevEnvGatewayNginx"
 )
 
 type pool struct {
@@ -44,6 +45,7 @@ type pool struct {
 	port     int
 	pid      int
 	external bool
+	service  string
 }
 
 type softwareReader interface {
@@ -89,7 +91,7 @@ func (n *Nginx) Start(port int) error {
 		n.listening = port
 		n.external = true
 		n.mutex.Unlock()
-		return nil
+		return n.reconcile()
 	}
 
 	n.mutex.Lock()
@@ -112,6 +114,7 @@ func (n *Nginx) Stop() error {
 
 	n.mutex.RLock()
 	external := n.external
+	listening := n.listening
 	pools := make([]pool, 0, len(n.pools))
 	for _, item := range n.pools {
 		pools = append(pools, item)
@@ -119,7 +122,20 @@ func (n *Nginx) Stop() error {
 	n.mutex.RUnlock()
 
 	stopErrors := make([]error, 0)
-	if !external {
+	if persistentServiceExists(NGINX_SERVICE_NAME) {
+		if err := stopPersistentService(NGINX_SERVICE_NAME); err != nil {
+			stopErrors = append(stopErrors, err)
+		}
+	}
+	if external {
+		if finder, ok := n.checker.(interface{ ListeningPID(int) int }); ok {
+			if pid := finder.ListeningPID(listening); pid > 0 && processinfra.MatchesImageName(pid, "nginx.exe") {
+				if err := processinfra.StopPID(pid); err != nil {
+					stopErrors = append(stopErrors, err)
+				}
+			}
+		}
+	} else if !persistentServiceExists(NGINX_SERVICE_NAME) {
 		if err := n.runner.Stop(NGINX_KEY); err != nil {
 			stopErrors = append(stopErrors, err)
 		}
@@ -286,21 +302,32 @@ func (n *Nginx) reconcile() error {
 		return nil
 	}
 
-	status := n.runner.Status(NGINX_KEY)
-	if status.Running {
-		if err := reloadNginx(executable, n.home); err != nil {
-			return cleanup(err)
-		}
-	} else {
-		_, err := n.runner.Start(NGINX_KEY, ports.Options{
+	service := persistentService{
+		name:      NGINX_SERVICE_NAME,
+		autoStart: true,
+		options: ports.Options{
 			Binary:    executable,
 			Args:      []string{"-p", nginxPrefix(n.home), "-c", paths.NGINX_CONFIG},
 			Directory: installed.Path,
 			Log:       paths.GatewayLog(n.home, "nginx.log"),
-			Detached:  true,
-		})
-		if err != nil {
+		},
+		accessList: []serviceAccess{
+			{path: installed.Path, permission: "RX"},
+			{path: paths.Nginx(n.home), permission: "M"},
+			{path: filepath.Dir(paths.GatewayLog(n.home, "nginx.log")), permission: "M"},
+		},
+	}
+	if err := configurePersistentService(n.home, service); err != nil {
+		return cleanup(appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "配置 Nginx Windows 服务失败"))
+	}
+
+	if n.external {
+		if err := reloadNginx(executable, n.home); err != nil {
 			return cleanup(err)
+		}
+	} else {
+		if err := startPersistentService(NGINX_SERVICE_NAME); err != nil {
+			return cleanup(appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "启动 Nginx Windows 服务失败"))
 		}
 	}
 
@@ -396,23 +423,35 @@ func (n *Nginx) startPools(routes []ports.Route, nginxPort int) (map[string]pool
 			return cleanup(appErrors.New(appErrors.PORT_ALREADY_IN_USE, fmt.Sprintf("PHP FastCGI 固定端口 %d 已被占用", port)))
 		}
 
-		item = pool{key: poolKey(executable), port: port}
-		pid, startErr := n.runner.Start(item.key, ports.Options{
-			Binary:      executable,
-			Args:        []string{"-b", paths.LOOPBACK + ":" + strconv.Itoa(port)},
-			Directory:   filepath.Dir(executable),
-			Environment: []string{"PHP_FCGI_CHILDREN=" + NGINX_PHP_CONCURRENCY, "PHP_FCGI_MAX_REQUESTS=0"},
-			Log:         paths.GatewayLog(n.home, fmt.Sprintf("php-%d.log", port)),
-			Detached:    true,
-		})
-		if startErr != nil {
-			return cleanup(startErr)
+		serviceName := phpServiceName(executable)
+		item = pool{key: poolKey(executable), port: port, service: serviceName}
+		service := persistentService{
+			name:      serviceName,
+			autoStart: true,
+			options: ports.Options{
+				Binary:      executable,
+				Args:        []string{"-b", paths.LOOPBACK + ":" + strconv.Itoa(port)},
+				Directory:   filepath.Dir(executable),
+				Environment: []string{"PHP_FCGI_CHILDREN=" + NGINX_PHP_CONCURRENCY, "PHP_FCGI_MAX_REQUESTS=0"},
+				Log:         paths.GatewayLog(n.home, fmt.Sprintf("php-%d.log", port)),
+			},
+			accessList: []serviceAccess{
+				{path: filepath.Dir(executable), permission: "RX"},
+				{path: routeRootForPHP(routes, executable), permission: "RX"},
+				{path: filepath.Dir(paths.GatewayLog(n.home, fmt.Sprintf("php-%d.log", port))), permission: "M"},
+			},
 		}
-		item.pid = pid
+		if err := configurePersistentService(n.home, service); err != nil {
+			return cleanup(appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "配置 PHP FastCGI Windows 服务失败"))
+		}
+		if err := startPersistentService(serviceName); err != nil {
+			return cleanup(appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "启动 PHP FastCGI Windows 服务失败"))
+		}
 		started = append(started, item)
 		if err := waitPort(n.checker, port); err != nil {
 			return cleanup(err)
 		}
+		item.pid = n.listeningPID(port, "php-cgi.exe")
 		result[executable] = item
 	}
 	return result, started, nil
@@ -438,6 +477,12 @@ func (n *Nginx) stopUnused(active map[string]pool) error {
 func (n *Nginx) stopPools(items []pool) error {
 	stopErrors := make([]error, 0)
 	for _, item := range items {
+		if item.service != "" {
+			if err := stopPersistentService(item.service); err != nil {
+				stopErrors = append(stopErrors, err)
+			}
+			continue
+		}
 		if item.external {
 			if err := processinfra.StopPID(item.pid); err != nil {
 				stopErrors = append(stopErrors, err)
@@ -449,6 +494,27 @@ func (n *Nginx) stopPools(items []pool) error {
 		}
 	}
 	return errors.Join(stopErrors...)
+}
+
+func routeRootForPHP(routes []ports.Route, executable string) string {
+	for _, route := range routes {
+		if route.Kind == project.KIND_PHP && sameExecutable(route.PHP, executable) {
+			return route.Root
+		}
+	}
+	return ""
+}
+
+func (n *Nginx) listeningPID(port int, imageName string) int {
+	finder, ok := n.checker.(interface{ ListeningPID(int) int })
+	if !ok {
+		return 0
+	}
+	pid := finder.ListeningPID(port)
+	if pid <= 0 || !processinfra.MatchesImageName(pid, imageName) {
+		return 0
+	}
+	return pid
 }
 
 func (n *Nginx) adoptPool(executable string, port int) (pool, bool) {
@@ -797,6 +863,11 @@ func nginxQuote(value string) string {
 func poolKey(executable string) string {
 	digest := sha256.Sum256([]byte(strings.ToLower(filepath.Clean(executable))))
 	return "gateway:php:" + hex.EncodeToString(digest[:])
+}
+
+func phpServiceName(executable string) string {
+	digest := sha256.Sum256([]byte(strings.ToLower(filepath.Clean(executable))))
+	return "DevEnvGatewayPHP-" + hex.EncodeToString(digest[:8])
 }
 
 func poolPort(executable string) int {

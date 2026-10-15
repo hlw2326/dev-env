@@ -21,7 +21,7 @@ DevEnv 是 Windows 本地开发环境与项目管理平台，使用 Go、Wails�
 
 ### 全局命令
 
-- 安装、切换默认版本、卸载和启动 DevEnv 时，同步默认版本的命令入口到 `%LOCALAPPDATA%\DevEnv\bin`，并写入当前用户 PATH。
+- 安装、切换默认版本、卸载和启动 DevEnv 时，同步默认版本的命令入口到 `%LOCALAPPDATA%\dev-env\bin`，并写入当前用户 PATH。
 - 新打开的 CMD 可以在任意目录执行 `composer` 等已绑定的命令；Composer 使用 DevEnv 默认 PHP。已有终端需要重新打开，IDE 内的终端需要重启 IDE 后再打开。
 - 系统 PATH 中已有的同名工具仍可能优先匹配，可用 `where composer`、`where php` 检查实际入口。
 - 商店的“本机环境”打开独立抽屉；点击“扫描已有环境”查询全部或指定类型，读取 Windows 已保存的 PATH、适用的安装变量和原生 Windows 服务登记。选择软件类型后，也可通过“选择程序”识别未配置 PATH 的便携安装。
@@ -66,12 +66,18 @@ DevEnv 是 Windows 本地开发环境与项目管理平台，使用 Go、Wails�
 - 关闭窗口或按 Alt+F4 会隐藏到系统托盘，服务和项目不会因此被主动停止。
 - 托盘菜单支持显示窗口、隐藏窗口和退出 DevEnv；只有选择“退出 DevEnv”才会执行完整关闭流程。
 
+## 卸载
+
+- 卸载 DevEnv 时会停止并删除 DevEnv 注册的 Windows 服务，结束数据目录内运行的服务进程，并移除 `%LOCALAPPDATA%\dev-env\bin` 的用户 PATH 项。
+- 卸载器会询问是否删除 `%LOCALAPPDATA%\dev-env` 的全部数据；选择“是”会删除已安装软件、数据库、配置、日志和缓存，且无法恢复；选择“否”仅卸载程序，保留数据供下次安装继续使用。
+- 静默卸载默认保留数据目录。
+
 ## 数据目录
 
-默认数据根目录为 `%LOCALAPPDATA%\DevEnv`，项目默认父目录为 `%USERPROFILE%\DevEnv\www`，均可在应用设置中修改。
+默认数据根目录为 `%LOCALAPPDATA%\dev-env`，项目默认父目录为 `%USERPROFILE%\DevEnv\www`，均可在应用设置中修改。
 
 ```text
-%LOCALAPPDATA%\DevEnv\
+%LOCALAPPDATA%\dev-env\
 ├─ data\devenv.db                 SQLite 数据库
 ├─ data\backups\                 迁移和重置前的数据库备份
 ├─ data\nginx\nginx.conf         当前生成的 Nginx 主配置

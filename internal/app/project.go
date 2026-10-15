@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	domainmonitor "devenv/internal/domain/monitor"
@@ -824,6 +825,7 @@ func (s *ProjectService) ensureNginxConfig(ctx context.Context, item project.Pro
 
 func validateNginxConfig(executable, base string) error {
 	command := exec.Command(executable, "-p", nginxPrefix(base), "-c", paths.NGINX_CONFIG, "-t")
+	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "Nginx 配置检查失败: "+strings.TrimSpace(string(output)))
@@ -833,6 +835,7 @@ func validateNginxConfig(executable, base string) error {
 
 func reloadNginxConfig(executable, base string) error {
 	command := exec.Command(executable, "-p", nginxPrefix(base), "-c", paths.NGINX_CONFIG, "-s", "reload")
+	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "Nginx 配置重新加载失败: "+strings.TrimSpace(string(output)))
@@ -1049,6 +1052,7 @@ func (s *ProjectService) syncRoutes(ctx context.Context) error {
 			Name:            item.Name,
 			Hosts:           item.Hosts,
 			Kind:            item.Kind,
+			Root:            item.Root,
 			Path:            project.ResolvePath(item.Root, item.Run),
 			PHP:             phpBinary,
 			Nginx:           item.Nginx,

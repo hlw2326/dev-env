@@ -232,6 +232,7 @@ func ImageName(pid int) string {
 		return ""
 	}
 	command := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/FO", "CSV", "/NH")
+	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := command.Output()
 	if err != nil {
 		return ""
@@ -248,6 +249,7 @@ func ImageName(pid int) string {
 // system query. It is used when several external service PIDs must be checked.
 func ImageNames() map[int]string {
 	command := exec.Command("tasklist", "/FO", "CSV", "/NH")
+	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := command.Output()
 	if err != nil {
 		return map[int]string{}

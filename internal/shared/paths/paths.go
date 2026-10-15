@@ -11,24 +11,26 @@ import (
 )
 
 const (
-	APP_FOLDER         = "DevEnv"
-	DATA_FOLDER        = "data"
-	BACKUP_FOLDER      = "backups"
-	SOFTWARE_FOLDER    = "software"
-	COMMAND_FOLDER     = "bin"
-	DBDATA_FOLDER      = "dbdata"
-	CACHE_FOLDER       = "cache"
-	LOG_FOLDER         = "logs"
-	PROJECT_LOG_FOLDER = "projects"
-	NGINX_FOLDER       = "nginx"
-	VHOST_FOLDER       = "vhosts"
-	TEMP_FOLDER        = "temp"
-	SERVICE_FOLDER     = "services"
-	DB_FILE            = "devenv.db"
-	NGINX_CONFIG       = "nginx.conf"
-	NGINX_FASTCGI_FILE = "fastcgi_params.conf"
-	NGINX_PID          = "nginx.pid"
-	LOOPBACK           = "127.0.0.1"
+	APP_FOLDER          = "dev-env"
+	DATA_FOLDER         = "data"
+	BACKUP_FOLDER       = "backups"
+	SOFTWARE_FOLDER     = "software"
+	COMMAND_FOLDER      = "bin"
+	DBDATA_FOLDER       = "dbdata"
+	CACHE_FOLDER        = "cache"
+	LOG_FOLDER          = "logs"
+	PROJECT_LOG_FOLDER  = "projects"
+	NGINX_FOLDER        = "nginx"
+	VHOST_FOLDER        = "vhosts"
+	TEMP_FOLDER         = "temp"
+	SERVICE_FOLDER      = "services"
+	SERVICE_HOST_FOLDER = "service-host"
+	SERVICE_HOST_FILE   = "devenv-service.exe"
+	DB_FILE             = "devenv.db"
+	NGINX_CONFIG        = "nginx.conf"
+	NGINX_FASTCGI_FILE  = "fastcgi_params.conf"
+	NGINX_PID           = "nginx.pid"
+	LOOPBACK            = "127.0.0.1"
 )
 
 func Base() string {
@@ -73,6 +75,10 @@ func SoftwareLog(base, kind, version string) string {
 
 func ServiceConfig(base, serviceName string) string {
 	return filepath.Join(base, DATA_FOLDER, SERVICE_FOLDER, serviceName+".json")
+}
+
+func ServiceHost(base string) string {
+	return filepath.Join(base, DATA_FOLDER, SERVICE_HOST_FOLDER, SERVICE_HOST_FILE)
 }
 
 func Nginx(base string) string {

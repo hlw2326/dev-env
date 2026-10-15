@@ -10,6 +10,7 @@ type Definition struct {
 	ServiceName string   `json:"serviceName"`
 	Binary      string   `json:"binary"`
 	Arguments   []string `json:"arguments"`
+	Environment []string `json:"environment"`
 	Directory   string   `json:"directory"`
 	Log         string   `json:"log"`
 }

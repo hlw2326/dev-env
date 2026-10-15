@@ -46,6 +46,7 @@ type Route struct {
 	Name            string
 	Hosts           []string
 	Kind            string
+	Root            string
 	Path            string
 	PHP             string
 	Nginx           string
