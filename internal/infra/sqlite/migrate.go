@@ -19,6 +19,11 @@ import (
 
 const MAX_BACKUPS = 5
 
+const (
+	migrationTableName       = "system_schema_migration"
+	legacyMigrationTableName = "system_schema_migrations"
+)
+
 var migrationPattern = regexp.MustCompile(`^(\d{6})_([a-z0-9_]+)\.sql$`)
 
 type migrationFile struct {
@@ -47,6 +52,10 @@ func openDB(path string, migrations fs.FS, reset bool, allowReset bool) (*DB, er
 		return nil, err
 	}
 
+	if err := renameLegacyMigrationTable(raw); err != nil {
+		closeRaw(raw)
+		return nil, err
+	}
 	if err := createTable(raw); err != nil {
 		closeRaw(raw)
 		return nil, err
@@ -156,23 +165,43 @@ func loadFiles(migrations fs.FS) ([]migrationFile, error) {
 }
 
 func createTable(db *sql.DB) error {
-	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS system_schema_migrations (
+	_, err := db.Exec(fmt.Sprintf(`
+		CREATE TABLE IF NOT EXISTS %s (
 			version     INTEGER PRIMARY KEY,
 			name        TEXT    NOT NULL,
 			checksum    TEXT    NOT NULL,
 			started_at  TEXT    NOT NULL,
 			finished_at TEXT    NOT NULL
 		);
-	`)
+	`, migrationTableName))
 	if err != nil {
 		return appErrors.Wrap(err, appErrors.MIGRATION_FAILED, "创建迁移记录表失败")
 	}
 	return nil
 }
 
+func renameLegacyMigrationTable(db *sql.DB) error {
+	var legacyExists, currentExists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, legacyMigrationTableName).Scan(&legacyExists); err != nil {
+		return appErrors.Wrap(err, appErrors.MIGRATION_FAILED, "检查旧迁移记录表失败")
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, migrationTableName).Scan(&currentExists); err != nil {
+		return appErrors.Wrap(err, appErrors.MIGRATION_FAILED, "检查当前迁移记录表失败")
+	}
+	if legacyExists == 0 {
+		return nil
+	}
+	if currentExists > 0 {
+		return appErrors.New(appErrors.MIGRATION_FAILED, "旧迁移记录表与当前迁移记录表同时存在")
+	}
+	if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s RENAME TO %s", legacyMigrationTableName, migrationTableName)); err != nil {
+		return appErrors.Wrap(err, appErrors.MIGRATION_FAILED, "重命名迁移记录表失败")
+	}
+	return nil
+}
+
 func inspectMigrations(db *sql.DB, files []migrationFile) (map[int]migrationRecord, []string, error) {
-	rows, err := db.Query(`SELECT version, name, checksum, started_at, finished_at FROM system_schema_migrations ORDER BY version ASC`)
+	rows, err := db.Query(fmt.Sprintf(`SELECT version, name, checksum, started_at, finished_at FROM %s ORDER BY version ASC`, migrationTableName))
 	if err != nil {
 		return nil, []string{"迁移记录表结构与当前版本不兼容"}, nil
 	}
@@ -239,7 +268,7 @@ func applyMigration(db *sql.DB, item migrationFile) error {
 
 	finished := time.Now().UTC().Format(time.RFC3339)
 	if _, err := tx.Exec(
-		`INSERT INTO system_schema_migrations (version, name, checksum, started_at, finished_at) VALUES (?, ?, ?, ?, ?)`,
+		fmt.Sprintf(`INSERT INTO %s (version, name, checksum, started_at, finished_at) VALUES (?, ?, ?, ?, ?)`, migrationTableName),
 		item.version, item.name, item.checksum, started, finished,
 	); err != nil {
 		return appErrors.Wrap(err, appErrors.MIGRATION_FAILED, fmt.Sprintf("写入迁移记录 %06d_%s 失败", item.version, item.name))

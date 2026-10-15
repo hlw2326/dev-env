@@ -1,6 +1,7 @@
 package process
 
 import (
+	"encoding/csv"
 	"io"
 	"os"
 	"os/exec"
@@ -221,6 +222,48 @@ func (m *Manager) Tail(key string, limit int) []string {
 
 func ReadTail(path string, limit int) []string {
 	return readTail(path, limit)
+}
+
+// ImageName returns the executable name for a Windows process ID.
+func ImageName(pid int) string {
+	if pid <= 0 {
+		return ""
+	}
+	command := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/FO", "CSV", "/NH")
+	output, err := command.Output()
+	if err != nil {
+		return ""
+	}
+	reader := csv.NewReader(strings.NewReader(string(output)))
+	record, err := reader.Read()
+	if err != nil || len(record) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(record[0])
+}
+
+// MatchesImageName reports whether a process belongs to one of the expected executables.
+func MatchesImageName(pid int, names ...string) bool {
+	imageName := ImageName(pid)
+	for _, name := range names {
+		if strings.EqualFold(imageName, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// StopPID terminates an externally started Windows process tree.
+func StopPID(pid int) error {
+	if pid <= 0 {
+		return nil
+	}
+	killer := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(pid))
+	killer.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	if err := killer.Run(); err != nil {
+		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "停止外部服务进程失败")
+	}
+	return nil
 }
 
 func readTail(path string, limit int) []string {

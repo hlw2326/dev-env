@@ -64,7 +64,7 @@ func (a *SoftwareAPI) List() ([]SoftwareDTO, error) {
 			Running:   item.Running,
 			PID:       item.PID,
 			Daemon:    software.IsDaemon(item.Kind),
-			Service:   software.IsDaemon(item.Kind) || item.Kind == software.KIND_NGINX,
+			Service:   item.State == software.STATE_INSTALLED && software.IsService(item.Kind) && (software.IsDaemon(item.Kind) || item.Main),
 		})
 	}
 	return result, nil

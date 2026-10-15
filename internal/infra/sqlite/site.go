@@ -22,7 +22,7 @@ func NewSiteRepository(db *sql.DB) *SiteRepository {
 func (r *SiteRepository) List(ctx context.Context) ([]site.Site, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
-		FROM system_sites
+		FROM system_site
 		ORDER BY id DESC
 	`)
 	if err != nil {
@@ -51,7 +51,7 @@ func (r *SiteRepository) List(ctx context.Context) ([]site.Site, error) {
 func (r *SiteRepository) Get(ctx context.Context, id int64) (*site.Site, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
-		FROM system_sites
+		FROM system_site
 		WHERE id = ?
 	`, id)
 	item, err := scanSite(row)
@@ -69,7 +69,7 @@ func (r *SiteRepository) Get(ctx context.Context, id int64) (*site.Site, error) 
 func (r *SiteRepository) GetByName(ctx context.Context, name string) (*site.Site, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
-		FROM system_sites
+		FROM system_site
 		WHERE name = ?
 	`, name)
 	item, err := scanSite(row)
@@ -87,7 +87,7 @@ func (r *SiteRepository) GetByName(ctx context.Context, name string) (*site.Site
 func (r *SiteRepository) ListBySoftware(ctx context.Context, softwareID int64) ([]site.Site, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
-		FROM system_sites
+		FROM system_site
 		WHERE software = ?
 		ORDER BY id ASC
 	`, softwareID)
@@ -117,7 +117,7 @@ func (r *SiteRepository) ListBySoftware(ctx context.Context, softwareID int64) (
 func (r *SiteRepository) ListMissingSoftware(ctx context.Context, kind string) ([]site.Site, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, kind, root, run, software, command, nginx, port, autostart, created, updated
-		FROM system_sites
+		FROM system_site
 		WHERE kind = ? AND software IS NULL
 		ORDER BY id ASC
 	`, kind)
@@ -156,7 +156,7 @@ func (r *SiteRepository) Create(ctx context.Context, item *site.Site) error {
 	defer rollbackTx(tx)
 
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO system_sites (name, kind, root, run, software, command, nginx, port, autostart, created, updated)
+		INSERT INTO system_site (name, kind, root, run, software, command, nginx, port, autostart, created, updated)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		item.Name,
@@ -187,7 +187,7 @@ func (r *SiteRepository) Create(ctx context.Context, item *site.Site) error {
 	for _, host := range item.Hosts {
 		cleanHost := strings.ToLower(strings.TrimSpace(host))
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO system_site_domains (site, host, created)
+			INSERT INTO system_site_domain (site, host, created)
 			VALUES (?, ?, ?)
 		`, item.ID, cleanHost, now); err != nil {
 			if checkUnique(err) {
@@ -214,7 +214,7 @@ func (r *SiteRepository) Update(ctx context.Context, item *site.Site) error {
 	defer rollbackTx(tx)
 
 	_, err = tx.ExecContext(ctx, `
-		UPDATE system_sites
+		UPDATE system_site
 		SET root = ?, run = ?, software = ?, command = ?, nginx = ?, autostart = ?, updated = ?
 		WHERE id = ?
 	`,
@@ -231,14 +231,14 @@ func (r *SiteRepository) Update(ctx context.Context, item *site.Site) error {
 		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "更新站点记录失败")
 	}
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM system_site_domains WHERE site = ?`, item.ID); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM system_site_domain WHERE site = ?`, item.ID); err != nil {
 		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "清理旧域名失败")
 	}
 
 	for _, host := range item.Hosts {
 		cleanHost := strings.ToLower(strings.TrimSpace(host))
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO system_site_domains (site, host, created)
+			INSERT INTO system_site_domain (site, host, created)
 			VALUES (?, ?, ?)
 		`, item.ID, cleanHost, now); err != nil {
 			if checkUnique(err) {
@@ -257,7 +257,7 @@ func (r *SiteRepository) Update(ctx context.Context, item *site.Site) error {
 func (r *SiteRepository) BindSoftware(ctx context.Context, siteID, softwareID int64) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE system_sites
+		UPDATE system_site
 		SET software = ?, updated = ?
 		WHERE id = ?
 	`, softwareID, now, siteID)
@@ -268,7 +268,7 @@ func (r *SiteRepository) BindSoftware(ctx context.Context, siteID, softwareID in
 }
 
 func (r *SiteRepository) Delete(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM system_sites WHERE id = ?`, id)
+	_, err := r.db.ExecContext(ctx, `DELETE FROM system_site WHERE id = ?`, id)
 	if err != nil {
 		return appErrors.Wrap(err, appErrors.DATABASE_ERROR, "删除站点失败")
 	}
@@ -277,7 +277,7 @@ func (r *SiteRepository) Delete(ctx context.Context, id int64) error {
 
 func (r *SiteRepository) listHosts(ctx context.Context, siteID int64) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT host FROM system_site_domains WHERE site = ? ORDER BY id ASC
+		SELECT host FROM system_site_domain WHERE site = ? ORDER BY id ASC
 	`, siteID)
 	if err != nil {
 		return nil, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "查询站点域名失败")

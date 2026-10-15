@@ -15,7 +15,9 @@ import (
 	"syscall"
 	"time"
 
+	"devenv/internal/domain/setting"
 	"devenv/internal/domain/software"
+	"devenv/internal/infra/autostart"
 	"devenv/internal/infra/installer"
 	"devenv/internal/infra/process"
 	"devenv/internal/ports"
@@ -48,6 +50,7 @@ type SoftwareService struct {
 	installer ports.Installer
 	runner    ports.Runner
 	probe     ports.PortChecker
+	settings  ports.SettingRepository
 	nginx     ports.Gateway
 	bus       ports.EventPublisher
 	installed func(ctx context.Context, item software.Software)
@@ -64,6 +67,7 @@ func NewSoftwareService(
 	inst ports.Installer,
 	runner ports.Runner,
 	probe ports.PortChecker,
+	settings ports.SettingRepository,
 	nginx ports.Gateway,
 	bus ports.EventPublisher,
 	installed func(ctx context.Context, item software.Software),
@@ -76,6 +80,7 @@ func NewSoftwareService(
 		installer: inst,
 		runner:    runner,
 		probe:     probe,
+		settings:  settings,
 		nginx:     nginx,
 		bus:       bus,
 		installed: installed,
@@ -119,10 +124,15 @@ func (s *SoftwareService) StartAuto(ctx context.Context) {
 		return
 	}
 	for _, item := range updated {
-		if item.State == software.STATE_INSTALLED && software.IsDaemon(item.Kind) && item.Autostart {
-			if startErr := s.Start(ctx, item.ID); startErr != nil {
+		if item.State != software.STATE_INSTALLED || !software.IsDaemon(item.Kind) {
+			continue
+		}
+		if item.Autostart {
+			if registryErr := s.ensureSystemAutostart(ctx, item); registryErr != nil {
 				continue
 			}
+		} else {
+			_ = autostart.Remove(systemAutostartName(item))
 		}
 	}
 }
@@ -457,6 +467,10 @@ func (s *SoftwareService) List(ctx context.Context) ([]SoftwareView, error) {
 		return nil, err
 	}
 	views := make([]SoftwareView, 0, len(list))
+	var currentSettings setting.Settings
+	if s.settings != nil {
+		currentSettings, _ = s.settings.Load(ctx)
+	}
 	for _, item := range list {
 		if !software.IsValidKind(item.Kind) {
 			continue
@@ -464,10 +478,17 @@ func (s *SoftwareService) List(ctx context.Context) ([]SoftwareView, error) {
 		view := SoftwareView{Software: item}
 		if software.IsDaemon(item.Kind) {
 			status := s.runner.Status(daemonKey(item.ID))
+			if !status.Running {
+				status = s.externalStatus(item)
+			}
 			view.Running = status.Running
 			view.PID = status.PID
-		} else if item.Kind == software.KIND_NGINX && s.nginx != nil {
+		} else if item.Kind == software.KIND_NGINX && item.Main && s.nginx != nil {
+			view.Port = currentSettings.Port
 			view.Running = s.nginx.Port() > 0
+			if view.Running {
+				view.PID = s.listeningPID(view.Port, "nginx.exe")
+			}
 		}
 		views = append(views, view)
 	}
@@ -686,9 +707,17 @@ func (s *SoftwareService) Remove(ctx context.Context, id int64) error {
 
 	if software.IsDaemon(item.Kind) {
 		status := s.runner.Status(daemonKey(item.ID))
+		if !status.Running {
+			status = s.externalStatus(*item)
+		}
 		if status.Running {
 			return appErrors.New(appErrors.SERVICE_RUNNING, fmt.Sprintf("%s %s 正在运行中，请先停止后再卸载", item.Kind, item.Version))
 		}
+	} else if item.Kind == software.KIND_NGINX && item.Main && s.nginx != nil && s.nginx.Port() > 0 {
+		return appErrors.New(appErrors.SERVICE_RUNNING, fmt.Sprintf("%s %s 正在运行中，请先停止后再卸载", item.Kind, item.Version))
+	}
+	if err := autostart.Remove(systemAutostartName(*item)); err != nil {
+		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "移除系统自启动失败")
 	}
 
 	boundSites, err := s.sites.ListBySoftware(ctx, item.ID)
@@ -762,15 +791,27 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 	if item == nil {
 		return appErrors.New(appErrors.NOT_FOUND, "软件版本不存在")
 	}
-	if !software.IsDaemon(item.Kind) {
-		return appErrors.New(appErrors.INVALID_ARGUMENT, "该软件不是常驻服务")
+	if !software.IsService(item.Kind) {
+		return appErrors.New(appErrors.INVALID_ARGUMENT, "该软件不是可管理的服务")
 	}
 	if item.State != software.STATE_INSTALLED {
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "软件尚未安装完成")
 	}
+	if item.Kind == software.KIND_NGINX {
+		return s.startNginx(ctx, *item)
+	}
 
 	key := daemonKey(item.ID)
 	if status := s.runner.Status(key); status.Running {
+		return nil
+	}
+	if status := s.externalStatus(*item); status.Running {
+		s.bus.Emit("service:status-changed", map[string]interface{}{
+			"id":      item.ID,
+			"running": true,
+			"pid":     status.PID,
+			"message": "",
+		})
 		return nil
 	}
 
@@ -784,16 +825,27 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 	}
 
 	softwareID := item.ID
-	options.OnExit = func(_ string, message string) {
-		s.bus.Emit("service:status-changed", map[string]interface{}{
-			"id":      softwareID,
-			"running": false,
-			"pid":     0,
-			"message": message,
-		})
+	if item.Autostart {
+		if err := s.ensureSystemAutostart(ctx, *item); err != nil {
+			return err
+		}
+	} else {
+		options.OnExit = func(_ string, message string) {
+			s.bus.Emit("service:status-changed", map[string]interface{}{
+				"id":      softwareID,
+				"running": false,
+				"pid":     0,
+				"message": message,
+			})
+		}
 	}
 
-	pid, err := s.runner.Start(key, options)
+	var pid int
+	if item.Autostart {
+		pid, err = s.startDetached(ctx, *item)
+	} else {
+		pid, err = s.runner.Start(key, options)
+	}
 	if err != nil {
 		return err
 	}
@@ -810,13 +862,20 @@ func (s *SoftwareService) Start(ctx context.Context, id int64) error {
 			return nil
 		}
 		status := s.runner.Status(key)
+		if item.Autostart {
+			status = s.externalStatus(*item)
+		}
 		if !status.Running {
 			break
 		}
 		time.Sleep(POLL_INTERVAL)
 	}
 
-	if stopErr := s.runner.Stop(key); stopErr != nil {
+	if item.Autostart {
+		if stopErr := process.StopPID(pid); stopErr != nil {
+			return stopErr
+		}
+	} else if stopErr := s.runner.Stop(key); stopErr != nil {
 		return appErrors.Wrap(stopErr, appErrors.PROCESS_START_FAILED, "停止超时服务失败")
 	}
 	tail := process.ReadTail(options.Log, LOG_TAIL_LIMIT)
@@ -832,7 +891,24 @@ func (s *SoftwareService) Stop(ctx context.Context, id int64) error {
 	if item == nil {
 		return appErrors.New(appErrors.NOT_FOUND, "软件版本不存在")
 	}
+	if item.Kind == software.KIND_NGINX {
+		return s.stopNginx(*item)
+	}
 	key := daemonKey(item.ID)
+	if !s.runner.Status(key).Running {
+		if status := s.externalStatus(*item); status.Running {
+			if err := process.StopPID(status.PID); err != nil {
+				return err
+			}
+			s.bus.Emit("service:status-changed", map[string]interface{}{
+				"id":      item.ID,
+				"running": false,
+				"pid":     0,
+				"message": "",
+			})
+			return nil
+		}
+	}
 	if err := s.runner.Stop(key); err != nil {
 		return err
 	}
@@ -930,8 +1006,33 @@ func (s *SoftwareService) SetAutostart(ctx context.Context, id int64, on bool) e
 	if item == nil {
 		return appErrors.New(appErrors.NOT_FOUND, "软件版本不存在")
 	}
+	if !software.IsDaemon(item.Kind) {
+		return appErrors.New(appErrors.INVALID_ARGUMENT, "只有后台服务支持随系统启动")
+	}
+	if item.State != software.STATE_INSTALLED {
+		return appErrors.New(appErrors.INVALID_ARGUMENT, "软件尚未安装完成")
+	}
+
+	if on {
+		if err := s.ensureSystemAutostart(ctx, *item); err != nil {
+			return err
+		}
+	} else if err := autostart.Remove(systemAutostartName(*item)); err != nil {
+		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "移除系统自启动失败")
+	}
 	item.Autostart = on
-	return s.repo.Update(ctx, item)
+	if err := s.repo.Update(ctx, item); err != nil {
+		if on {
+			_ = autostart.Remove(systemAutostartName(*item))
+		}
+		return err
+	}
+	if on && !s.externalStatus(*item).Running && !s.runner.Status(daemonKey(item.ID)).Running {
+		if _, err := s.startDetached(ctx, *item); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *SoftwareService) Config(ctx context.Context, id int64) (software.Config, error) {
@@ -1514,6 +1615,199 @@ func checkMissing(path string) (bool, error) {
 
 func daemonKey(id int64) string {
 	return "software:" + strconv.FormatInt(id, 10)
+}
+
+func (s *SoftwareService) startNginx(ctx context.Context, item software.Software) error {
+	if !item.Main {
+		return appErrors.New(appErrors.INVALID_ARGUMENT, "只有默认 Nginx 版本可以作为网关服务启动")
+	}
+	if s.nginx == nil || s.settings == nil {
+		return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "Nginx 服务管理不可用")
+	}
+	settings, err := s.settings.Load(ctx)
+	if err != nil {
+		return err
+	}
+	if settings.Port <= 0 || settings.Port > ports.MAX_PORT {
+		return appErrors.New(appErrors.INVALID_ARGUMENT, "Nginx 监听端口无效")
+	}
+	if s.nginx.Port() > 0 {
+		return nil
+	}
+	if err := s.nginx.Start(settings.Port); err != nil {
+		return err
+	}
+	s.bus.Emit("service:status-changed", map[string]interface{}{
+		"id":      item.ID,
+		"running": true,
+		"pid":     s.listeningPID(settings.Port, "nginx.exe"),
+		"message": "",
+	})
+	return nil
+}
+
+func (s *SoftwareService) stopNginx(item software.Software) error {
+	if !item.Main {
+		return appErrors.New(appErrors.INVALID_ARGUMENT, "只有默认 Nginx 版本可以作为网关服务停止")
+	}
+	if s.nginx == nil {
+		return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "Nginx 服务管理不可用")
+	}
+	stopper, managed := s.nginx.(interface{ StopManaged() error })
+	var err error
+	if managed {
+		err = stopper.StopManaged()
+	} else {
+		err = s.nginx.Stop()
+	}
+	if err != nil {
+		return err
+	}
+	s.bus.Emit("service:status-changed", map[string]interface{}{
+		"id":      item.ID,
+		"running": false,
+		"pid":     0,
+		"message": "",
+	})
+	return nil
+}
+
+type listeningPIDFinder interface {
+	ListeningPID(port int) int
+}
+
+func (s *SoftwareService) listeningPID(port int, names ...string) int {
+	if port <= 0 {
+		return 0
+	}
+	finder, ok := s.probe.(listeningPIDFinder)
+	if !ok {
+		return 0
+	}
+	pid := finder.ListeningPID(port)
+	if pid <= 0 || !process.MatchesImageName(pid, names...) {
+		return 0
+	}
+	return pid
+}
+
+func (s *SoftwareService) externalStatus(item software.Software) ports.Status {
+	if !software.IsDaemon(item.Kind) || item.Port <= 0 {
+		return ports.Status{}
+	}
+	pid := s.listeningPID(item.Port, serviceProcessNames(item.Kind)...)
+	if pid <= 0 {
+		return ports.Status{}
+	}
+	return ports.Status{Running: true, PID: pid}
+}
+
+func serviceProcessNames(kind string) []string {
+	switch kind {
+	case software.KIND_MYSQL:
+		return []string{"mysqld.exe"}
+	case software.KIND_MARIADB:
+		return []string{"mariadbd.exe", "mysqld.exe"}
+	case software.KIND_POSTGRESQL:
+		return []string{"postgres.exe"}
+	case software.KIND_MONGODB:
+		return []string{"mongod.exe"}
+	case software.KIND_REDIS:
+		return []string{"redis-server.exe"}
+	case software.KIND_MEMCACHED:
+		return []string{"memcached.exe"}
+	default:
+		return nil
+	}
+}
+
+func systemAutostartName(item software.Software) string {
+	return "DevEnv Software " + item.Kind + " " + item.Version
+}
+
+func (s *SoftwareService) ensureSystemAutostart(ctx context.Context, item software.Software) error {
+	options, err := s.buildOptions(ctx, item)
+	if err != nil {
+		return err
+	}
+	command := windowsCommand(options.Binary, systemCommandArguments(detachedArguments(options.Args), options.Directory))
+	if err := autostart.Set(systemAutostartName(item), command); err != nil {
+		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "设置系统自启动失败")
+	}
+	return nil
+}
+
+func (s *SoftwareService) startDetached(ctx context.Context, item software.Software) (int, error) {
+	options, err := s.buildOptions(ctx, item)
+	if err != nil {
+		return 0, err
+	}
+	command := exec.Command(options.Binary, detachedArguments(options.Args)...)
+	command.Dir = options.Directory
+	if len(options.Environment) > 0 {
+		command.Env = append(os.Environ(), options.Environment...)
+	}
+	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	var logFile *os.File
+	if options.Log != "" {
+		if err := os.MkdirAll(filepath.Dir(options.Log), 0o755); err != nil {
+			return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "创建服务日志目录失败")
+		}
+		logFile, err = os.OpenFile(options.Log, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "打开服务日志失败")
+		}
+		command.Stdout = logFile
+		command.Stderr = logFile
+	}
+	if err := command.Start(); err != nil {
+		if logFile != nil {
+			_ = logFile.Close()
+		}
+		return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "独立启动服务失败")
+	}
+	if logFile != nil {
+		_ = logFile.Close()
+	}
+	return command.Process.Pid, nil
+}
+
+func detachedArguments(args []string) []string {
+	filtered := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg != "--console" {
+			filtered = append(filtered, arg)
+		}
+	}
+	return filtered
+}
+
+func systemCommandArguments(args []string, directory string) []string {
+	resolved := make([]string, len(args))
+	copy(resolved, args)
+	for index, arg := range resolved {
+		if filepath.IsAbs(arg) || directory == "" || strings.HasPrefix(arg, "-") {
+			continue
+		}
+		candidate := filepath.Join(directory, arg)
+		if _, err := os.Stat(candidate); err == nil {
+			resolved[index] = candidate
+		}
+	}
+	return resolved
+}
+
+func windowsCommand(binary string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+	parts = append(parts, quoteWindowsArgument(binary))
+	for _, arg := range args {
+		parts = append(parts, quoteWindowsArgument(arg))
+	}
+	return strings.Join(parts, " ")
+}
+
+func quoteWindowsArgument(value string) string {
+	return `"` + strings.ReplaceAll(value, `"`, `\"`) + `"`
 }
 
 func configSchema(kind string) []software.ConfigItem {

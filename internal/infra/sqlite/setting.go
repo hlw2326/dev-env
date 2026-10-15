@@ -20,7 +20,7 @@ func NewSettingRepository(db *sql.DB) *SettingRepository {
 }
 
 func (r *SettingRepository) Load(ctx context.Context) (setting.Settings, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT key, value FROM system_app_settings`)
+	rows, err := r.db.QueryContext(ctx, `SELECT key, value FROM system_app_setting`)
 	if err != nil {
 		return setting.Settings{}, appErrors.Wrap(err, appErrors.DATABASE_ERROR, "读取系统设置失败")
 	}
@@ -73,7 +73,7 @@ func (r *SettingRepository) Save(ctx context.Context, settings setting.Settings)
 	}
 	for key, value := range pairs {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO system_app_settings (key, value, updated)
+		INSERT INTO system_app_setting (key, value, updated)
 			VALUES (?, ?, ?)
 			ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated = excluded.updated
 		`, key, value, now); err != nil {

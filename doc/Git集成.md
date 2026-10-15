@@ -6,7 +6,7 @@
 
 ## 一、配置
 
-`system_sites` 表新增 `git TEXT` 字段,JSON:
+`system_site` 表新增 `git TEXT` 字段,JSON:
 
 ```json
 {
@@ -245,7 +245,7 @@ Token 加密:
 迁移,改 `000001_init.sql`:
 
 ```sql
-ALTER TABLE system_sites ADD COLUMN git TEXT DEFAULT '';
+ALTER TABLE system_site ADD COLUMN git TEXT DEFAULT '';
 ```
 
 改表同步全链路(见 [数据库.md](rules/数据库.md) 第六节)。

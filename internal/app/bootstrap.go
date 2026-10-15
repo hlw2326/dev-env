@@ -53,7 +53,7 @@ func Bootstrap() (*Container, error) {
 	nginx := gateway.NewNginx(base, softwareRepo, runner, probe)
 
 	siteService := NewSiteService(base, siteRepo, softwareRepo, settingRepo, nginx, runner, hostsWriter, probe, bus)
-	softwareService := NewSoftwareService(base, softwareRepo, siteRepo, catalogClient, installerManager, runner, probe, nginx, bus, func(ctx context.Context, item software.Software) {
+	softwareService := NewSoftwareService(base, softwareRepo, siteRepo, catalogClient, installerManager, runner, probe, settingRepo, nginx, bus, func(ctx context.Context, item software.Software) {
 		siteService.BindInstalled(ctx, item)
 	})
 	settingService := NewSettingService(base, settingRepo, siteRepo, nginx, hostsWriter)

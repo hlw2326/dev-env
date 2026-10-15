@@ -115,6 +115,13 @@ func IsDaemon(kind string) bool {
 		kind == KIND_MEMCACHED
 }
 
+// IsService reports whether an installed software item participates in the
+// service management screen and can expose a running state.
+// Keep this list as the single extension point when new managed services are added.
+func IsService(kind string) bool {
+	return IsDaemon(kind) || kind == KIND_NGINX
+}
+
 func HasData(kind string) bool {
 	return kind == KIND_MYSQL ||
 		kind == KIND_MARIADB ||

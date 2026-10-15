@@ -70,9 +70,9 @@
 			</div>
 		</div>
 
-		<!-- 守护进程随应用启动开关 -->
+		<!-- 守护进程随 Windows 用户登录启动开关 -->
 		<div v-if="item.daemon" class="kv-row">
-			<span class="kv-label">随应用启动</span>
+			<span class="kv-label">随系统启动</span>
 			<p-toggle-switch
 				v-model="autoFlag"
 				@change="onAutostart"
@@ -113,12 +113,12 @@ const folderLabel = computed(() => {
 	return '安装路径'
 })
 
-// 切换随应用自动启动
+// 切换随系统自动启动
 function onAutostart(): void {
 	emit('autostart', props.item, autoFlag.value)
 }
 
-// 同步软件随应用启动状态
+// 同步软件随系统启动状态
 watch(
 	() => props.item.autostart,
 	(value) => {

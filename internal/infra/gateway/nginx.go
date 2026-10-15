@@ -20,6 +20,7 @@ import (
 
 	"devenv/internal/domain/site"
 	"devenv/internal/domain/software"
+	processinfra "devenv/internal/infra/process"
 	"devenv/internal/ports"
 	appErrors "devenv/internal/shared/errors"
 	"devenv/internal/shared/paths"
@@ -58,6 +59,7 @@ type Nginx struct {
 	operation sync.Mutex
 	port      int
 	listening int
+	external  bool
 	routes    []ports.Route
 	pools     map[string]pool
 }
@@ -79,6 +81,14 @@ func (n *Nginx) Start(port int) error {
 
 	n.operation.Lock()
 	defer n.operation.Unlock()
+	if n.isExternalNginx(port) {
+		n.mutex.Lock()
+		n.port = port
+		n.listening = port
+		n.external = true
+		n.mutex.Unlock()
+		return nil
+	}
 
 	n.mutex.Lock()
 	previous := n.port
@@ -99,6 +109,7 @@ func (n *Nginx) Stop() error {
 	defer n.operation.Unlock()
 
 	n.mutex.RLock()
+	external := n.external
 	pools := make([]pool, 0, len(n.pools))
 	for _, item := range n.pools {
 		pools = append(pools, item)
@@ -106,8 +117,10 @@ func (n *Nginx) Stop() error {
 	n.mutex.RUnlock()
 
 	stopErrors := make([]error, 0)
-	if err := n.runner.Stop(NGINX_KEY); err != nil {
-		stopErrors = append(stopErrors, err)
+	if !external {
+		if err := n.runner.Stop(NGINX_KEY); err != nil {
+			stopErrors = append(stopErrors, err)
+		}
 	}
 	if err := n.stopPools(pools); err != nil {
 		stopErrors = append(stopErrors, err)
@@ -119,9 +132,30 @@ func (n *Nginx) Stop() error {
 	n.mutex.Lock()
 	n.port = 0
 	n.listening = 0
+	n.external = false
 	n.pools = make(map[string]pool)
 	n.mutex.Unlock()
 	return nil
+}
+
+// StopManaged stops Nginx from the service management screen. An externally
+// adopted Nginx instance is terminated here explicitly; the regular Stop
+// method remains lifecycle-safe for application shutdown.
+func (n *Nginx) StopManaged() error {
+	n.mutex.RLock()
+	external := n.external
+	port := n.listening
+	n.mutex.RUnlock()
+	if external {
+		if finder, ok := n.checker.(interface{ ListeningPID(int) int }); ok {
+			if pid := finder.ListeningPID(port); pid > 0 && processinfra.MatchesImageName(pid, "nginx.exe") {
+				if err := processinfra.StopPID(pid); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return n.Stop()
 }
 
 func (n *Nginx) SetRoutes(routes []ports.Route) error {
@@ -130,8 +164,12 @@ func (n *Nginx) SetRoutes(routes []ports.Route) error {
 	n.mutex.Lock()
 	previous := n.routes
 	n.routes = copied
+	external := n.external
 	started := n.port > 0
 	n.mutex.Unlock()
+	if external {
+		return nil
+	}
 	if !started {
 		return nil
 	}
@@ -149,6 +187,21 @@ func (n *Nginx) SetRoutes(routes []ports.Route) error {
 
 func (n *Nginx) Port() int {
 	n.mutex.RLock()
+	if n.external {
+		port := n.listening
+		n.mutex.RUnlock()
+		if n.checker.Listening(port) {
+			return port
+		}
+		n.mutex.Lock()
+		if n.external && n.listening == port {
+			n.port = 0
+			n.listening = 0
+			n.external = false
+		}
+		n.mutex.Unlock()
+		return 0
+	}
 	defer n.mutex.RUnlock()
 	if !n.runner.Status(NGINX_KEY).Running {
 		return 0
@@ -230,9 +283,22 @@ func (n *Nginx) reconcile() error {
 
 	n.mutex.Lock()
 	n.listening = port
+	n.external = false
 	n.pools = pools
 	n.mutex.Unlock()
 	return nil
+}
+
+func (n *Nginx) isExternalNginx(port int) bool {
+	if port <= 0 || n.runner.Status(NGINX_KEY).Running || !n.checker.Listening(port) {
+		return false
+	}
+	finder, ok := n.checker.(interface{ ListeningPID(int) int })
+	if !ok {
+		return false
+	}
+	pid := finder.ListeningPID(port)
+	return processinfra.MatchesImageName(pid, "nginx.exe")
 }
 
 func (n *Nginx) startPools(routes []ports.Route, nginxPort int) (map[string]pool, []pool, error) {

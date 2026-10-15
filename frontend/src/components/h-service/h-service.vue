@@ -45,7 +45,7 @@
 
 		<!-- 右侧服务操作 -->
 		<div class="actions">
-			<template v-if="item.daemon">
+			<template v-if="item.service">
 				<p-button
 					v-if="!item.running"
 					label="启动"

@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { listSoftware, listenEvent, stopSoftware } from '@/api'
+import { listSoftware, listenEvent, startSoftware, stopSoftware } from '@/api'
 import { formatError, toast } from '@/utils'
 import type { ServiceEvent, Software } from '@/types'
 
@@ -14,9 +14,9 @@ const busy = ref(0)
 
 // 运行中服务页面组合式函数
 export function useServices() {
-	// 当前运行中的守护服务
-	const running = computed(() => {
-		return items.value.filter((item) => item.service && item.running)
+	// 当前已安装且可管理的服务
+	const services = computed(() => {
+		return items.value.filter((item) => item.service)
 	})
 
 	// 加载服务运行状态
@@ -31,7 +31,25 @@ export function useServices() {
 		}
 	}
 
-	// 停止指定运行服务
+	// 启动指定服务
+	async function startService(id: number): Promise<void> {
+		busy.value = id
+		try {
+			const result = await startSoftware(id)
+			if (!result.ok) {
+				toast.error('启动失败', result.message)
+				return
+			}
+			toast.success('服务已启动')
+			await loadData()
+		} catch (err: unknown) {
+			toast.error('启动失败', formatError(err))
+		} finally {
+			busy.value = 0
+		}
+	}
+
+	// 停止指定服务
 	async function stopService(id: number): Promise<void> {
 		busy.value = id
 		try {
@@ -60,10 +78,11 @@ export function useServices() {
 	}
 
 	return {
-		running,
+		services,
 		loading,
 		busy,
 		loadData,
+		startService,
 		stopService,
 		bindEvents,
 	}
