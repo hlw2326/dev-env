@@ -16,6 +16,7 @@ declare module 'vue' {
     HLogo: typeof import('./src/components/h-logo/h-logo.vue')['default']
     HModal: typeof import('./src/components/h-modal/h-modal.vue')['default']
     HPage: typeof import('./src/components/h-page/h-page.vue')['default']
+    HService: typeof import('./src/components/h-service/h-service.vue')['default']
     PButton: typeof import('primevue/button')['default']
     PConfirmPopup: typeof import('primevue/confirmpopup')['default']
     PInputNumber: typeof import('primevue/inputnumber')['default']

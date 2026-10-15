@@ -4,7 +4,13 @@
 		v-model:visible="visible"
 		title="创建网站"
 		width="32rem"
+		:modal="true"
+		:closable="true"
+		:mask-close="false"
+		:footer="true"
 		ok-text="创建"
+		ok-icon="pi pi-check"
+		cancel-text="取消"
 		:loading="submitting"
 		@ok="submitForm"
 	>
@@ -103,7 +109,7 @@ const props = defineProps<{
 }>()
 
 // 弹窗显隐双向绑定
-const visible = defineModel<boolean>('visible', { default: false })
+const visible = defineModel<boolean>('visible', { required: true })
 
 // 提交创建事件
 const emit = defineEmits<{

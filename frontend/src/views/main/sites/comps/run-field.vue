@@ -33,7 +33,7 @@ const props = defineProps<{
 }>()
 
 // 相对运行目录双向绑定
-const run = defineModel<string>({ default: '' })
+const run = defineModel<string>({ required: true })
 
 // 运行目录变更通知事件
 const emit = defineEmits<{

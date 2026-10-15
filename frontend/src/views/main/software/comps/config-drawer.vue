@@ -5,7 +5,14 @@
 		v-model:visible="visible"
 		:title="`软件设置 · ${item.name} ${item.version}`"
 		width="40rem"
+		:modal="true"
+		:closable="true"
+		:mask-close="false"
 		:footer="false"
+		ok-text="确定"
+		ok-icon="pi pi-check"
+		cancel-text="取消"
+		:loading="false"
 	>
 		<!-- PHP 配置面板 -->
 		<comp-config-php
@@ -48,7 +55,7 @@ defineProps<{
 }>()
 
 // 弹窗显隐双向绑定
-const visible = defineModel<boolean>('visible', { default: false })
+const visible = defineModel<boolean>('visible', { required: true })
 
 // 定义设置弹窗操作事件
 const emit = defineEmits<{

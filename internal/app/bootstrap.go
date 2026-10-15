@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"log"
 	"os"
 
 	"devenv/internal/domain/software"
@@ -13,6 +14,7 @@ import (
 	"devenv/internal/infra/network"
 	"devenv/internal/infra/process"
 	"devenv/internal/infra/sqlite"
+	"devenv/internal/ports"
 	"devenv/internal/shared/paths"
 )
 
@@ -20,7 +22,7 @@ type Container struct {
 	Base     string
 	DB       *sqlite.DB
 	Bus      *events.Publisher
-	Gateway  *gateway.Server
+	Gateway  ports.Gateway
 	Runner   *process.Manager
 	Site     *SiteService
 	Software *SoftwareService
@@ -42,14 +44,13 @@ func Bootstrap() (*Container, error) {
 	bus := events.NewPublisher()
 	probe := network.NewChecker()
 	runner := process.NewManager()
-	gw := gateway.New()
 	catalogClient := catalog.NewClient()
 	installerManager := installer.NewManager()
 	hostsWriter := hosts.NewWriter()
-
 	softwareRepo := sqlite.NewSoftwareRepository(db.DB)
 	siteRepo := sqlite.NewSiteRepository(db.DB)
 	settingRepo := sqlite.NewSettingRepository(db.DB)
+	gw := gateway.NewNginx(base, softwareRepo, runner, probe)
 
 	siteService := NewSiteService(base, siteRepo, softwareRepo, settingRepo, gw, runner, hostsWriter, probe, bus)
 	softwareService := NewSoftwareService(base, softwareRepo, siteRepo, catalogClient, installerManager, runner, probe, bus, func(ctx context.Context, item software.Software) {
@@ -70,18 +71,22 @@ func Bootstrap() (*Container, error) {
 }
 
 func (c *Container) Start(ctx context.Context) {
-	c.Setting.StartGateway(ctx)
 	c.Software.StartAuto(ctx)
+	c.Setting.StartGateway(ctx)
 	c.Site.StartAuto(ctx)
 }
 
 func (c *Container) Shutdown() {
-	c.Site.StopAll()
-	c.Software.StopAll()
+	if err := c.Site.StopAll(); err != nil {
+		log.Printf("停止站点进程失败: %v", err)
+	}
+	if err := c.Software.StopAll(); err != nil {
+		log.Printf("停止软件进程失败: %v", err)
+	}
 	if err := c.Gateway.Stop(); err != nil {
-		return
+		log.Printf("停止 Nginx 网关失败: %v", err)
 	}
 	if err := c.DB.Close(); err != nil {
-		return
+		log.Printf("关闭数据库失败: %v", err)
 	}
 }

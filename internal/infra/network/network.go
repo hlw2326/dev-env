@@ -5,11 +5,11 @@ import (
 	"net"
 	"time"
 
+	"devenv/internal/ports"
 	"devenv/internal/shared/paths"
 )
 
 const (
-	MAX_PORT     = 65535
 	DIAL_TIMEOUT = 250 * time.Millisecond
 )
 
@@ -20,7 +20,7 @@ func NewChecker() *Checker {
 }
 
 func (c *Checker) Available(port int) bool {
-	if port <= 0 || port > MAX_PORT {
+	if port <= 0 || port > ports.MAX_PORT {
 		return false
 	}
 	if c.Listening(port) {
@@ -37,7 +37,7 @@ func (c *Checker) Available(port int) bool {
 }
 
 func (c *Checker) Listening(port int) bool {
-	if port <= 0 || port > MAX_PORT {
+	if port <= 0 || port > ports.MAX_PORT {
 		return false
 	}
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", paths.LOOPBACK, port), DIAL_TIMEOUT)

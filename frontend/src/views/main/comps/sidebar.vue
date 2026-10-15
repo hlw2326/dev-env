@@ -22,6 +22,7 @@
 const menuItems = [
 	{ label: '环境概览', icon: 'pi pi-objects-column', to: '/' },
 	{ label: '网站管理', icon: 'pi pi-globe', to: '/sites' },
+	{ label: '运行中的服务', icon: 'pi pi-server', to: '/services' },
 	{ label: '软件商店', icon: 'pi pi-shopping-bag', to: '/software' },
 	{ label: '全局设置', icon: 'pi pi-cog', to: '/settings' },
 ]

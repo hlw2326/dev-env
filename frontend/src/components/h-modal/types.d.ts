@@ -1,25 +1,25 @@
 // 弹窗组件属性
 export interface HModalProps {
 	// 弹窗标题
-	title?: string
+	title: string
 	// 弹窗宽度
-	width?: string
+	width: string
 	// 是否模态遮罩
-	modal?: boolean
+	modal: boolean
 	// 是否允许关闭
-	closable?: boolean
+	closable: boolean
 	// 是否点击遮罩关闭
-	maskClose?: boolean
+	maskClose: boolean
 	// 是否显示底部栏
-	footer?: boolean
+	footer: boolean
 	// 确定按钮文本
-	okText?: string
+	okText: string
 	// 确定按钮图标
-	okIcon?: string
+	okIcon: string
 	// 取消按钮文本
-	cancelText?: string
+	cancelText: string
 	// 加载中状态
-	loading?: boolean
+	loading: boolean
 }
 
 // 弹窗组件事件

@@ -130,7 +130,7 @@ import type { Software } from '@/types'
 // 接收软件版本与进度属性
 const props = defineProps<{
 	item: Software
-	progressMap?: Record<string, { progress: number; message: string }>
+	progressMap: Record<string, { progress: number; message: string }>
 }>()
 
 // 定义版本行操作事件
@@ -150,7 +150,7 @@ const confirm = useConfirm()
 // 当前实时安装进度信息
 const activeProgress = computed(() => {
 	const key = `${props.item.kind}:${props.item.version}`
-	if (props.progressMap && props.progressMap[key]) {
+	if (props.progressMap[key]) {
 		return props.progressMap[key]
 	}
 	return { progress: props.item.progress, message: '正在安装...' }

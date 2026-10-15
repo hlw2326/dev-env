@@ -54,7 +54,7 @@ const statCards = computed(() => [
 		value: `${runningDaemons.value} / ${daemonList.value.length}`,
 		icon: 'pi pi-server',
 		tone: 'ok',
-		route: '/software',
+		route: '/services',
 	},
 ])
 </script>

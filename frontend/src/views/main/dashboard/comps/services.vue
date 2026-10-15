@@ -23,10 +23,14 @@
 
 		<!-- 软件与服务列表 -->
 		<div v-else class="list">
-			<comp-service-row
+			<h-service
 				v-for="item in readySoftware"
 				:key="item.id"
 				:item="item"
+				:busy="busyId === item.id"
+				@start="startService"
+				@stop="stopService"
+				@manage="$router.push('/software')"
 			/>
 		</div>
 	</h-card>
@@ -34,10 +38,9 @@
 
 <script setup lang="ts">
 import { useDashboard } from '../use-dashboard'
-import CompServiceRow from './service-row.vue'
 
 // 概览软件数据与刷新方法
-const { readySoftware, loading, loadData } = useDashboard()
+const { readySoftware, loading, busyId, loadData, startService, stopService } = useDashboard()
 </script>
 
 <style scoped lang="scss">

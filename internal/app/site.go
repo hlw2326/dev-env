@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -81,17 +83,22 @@ func NewSiteService(
 func (s *SiteService) StartAuto(ctx context.Context) {
 	list, err := s.sites.List(ctx)
 	if err != nil {
+		log.Printf("读取自动启动站点失败: %v", err)
 		return
 	}
 	for _, item := range list {
 		if item.Autostart {
 			if err := s.Start(ctx, item.ID); err != nil {
+				log.Printf("自动启动站点 %s 失败: %v", item.Name, err)
 				continue
 			}
 		}
 	}
-	s.syncRoutes(ctx)
+	if err := s.syncRoutes(ctx); err != nil {
+		log.Printf("刷新自动启动站点路由失败: %v", err)
+	}
 	if err := s.syncHosts(ctx); err != nil {
+		log.Printf("同步自动启动站点域名失败: %v", err)
 		return
 	}
 }
@@ -108,16 +115,21 @@ func (s *SiteService) BindInstalled(ctx context.Context, installed software.Soft
 	}
 	missing, err := s.sites.ListMissingSoftware(ctx, siteKind)
 	if err != nil {
+		log.Printf("读取缺少运行环境的站点失败: %v", err)
 		return
 	}
 	for _, item := range missing {
-		if err := s.sites.BindSoftware(ctx, item.ID, installed.ID); err == nil {
-			if startErr := s.Start(ctx, item.ID); startErr != nil {
-				continue
-			}
+		if err := s.sites.BindSoftware(ctx, item.ID, installed.ID); err != nil {
+			log.Printf("绑定站点 %s 运行环境失败: %v", item.Name, err)
+			continue
+		}
+		if err := s.Start(ctx, item.ID); err != nil {
+			log.Printf("启动新绑定环境的站点 %s 失败: %v", item.Name, err)
 		}
 	}
-	s.syncRoutes(ctx)
+	if err := s.syncRoutes(ctx); err != nil {
+		log.Printf("刷新新绑定环境的站点路由失败: %v", err)
+	}
 }
 
 func (s *SiteService) List(ctx context.Context) ([]SiteView, error) {
@@ -134,12 +146,11 @@ func (s *SiteService) List(ctx context.Context) ([]SiteView, error) {
 		softwareMap[item.ID] = item
 	}
 
-	port := s.gateway.Port()
-	if port <= 0 {
-		if current, err := s.settings.Load(ctx); err == nil {
-			port = current.Port
-		}
+	current, err := s.settings.Load(ctx)
+	if err != nil {
+		return nil, err
 	}
+	port := current.Port
 
 	views := make([]SiteView, 0, len(list))
 	for _, item := range list {
@@ -158,22 +169,61 @@ func (s *SiteService) Get(ctx context.Context, id int64) (*SiteView, error) {
 	}
 	softwareMap := make(map[int64]software.Software)
 	if item.Software != nil {
-		if found, err := s.software.Get(ctx, *item.Software); err == nil && found != nil {
+		found, err := s.software.Get(ctx, *item.Software)
+		if err != nil {
+			return nil, err
+		}
+		if found != nil {
 			softwareMap[found.ID] = *found
 		}
 	}
-	port := s.gateway.Port()
-	if port <= 0 {
-		if current, err := s.settings.Load(ctx); err == nil {
-			port = current.Port
-		}
+	settings, err := s.settings.Load(ctx)
+	if err != nil {
+		return nil, err
 	}
-	view := s.buildView(*item, softwareMap, port)
+	view := s.buildView(*item, softwareMap, settings.Port)
 	return &view, nil
 }
 
 func (s *SiteService) FindRun(root, kind string) string {
 	return site.FindRun(root, kind)
+}
+
+func (s *SiteService) requireGateway(ctx context.Context) error {
+	installed, err := s.software.GetMain(ctx, software.KIND_NGINX)
+	if err != nil {
+		return err
+	}
+	if installed == nil || installed.State != software.STATE_INSTALLED {
+		return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "创建网站前请先在软件商城安装 Nginx")
+	}
+	executable := filepath.Join(installed.Path, "nginx.exe")
+	info, err := os.Stat(executable)
+	if err != nil {
+		return appErrors.Wrap(err, appErrors.RUNTIME_NOT_INSTALLED, "读取 nginx.exe 失败")
+	}
+	if info.IsDir() {
+		return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "nginx.exe 路径指向了目录")
+	}
+	if s.gateway.Port() > 0 {
+		return nil
+	}
+	settings, err := s.settings.Load(ctx)
+	if err != nil {
+		return err
+	}
+	return s.gateway.Start(settings.Port)
+}
+
+func (s *SiteService) deleteCreated(ctx context.Context, id int64, source error) error {
+	cleanup := []error{source}
+	if err := s.sites.Delete(ctx, id); err != nil {
+		cleanup = append(cleanup, err)
+	}
+	if err := s.syncHosts(ctx); err != nil {
+		cleanup = append(cleanup, err)
+	}
+	return errors.Join(cleanup...)
 }
 
 func (s *SiteService) Create(ctx context.Context, in site.CreateInput) (*SiteView, error) {
@@ -189,6 +239,9 @@ func (s *SiteService) Create(ctx context.Context, in site.CreateInput) (*SiteVie
 	}
 	if host == "" {
 		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "站点域名不能为空")
+	}
+	if err := s.requireGateway(ctx); err != nil {
+		return nil, err
 	}
 
 	root := strings.TrimSpace(in.Root)
@@ -221,12 +274,20 @@ func (s *SiteService) Create(ctx context.Context, in site.CreateInput) (*SiteVie
 	var softwareID *int64
 	switch kind {
 	case site.KIND_PHP:
-		if mainItem, err := s.software.GetMain(ctx, software.KIND_PHP); err == nil && mainItem != nil {
+		mainItem, err := s.software.GetMain(ctx, software.KIND_PHP)
+		if err != nil {
+			return nil, err
+		}
+		if mainItem != nil && mainItem.State == software.STATE_INSTALLED {
 			id := mainItem.ID
 			softwareID = &id
 		}
 	case site.KIND_NODE:
-		if mainItem, err := s.software.GetMain(ctx, software.KIND_NODE); err == nil && mainItem != nil {
+		mainItem, err := s.software.GetMain(ctx, software.KIND_NODE)
+		if err != nil {
+			return nil, err
+		}
+		if mainItem != nil && mainItem.State == software.STATE_INSTALLED {
 			id := mainItem.ID
 			softwareID = &id
 		}
@@ -261,13 +322,13 @@ func (s *SiteService) Create(ctx context.Context, in site.CreateInput) (*SiteVie
 	}
 
 	if err := s.syncHosts(ctx); err != nil {
-		return s.Get(ctx, created.ID)
+		return nil, s.deleteCreated(ctx, created.ID, err)
 	}
 
 	ready := kind == site.KIND_STATIC || (kind == site.KIND_PHP && softwareID != nil) || (kind == site.KIND_NODE && softwareID != nil && command != "")
 	if ready {
 		if err := s.Start(ctx, created.ID); err != nil {
-			return s.Get(ctx, created.ID)
+			return nil, s.deleteCreated(ctx, created.ID, err)
 		}
 	}
 
@@ -322,7 +383,9 @@ func (s *SiteService) Update(ctx context.Context, in site.UpdateInput) (*SiteVie
 		return nil, err
 	}
 
-	s.syncRoutes(ctx)
+	if err := s.syncRoutes(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.syncHosts(ctx); err != nil {
 		return nil, err
 	}
@@ -393,7 +456,18 @@ func (s *SiteService) Start(ctx context.Context, id int64) error {
 		s.mu.Unlock()
 	}
 
-	s.syncRoutes(ctx)
+	if err := s.syncRoutes(ctx); err != nil {
+		s.mu.Lock()
+		delete(s.active, current.ID)
+		s.failed[current.ID] = err.Error()
+		s.mu.Unlock()
+		if current.Kind == site.KIND_NODE {
+			if stopError := s.runner.Stop(siteKey(current.ID)); stopError != nil {
+				return errors.Join(err, stopError)
+			}
+		}
+		return err
+	}
 	s.bus.Emit("site:status-changed", map[string]interface{}{
 		"id":      current.ID,
 		"state":   site.STATE_RUNNING,
@@ -422,7 +496,9 @@ func (s *SiteService) Stop(ctx context.Context, id int64) error {
 	delete(s.failed, current.ID)
 	s.mu.Unlock()
 
-	s.syncRoutes(ctx)
+	if err := s.syncRoutes(ctx); err != nil {
+		return err
+	}
 	s.bus.Emit("site:status-changed", map[string]interface{}{
 		"id":      current.ID,
 		"state":   site.STATE_STOPPED,
@@ -454,9 +530,11 @@ func (s *SiteService) Delete(ctx context.Context, id int64) error {
 		return err
 	}
 
-	s.syncRoutes(ctx)
+	if err := s.syncRoutes(ctx); err != nil {
+		return err
+	}
 	if err := s.syncHosts(ctx); err != nil {
-		return nil
+		return err
 	}
 	return nil
 }
@@ -476,18 +554,20 @@ func (s *SiteService) Logs(ctx context.Context, id int64, kind string, limit int
 	return process.ReadTail(logFile, limit), nil
 }
 
-func (s *SiteService) StopAll() {
+func (s *SiteService) StopAll() error {
 	list, err := s.sites.List(context.Background())
 	if err != nil {
-		return
+		return err
 	}
+	stopErrors := make([]error, 0)
 	for _, item := range list {
 		if item.Kind == site.KIND_NODE {
-			if stopErr := s.runner.Stop(siteKey(item.ID)); stopErr != nil {
-				continue
+			if err := s.runner.Stop(siteKey(item.ID)); err != nil {
+				stopErrors = append(stopErrors, err)
 			}
 		}
 	}
+	return errors.Join(stopErrors...)
 }
 
 func (s *SiteService) startNode(current site.Site, runtimeItem software.Software) error {
@@ -520,7 +600,9 @@ func (s *SiteService) startNode(current site.Site, runtimeItem software.Software
 			delete(s.active, siteID)
 			s.failed[siteID] = message
 			s.mu.Unlock()
-			s.syncRoutes(context.Background())
+			if err := s.syncRoutes(context.Background()); err != nil {
+				log.Printf("移除已退出 Node 站点路由失败: %v", err)
+			}
 			s.bus.Emit("site:status-changed", map[string]interface{}{
 				"id":      siteID,
 				"state":   site.STATE_ERROR,
@@ -552,14 +634,14 @@ func (s *SiteService) startNode(current site.Site, runtimeItem software.Software
 	return appErrors.New(appErrors.PROCESS_START_FAILED, "Node 站点启动超时或退出:\n"+strings.Join(tail, "\n"))
 }
 
-func (s *SiteService) syncRoutes(ctx context.Context) {
+func (s *SiteService) syncRoutes(ctx context.Context) error {
 	list, err := s.sites.List(ctx)
 	if err != nil {
-		return
+		return err
 	}
 	softwareList, err := s.software.List(ctx)
 	if err != nil {
-		return
+		return err
 	}
 	softwareMap := make(map[int64]software.Software, len(softwareList))
 	for _, item := range softwareList {
@@ -573,7 +655,7 @@ func (s *SiteService) syncRoutes(ctx context.Context) {
 	}
 	s.mu.RUnlock()
 
-	var routes []ports.Route
+	routes := make([]ports.Route, 0)
 	for _, item := range list {
 		if !activeCopy[item.ID] {
 			continue
@@ -594,7 +676,7 @@ func (s *SiteService) syncRoutes(ctx context.Context) {
 			Log:   paths.SiteLog(s.base, item.Name, "access.log"),
 		})
 	}
-	s.gateway.SetRoutes(routes)
+	return s.gateway.SetRoutes(routes)
 }
 
 func (s *SiteService) syncHosts(ctx context.Context) error {
@@ -728,7 +810,7 @@ func writeSample(kind, name, folder string) error {
 		if err := os.WriteFile(filepath.Join(folder, "package.json"), []byte(pkg), 0o644); err != nil {
 			return err
 		}
-		script := fmt.Sprintf("const http = require('http');\nconst port = process.env.PORT || 3000;\nhttp.createServer((request, response) => {\n  response.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});\n  response.end('<h1>%s (Node.js ' + process.version + ')</h1>');\n}).listen(port, '127.0.0.1');\n", name)
+		script := fmt.Sprintf("const http = require('http');\nconst port = Number(process.env.PORT);\nhttp.createServer((request, response) => {\n  response.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});\n  response.end('<h1>%s (Node.js ' + process.version + ')</h1>');\n}).listen(port, '%s');\n", name, paths.LOOPBACK)
 		return os.WriteFile(filepath.Join(folder, "server.js"), []byte(script), 0o644)
 	}
 	return nil

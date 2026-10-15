@@ -13,8 +13,6 @@ import (
 	appErrors "devenv/internal/shared/errors"
 )
 
-const MAX_PORT = 65535
-
 type SettingsView struct {
 	setting.Settings
 	Listening bool
@@ -97,7 +95,7 @@ func (s *SettingService) SaveSettings(ctx context.Context, next setting.Settings
 	if !filepath.IsAbs(next.Root) {
 		return appErrors.New(appErrors.PATH_INVALID, "站点根目录必须是绝对路径")
 	}
-	if next.Port <= 0 || next.Port > MAX_PORT {
+	if next.Port <= 0 || next.Port > ports.MAX_PORT {
 		return appErrors.New(appErrors.INVALID_ARGUMENT, "网关端口必须在 1 到 65535 之间")
 	}
 	if err := os.MkdirAll(next.Root, 0o755); err != nil {

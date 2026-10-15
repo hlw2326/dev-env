@@ -4,8 +4,15 @@
 		v-if="site !== null"
 		v-model:visible="visible"
 		:title="`站点详情 · ${site.name}`"
-		width="38rem"
+		width="52rem"
+		:modal="true"
+		:closable="true"
+		:mask-close="false"
 		:footer="false"
+		ok-text="确定"
+		ok-icon="pi pi-check"
+		cancel-text="取消"
+		:loading="false"
 	>
 		<!-- 详情页签切换栏 -->
 		<div class="panel-tabs detail-tabs">
@@ -36,9 +43,8 @@
 			@save="emit('save', $event)"
 		/>
 
-		<!-- 日志查看页签 -->
 		<comp-detail-logs
-			v-else
+			v-else-if="currentTab === 'logs'"
 			:site="site"
 		/>
 	</h-modal>
@@ -58,7 +64,7 @@ defineProps<{
 }>()
 
 // 弹窗显隐双向绑定
-const visible = defineModel<boolean>('visible', { default: false })
+const visible = defineModel<boolean>('visible', { required: true })
 
 // 保存站点设置事件
 const emit = defineEmits<{

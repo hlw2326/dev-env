@@ -1,11 +1,11 @@
 <template>
-	<!-- 核心软件与服务行 -->
-	<div class="service-row">
+	<!-- 软件服务状态行 -->
+	<div class="h-service">
 		<!-- 左侧图标与信息 -->
-		<div class="row-left">
+		<div class="left">
 			<h-logo :kind="item.kind" size="small" />
 			<div class="info">
-				<div class="title-line">
+				<div class="title">
 					<span class="name">{{ item.name }} {{ item.version }}</span>
 					<p-tag
 						v-if="item.main"
@@ -43,7 +43,7 @@
 			</div>
 		</div>
 
-		<!-- 右侧操作按钮 -->
+		<!-- 右侧服务操作 -->
 		<div class="actions">
 			<template v-if="item.daemon">
 				<p-button
@@ -52,8 +52,8 @@
 					icon="pi pi-play"
 					size="small"
 					severity="success"
-					:loading="busyId === item.id"
-					@click="startService(item.id)"
+					:loading="busy"
+					@click="emit('start', item.id)"
 				/>
 				<p-button
 					v-else
@@ -62,8 +62,8 @@
 					size="small"
 					severity="danger"
 					variant="outlined"
-					:loading="busyId === item.id"
-					@click="stopService(item.id)"
+					:loading="busy"
+					@click="emit('stop', item.id)"
 				/>
 			</template>
 			<p-button
@@ -73,28 +73,34 @@
 				size="small"
 				severity="secondary"
 				variant="outlined"
-				@click="$router.push('/software')"
+				@click="emit('manage')"
 			/>
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { useDashboard } from '../use-dashboard'
-import type { Software } from '@/types'
+import type { HServiceProps } from './types.d'
 
-// 接收软件条目属性
-defineProps<{
-	item: Software
+// 全局服务行组件名称
+defineOptions({
+	name: 'HService',
+})
+
+// 接收服务数据与操作状态
+defineProps<HServiceProps>()
+
+// 定义服务控制事件
+const emit = defineEmits<{
+	start: [id: number]
+	stop: [id: number]
+	manage: []
 }>()
-
-// 守护进程控制操作
-const { busyId, startService, stopService } = useDashboard()
 </script>
 
 <style scoped lang="scss">
 /* 服务行容器 */
-.service-row {
+.h-service {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -104,49 +110,57 @@ const { busyId, startService, stopService } = useDashboard()
 	border-radius: var(--h-radius);
 	transition: all 0.15s ease;
 
-	/* 悬停态 */
+	/* 悬停状态 */
 	&:hover {
 		background: var(--bg-card);
 		border-color: var(--border-hover);
 	}
+}
 
-	/* 左侧信息组合 */
-	.row-left {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		min-width: 0;
-	}
+/* 左侧信息组合 */
+.left {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	min-width: 0;
+}
 
-	/* 文字垂直区 */
-	.info {
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-		min-width: 0;
-	}
+/* 文字垂直区 */
+.info {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	min-width: 0;
+}
 
-	/* 名称与状态标签行 */
-	.title-line {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
+/* 名称与状态标签行 */
+.title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
 
-	/* 软件名称 */
-	.name {
-		font-size: var(--font-base);
-		color: var(--text-primary);
-	}
+/* 软件服务名称 */
+.name {
+	font-size: var(--font-base);
+	color: var(--text-primary);
+}
 
-	/* 元数据文本 */
-	.meta {
-		font-size: var(--font-xs);
-		color: var(--text-muted);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		max-width: 22rem;
-	}
+/* 服务运行元数据 */
+.meta {
+	font-size: var(--font-xs);
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 22rem;
+}
+
+/* 右侧操作区 */
+.actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-shrink: 0;
 }
 </style>

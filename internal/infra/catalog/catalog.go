@@ -188,13 +188,13 @@ func (c *Client) Versions(ctx context.Context, kind string) ([]software.Version,
 	case software.KIND_DOTNET:
 		versions, err = c.fetchDotnet(ctx)
 	case software.KIND_DENO:
-		versions, err = c.fetchGitHubArchives(ctx, c.endpoints.DenoAPI, "Deno", "deno-x86_64-pc-windows-msvc.zip")
+		versions, err = c.fetchArchives(ctx, c.endpoints.DenoAPI, "Deno", "deno-x86_64-pc-windows-msvc.zip")
 	case software.KIND_BUN:
-		versions, err = c.fetchGitHubArchives(ctx, c.endpoints.BunAPI, "Bun", "bun-windows-x64.zip")
+		versions, err = c.fetchArchives(ctx, c.endpoints.BunAPI, "Bun", "bun-windows-x64.zip")
 	case software.KIND_NGINX:
 		versions, err = c.fetchNginx(ctx)
 	case software.KIND_CADDY:
-		versions, err = c.fetchGitHubArchives(ctx, c.endpoints.CaddyAPI, "Caddy", "caddy_*_windows_amd64.zip")
+		versions, err = c.fetchArchives(ctx, c.endpoints.CaddyAPI, "Caddy", "caddy_*_windows_amd64.zip")
 	case software.KIND_SQLITE:
 		versions, err = c.fetchSQLite(ctx)
 	case software.KIND_GRADLE:
@@ -906,7 +906,7 @@ func hasRecommended(list []software.Version) bool {
 	return false
 }
 
-func (c *Client) fetchGitHubArchives(ctx context.Context, endpoint, label, assetPattern string) ([]software.Version, error) {
+func (c *Client) fetchArchives(ctx context.Context, endpoint, label, assetPattern string) ([]software.Version, error) {
 	type asset struct {
 		Name   string `json:"name"`
 		URL    string `json:"browser_download_url"`

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1153,18 +1154,20 @@ func (s *SoftwareService) Logs(ctx context.Context, id int64, limit int) ([]stri
 	return process.ReadTail(logPath, limit), nil
 }
 
-func (s *SoftwareService) StopAll() {
+func (s *SoftwareService) StopAll() error {
 	list, err := s.repo.List(context.Background())
 	if err != nil {
-		return
+		return err
 	}
+	stopErrors := make([]error, 0)
 	for _, item := range list {
 		if software.IsDaemon(item.Kind) {
-			if stopErr := s.runner.Stop(daemonKey(item.ID)); stopErr != nil {
-				continue
+			if err := s.runner.Stop(daemonKey(item.ID)); err != nil {
+				stopErrors = append(stopErrors, err)
 			}
 		}
 	}
+	return errors.Join(stopErrors...)
 }
 
 func (s *SoftwareService) findPort(ctx context.Context, kind string) int {
@@ -1372,12 +1375,12 @@ func (s *SoftwareService) runInit(ctx context.Context, folder, logPath, label, b
 
 func (s *SoftwareService) prepareRedis(item software.Software, folder string) (string, error) {
 	configPath := filepath.Join(folder, "redis.conf")
-	port := item.Port
-	if port <= 0 {
-		port = REDIS_START_PORT
+	if item.Port <= 0 {
+		return "", appErrors.New(appErrors.INVALID_ARGUMENT, "Redis 端口无效")
 	}
-	if raw, err := os.ReadFile(configPath); err == nil {
-		updated := writeValue(software.KIND_REDIS, string(raw), "port", strconv.Itoa(port))
+	raw, err := os.ReadFile(configPath)
+	if err == nil {
+		updated := writeValue(software.KIND_REDIS, string(raw), "port", strconv.Itoa(item.Port))
 		updated = writeValue(software.KIND_REDIS, updated, "daemonize", "no")
 		updated = writeValue(software.KIND_REDIS, updated, "logfile", `""`)
 		if err := os.WriteFile(configPath, []byte(updated), 0o644); err != nil {
@@ -1385,7 +1388,10 @@ func (s *SoftwareService) prepareRedis(item software.Software, folder string) (s
 		}
 		return configPath, nil
 	}
-	content := fmt.Sprintf("bind 127.0.0.1\r\nport %d\r\ndaemonize no\r\nlogfile \"\"\r\nmaxmemory 0\r\nappendonly no\r\n", port)
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "读取 redis.conf 失败")
+	}
+	content := fmt.Sprintf("bind %s\r\nport %d\r\ndaemonize no\r\nlogfile \"\"\r\nmaxmemory 0\r\nappendonly no\r\n", paths.LOOPBACK, item.Port)
 	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		return "", appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "生成 redis.conf 失败")
 	}
@@ -1396,22 +1402,32 @@ func (s *SoftwareService) prepareConfig(item software.Software) (string, error) 
 	switch item.Kind {
 	case software.KIND_PHP:
 		iniPath := filepath.Join(item.Path, "php.ini")
-		if _, err := os.Stat(iniPath); os.IsNotExist(err) {
+		missing, err := checkMissing(iniPath)
+		if err != nil {
+			return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "检查 php.ini 失败")
+		}
+		if missing {
 			sourceIni := filepath.Join(item.Path, "php.ini-development")
-			if raw, readErr := os.ReadFile(sourceIni); readErr == nil {
-				if writeErr := os.WriteFile(iniPath, raw, 0o644); writeErr != nil {
-					return "", appErrors.Wrap(writeErr, appErrors.PATH_NOT_ACCESSIBLE, "生成 php.ini 失败")
-				}
+			raw, err := os.ReadFile(sourceIni)
+			if err != nil {
+				return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "读取 php.ini-development 失败")
+			}
+			if err := os.WriteFile(iniPath, raw, 0o644); err != nil {
+				return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "生成 php.ini 失败")
 			}
 		}
 		return iniPath, nil
 	case software.KIND_MYSQL, software.KIND_MARIADB:
 		iniPath := filepath.Join(item.Path, "my.ini")
-		if _, err := os.Stat(iniPath); os.IsNotExist(err) {
+		missing, err := checkMissing(iniPath)
+		if err != nil {
+			return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "检查 my.ini 失败")
+		}
+		if missing {
 			dataFolder := filepath.ToSlash(paths.DatabaseData(s.base, item.Kind, item.Version))
 			baseFolder := filepath.ToSlash(item.Path)
-			content := fmt.Sprintf("[mysqld]\r\nport=%d\r\nbind-address=127.0.0.1\r\nbasedir=\"%s\"\r\ndatadir=\"%s\"\r\ncharacter-set-server=utf8mb4\r\nmax_connections=200\r\ninnodb_buffer_pool_size=128M\r\n",
-				item.Port, baseFolder, dataFolder,
+			content := fmt.Sprintf("[mysqld]\r\nport=%d\r\nbind-address=%s\r\nbasedir=\"%s\"\r\ndatadir=\"%s\"\r\ncharacter-set-server=utf8mb4\r\nmax_connections=200\r\ninnodb_buffer_pool_size=128M\r\n",
+				item.Port, paths.LOOPBACK, baseFolder, dataFolder,
 			)
 			if err := os.WriteFile(iniPath, []byte(content), 0o644); err != nil {
 				return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "生成 my.ini 失败")
@@ -1420,7 +1436,11 @@ func (s *SoftwareService) prepareConfig(item software.Software) (string, error) 
 		return iniPath, nil
 	case software.KIND_POSTGRESQL:
 		confPath := filepath.Join(item.Path, "postgresql.conf")
-		if _, err := os.Stat(confPath); os.IsNotExist(err) {
+		missing, err := checkMissing(confPath)
+		if err != nil {
+			return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "检查 postgresql.conf 失败")
+		}
+		if missing {
 			content := "max_connections = 100\r\nshared_buffers = 128MB\r\nwork_mem = 4MB\r\n"
 			if err := os.WriteFile(confPath, []byte(content), 0o644); err != nil {
 				return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "生成 postgresql.conf 失败")
@@ -1429,8 +1449,12 @@ func (s *SoftwareService) prepareConfig(item software.Software) (string, error) 
 		return confPath, nil
 	case software.KIND_MONGODB:
 		confPath := filepath.Join(item.Path, "mongod.conf")
-		if _, err := os.Stat(confPath); os.IsNotExist(err) {
-			content := "bind_ip = 127.0.0.1\r\nmaxConns = 1000\r\nwiredTigerCacheSizeGB = 1\r\n"
+		missing, err := checkMissing(confPath)
+		if err != nil {
+			return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "检查 mongod.conf 失败")
+		}
+		if missing {
+			content := fmt.Sprintf("bind_ip = %s\r\nmaxConns = 1000\r\nwiredTigerCacheSizeGB = 1\r\n", paths.LOOPBACK)
 			if err := os.WriteFile(confPath, []byte(content), 0o644); err != nil {
 				return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "生成 mongod.conf 失败")
 			}
@@ -1445,7 +1469,11 @@ func (s *SoftwareService) prepareConfig(item software.Software) (string, error) 
 		return s.prepareRedis(item, folder)
 	case software.KIND_MEMCACHED:
 		confPath := filepath.Join(item.Path, "memcached.conf")
-		if _, err := os.Stat(confPath); os.IsNotExist(err) {
+		missing, err := checkMissing(confPath)
+		if err != nil {
+			return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "检查 memcached.conf 失败")
+		}
+		if missing {
 			content := "memory = 64\r\nmax_connections = 1024\r\nthreads = 4\r\n"
 			if err := os.WriteFile(confPath, []byte(content), 0o644); err != nil {
 				return "", appErrors.Wrap(err, appErrors.PATH_NOT_ACCESSIBLE, "生成 memcached.conf 失败")
@@ -1455,6 +1483,20 @@ func (s *SoftwareService) prepareConfig(item software.Software) (string, error) 
 	default:
 		return "", nil
 	}
+}
+
+func checkMissing(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if info.IsDir() {
+		return false, fmt.Errorf("配置文件路径指向目录: %s", path)
+	}
+	return false, nil
 }
 
 func daemonKey(id int64) string {
@@ -1488,7 +1530,7 @@ func configSchema(kind string) []software.ConfigItem {
 		return []software.ConfigItem{
 			{Key: "maxConns", Label: "最大连接数", Description: "允许同时连接的客户端总数，如 1000"},
 			{Key: "wiredTigerCacheSizeGB", Label: "缓存大小 (GB)", Description: "WiredTiger 存储引擎缓存大小，如 1"},
-			{Key: "bind_ip", Label: "绑定地址", Description: "监听网卡地址，默认 127.0.0.1"},
+			{Key: "bind_ip", Label: "绑定地址", Description: "监听网卡地址，默认 " + paths.LOOPBACK},
 		}
 	case software.KIND_REDIS:
 		return []software.ConfigItem{
@@ -1503,7 +1545,7 @@ func configSchema(kind string) []software.ConfigItem {
 			{Key: "threads", Label: "工作线程数", Description: "处理请求的工作线程数量，如 4"},
 		}
 	default:
-		return nil
+		return make([]software.ConfigItem, 0)
 	}
 }
 

@@ -18,7 +18,12 @@ const (
 	CACHE_FOLDER    = "cache"
 	LOG_FOLDER      = "logs"
 	SITE_LOG_FOLDER = "sites"
+	NGINX_FOLDER    = "nginx"
+	VHOST_FOLDER    = "vhosts"
+	TEMP_FOLDER     = "temp"
 	DB_FILE         = "devenv.db"
+	NGINX_CONFIG    = "nginx.conf"
+	NGINX_PID       = "nginx.pid"
 	LOOPBACK        = "127.0.0.1"
 )
 
@@ -56,6 +61,34 @@ func SiteLog(base, name, file string) string {
 
 func SoftwareLog(base, kind, version string) string {
 	return filepath.Join(base, LOG_FOLDER, SOFTWARE_FOLDER, fmt.Sprintf("%s-%s.log", kind, version))
+}
+
+func Nginx(base string) string {
+	return filepath.Join(base, DATA_FOLDER, NGINX_FOLDER)
+}
+
+func NginxHosts(base string) string {
+	return filepath.Join(Nginx(base), VHOST_FOLDER)
+}
+
+func NginxTemp(base, name string) string {
+	return filepath.Join(Nginx(base), TEMP_FOLDER, name)
+}
+
+func NginxLog(base string) string {
+	return filepath.Join(Nginx(base), LOG_FOLDER)
+}
+
+func NginxConfig(base string) string {
+	return filepath.Join(Nginx(base), NGINX_CONFIG)
+}
+
+func NginxPID(base string) string {
+	return filepath.Join(Nginx(base), NGINX_PID)
+}
+
+func GatewayLog(base, name string) string {
+	return filepath.Join(base, LOG_FOLDER, NGINX_FOLDER, name)
 }
 
 func Hosts() string {

@@ -239,28 +239,28 @@ func TestPortableDeveloperCatalogs(t *testing.T) {
 		writer.Header().Set("Content-Type", "application/json")
 		switch {
 		case strings.HasPrefix(request.URL.Path, "/java/"):
-			_, _ = writer.Write([]byte(`[{"release_name":"jdk-25.0.1+8","binaries":[{"package":{"link":"https://example.com/jdk.zip","checksum":"aabb"}}]}]`))
+			writeResponse(t, writer, `[{"release_name":"jdk-25.0.1+8","binaries":[{"package":{"link":"https://example.com/jdk.zip","checksum":"aabb"}}]}]`)
 		case request.URL.Path == "/dotnet-index":
-			_, _ = writer.Write([]byte(`{"releases-index":[{"channel-version":"10.0","latest-sdk":"10.0.100","support-phase":"active","release-type":"lts","releases.json":"` + "http://" + request.Host + `/dotnet-releases"}]}`))
+			writeResponse(t, writer, `{"releases-index":[{"channel-version":"10.0","latest-sdk":"10.0.100","support-phase":"active","release-type":"lts","releases.json":"`+"http://"+request.Host+`/dotnet-releases"}]}`)
 		case request.URL.Path == "/dotnet-releases":
-			_, _ = writer.Write([]byte(`{"releases":[{"sdk":{"version":"10.0.100","files":[{"name":"dotnet-sdk-10.0.100-win-x64.zip","rid":"win-x64","url":"https://example.com/dotnet.zip","hash":"ccdd"}]}}]}`))
+			writeResponse(t, writer, `{"releases":[{"sdk":{"version":"10.0.100","files":[{"name":"dotnet-sdk-10.0.100-win-x64.zip","rid":"win-x64","url":"https://example.com/dotnet.zip","hash":"ccdd"}]}}]}`)
 		case request.URL.Path == "/deno":
-			_, _ = writer.Write([]byte(`[{"tag_name":"v2.5.0","assets":[{"name":"deno-x86_64-pc-windows-msvc.zip","browser_download_url":"https://example.com/deno.zip","digest":"sha256:1122"}]}]`))
+			writeResponse(t, writer, `[{"tag_name":"v2.5.0","assets":[{"name":"deno-x86_64-pc-windows-msvc.zip","browser_download_url":"https://example.com/deno.zip","digest":"sha256:1122"}]}]`)
 		case request.URL.Path == "/bun":
-			_, _ = writer.Write([]byte(`[{"tag_name":"bun-v1.3.0","assets":[{"name":"bun-windows-x64.zip","browser_download_url":"https://example.com/bun.zip"}]}]`))
+			writeResponse(t, writer, `[{"tag_name":"bun-v1.3.0","assets":[{"name":"bun-windows-x64.zip","browser_download_url":"https://example.com/bun.zip"}]}]`)
 		case request.URL.Path == "/caddy":
-			_, _ = writer.Write([]byte(`[{"tag_name":"v2.10.0","assets":[{"name":"caddy_2.10.0_windows_amd64.zip","browser_download_url":"https://example.com/caddy.zip"}]}]`))
+			writeResponse(t, writer, `[{"tag_name":"v2.10.0","assets":[{"name":"caddy_2.10.0_windows_amd64.zip","browser_download_url":"https://example.com/caddy.zip"}]}]`)
 		case request.URL.Path == "/nginx":
 			writer.Header().Set("Content-Type", "text/html")
-			_, _ = writer.Write([]byte(`<a href="/download/nginx-1.29.0.zip">nginx-1.29.0.zip</a><a href="/download/nginx-1.28.0.zip">nginx-1.28.0.zip</a>`))
+			writeResponse(t, writer, `<a href="/download/nginx-1.29.0.zip">nginx-1.29.0.zip</a><a href="/download/nginx-1.28.0.zip">nginx-1.28.0.zip</a>`)
 		case request.URL.Path == "/sqlite":
 			writer.Header().Set("Content-Type", "text/html")
-			_, _ = writer.Write([]byte(`PRODUCT,3.51.0,2026/sqlite-tools-win-x64-3510000.zip,123`))
+			writeResponse(t, writer, `PRODUCT,3.51.0,2026/sqlite-tools-win-x64-3510000.zip,123`)
 		case request.URL.Path == "/gradle":
-			_, _ = writer.Write([]byte(`[{"version":"9.1.0","downloadUrl":"https://example.com/gradle-9.1.0-bin.zip"}]`))
+			writeResponse(t, writer, `[{"version":"9.1.0","downloadUrl":"https://example.com/gradle-9.1.0-bin.zip"}]`)
 		case request.URL.Path == "/maven":
 			writer.Header().Set("Content-Type", "application/xml")
-			_, _ = writer.Write([]byte(`<metadata><versioning><versions><version>3.9.10</version><version>3.9.11</version></versions></versioning></metadata>`))
+			writeResponse(t, writer, `<metadata><versioning><versions><version>3.9.10</version><version>3.9.11</version></versions></versioning></metadata>`)
 		default:
 			writer.WriteHeader(http.StatusNotFound)
 		}
@@ -284,6 +284,13 @@ func TestPortableDeveloperCatalogs(t *testing.T) {
 		if err != nil || len(list) == 0 || !hasRecommendedVersion(list) {
 			t.Fatalf("expected recommended version for %s, got list=%v err=%v", kind, list, err)
 		}
+	}
+}
+
+func writeResponse(t *testing.T, writer http.ResponseWriter, body string) {
+	t.Helper()
+	if _, err := writer.Write([]byte(body)); err != nil {
+		t.Errorf("write catalog response: %v", err)
 	}
 }
 

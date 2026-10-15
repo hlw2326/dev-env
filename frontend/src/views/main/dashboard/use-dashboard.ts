@@ -67,7 +67,11 @@ export function useDashboard() {
 	async function startService(id: number): Promise<void> {
 		busyId.value = id
 		try {
-			await startSoftware(id)
+			const result = await startSoftware(id)
+			if (!result.ok) {
+				toast.error('启动失败', result.message)
+				return
+			}
 			toast.success('服务已启动')
 			await loadData()
 		} catch (err: unknown) {
@@ -81,7 +85,11 @@ export function useDashboard() {
 	async function stopService(id: number): Promise<void> {
 		busyId.value = id
 		try {
-			await stopSoftware(id)
+			const result = await stopSoftware(id)
+			if (!result.ok) {
+				toast.error('停止失败', result.message)
+				return
+			}
 			toast.info('服务已停止')
 			await loadData()
 		} catch (err: unknown) {

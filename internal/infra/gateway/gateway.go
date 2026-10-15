@@ -113,7 +113,7 @@ func (s *Server) Port() int {
 	return s.port
 }
 
-func (s *Server) SetRoutes(routes []ports.Route) {
+func (s *Server) SetRoutes(routes []ports.Route) error {
 	copied := make([]ports.Route, len(routes))
 	for i, item := range routes {
 		hosts := make([]string, len(item.Hosts))
@@ -124,6 +124,7 @@ func (s *Server) SetRoutes(routes []ports.Route) {
 	s.mu.Lock()
 	s.routes = copied
 	s.mu.Unlock()
+	return nil
 }
 
 func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {

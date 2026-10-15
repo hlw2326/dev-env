@@ -45,6 +45,7 @@ export type Settings = wails.SettingsDTO
 // 保存系统设置入参
 export type SettingsInput = wails.SettingsInput
 
+
 // 安装进度事件载荷
 export interface ProgressEvent {
 	// 软件类型

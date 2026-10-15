@@ -20,6 +20,12 @@ const routes: RouteRecordRaw[] = [
 				meta: { title: '网站管理' },
 			},
 			{
+				path: 'services',
+				name: '运行中的服务',
+				component: () => import('@/views/main/services/index.vue'),
+				meta: { title: '运行中的服务' },
+			},
+			{
 				path: 'software',
 				name: '软件商店',
 				component: () => import('@/views/main/software/index.vue'),

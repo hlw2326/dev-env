@@ -8,6 +8,8 @@ import (
 	"devenv/internal/domain/software"
 )
 
+const MAX_PORT = 65535
+
 type SoftwareRepository interface {
 	List(ctx context.Context) ([]software.Software, error)
 	ListByKind(ctx context.Context, kind string) ([]software.Software, error)
@@ -50,7 +52,7 @@ type Route struct {
 type Gateway interface {
 	Start(port int) error
 	Stop() error
-	SetRoutes(routes []Route)
+	SetRoutes(routes []Route) error
 	Port() int
 }
 

@@ -5,7 +5,14 @@
 		v-model:visible="visible"
 		:title="`安装 ${item.name}`"
 		width="34rem"
+		:modal="true"
+		:closable="true"
+		:mask-close="false"
 		:footer="false"
+		ok-text="确定"
+		ok-icon="pi pi-check"
+		cancel-text="取消"
+		:loading="false"
 	>
 		<div class="install-modal">
 			<!-- 加载版本清单状态 -->
@@ -52,12 +59,12 @@ const props = defineProps<{
 	versions: SoftwareVersion[]
 	loading: boolean
 	error: string
-	progressMap?: Record<string, { progress: number; message: string }>
-	installedList?: Software[]
+	progressMap: Record<string, { progress: number; message: string }>
+	installedList: Software[]
 }>()
 
 // 弹窗显隐双向绑定
-const visible = defineModel<boolean>('visible', { default: false })
+const visible = defineModel<boolean>('visible', { required: true })
 
 // 定义安装、取消与重试事件
 const emit = defineEmits<{
@@ -72,19 +79,14 @@ const isBusy = computed(() => {
 	if (!current) {
 		return false
 	}
-	if (props.progressMap) {
-		for (const key of Object.keys(props.progressMap)) {
-			if (key.startsWith(`${current.kind}:`)) {
-				return true
-			}
+	for (const key of Object.keys(props.progressMap)) {
+		if (key.startsWith(`${current.kind}:`)) {
+			return true
 		}
 	}
-	if (props.installedList) {
-		return props.installedList.some(
-			(entry) => entry.kind === current.kind && entry.state === 'installing',
-		)
-	}
-	return false
+	return props.installedList.some(
+		(entry) => entry.kind === current.kind && entry.state === 'installing',
+	)
 })
 
 // 查找指定版本的实时安装进度
@@ -94,16 +96,14 @@ function findTask(version: string): { progress: number; message: string } | null
 		return null
 	}
 	const key = `${current.kind}:${version}`
-	if (props.progressMap && props.progressMap[key]) {
+	if (props.progressMap[key]) {
 		return props.progressMap[key]
 	}
-	if (props.installedList) {
-		const found = props.installedList.find(
-			(entry) => entry.kind === current.kind && entry.version === version && entry.state === 'installing',
-		)
-		if (found) {
-			return { progress: found.progress, message: '正在准备下载...' }
-		}
+	const found = props.installedList.find(
+		(entry) => entry.kind === current.kind && entry.version === version && entry.state === 'installing',
+	)
+	if (found) {
+		return { progress: found.progress, message: '正在准备下载...' }
 	}
 	return null
 }

@@ -27,7 +27,7 @@ func TestHostMatch(t *testing.T) {
 	logFile := filepath.Join(t.TempDir(), "access.log")
 
 	gw := New()
-	gw.SetRoutes([]ports.Route{
+	if err := gw.SetRoutes([]ports.Route{
 		{
 			ID:    1,
 			Hosts: []string{"demo.localhost"},
@@ -35,7 +35,9 @@ func TestHostMatch(t *testing.T) {
 			Path:  root,
 			Log:   logFile,
 		},
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(gw)
 	defer server.Close()
 
@@ -102,14 +104,16 @@ func TestBlockedPaths(t *testing.T) {
 	}
 
 	gw := New()
-	gw.SetRoutes([]ports.Route{
+	if err := gw.SetRoutes([]ports.Route{
 		{
 			ID:    1,
 			Hosts: []string{"sec.localhost"},
 			Kind:  site.KIND_STATIC,
 			Path:  root,
 		},
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(gw)
 	defer server.Close()
 
@@ -185,14 +189,16 @@ func TestReverseProxy(t *testing.T) {
 	}
 
 	gw := New()
-	gw.SetRoutes([]ports.Route{
+	if err := gw.SetRoutes([]ports.Route{
 		{
 			ID:    2,
 			Hosts: []string{"node.localhost"},
 			Kind:  site.KIND_NODE,
 			Port:  port,
 		},
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(gw)
 	defer server.Close()
 
@@ -292,7 +298,7 @@ func TestPHPFallback(t *testing.T) {
 	}
 
 	gw := New()
-	gw.SetRoutes([]ports.Route{
+	if err := gw.SetRoutes([]ports.Route{
 		{
 			ID:    3,
 			Hosts: []string{"php.localhost"},
@@ -300,7 +306,9 @@ func TestPHPFallback(t *testing.T) {
 			Path:  root,
 			PHP:   wrapper,
 		},
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(gw)
 	defer server.Close()
 
