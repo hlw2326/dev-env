@@ -185,8 +185,8 @@ func (a *ProjectAPI) RunPlugin(in ProjectPluginActionInput) Result {
 	return Result{OK: true, Message: "插件任务已启动"}
 }
 
-func (a *ProjectAPI) OpenNginxConfig(id int64) Result {
-	if err := a.service.OpenNginxConfig(a.ctx, id); err != nil {
+func (a *ProjectAPI) OpenNginxDirectory(id int64) Result {
+	if err := a.service.OpenNginxDirectory(a.ctx, id); err != nil {
 		return Result{OK: false, Message: err.Error()}
 	}
 	return Result{OK: true, Message: ""}

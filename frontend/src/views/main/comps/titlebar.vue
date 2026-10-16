@@ -7,7 +7,7 @@
 				class="logo"
 				role="img"
 				aria-label="DevEnv"
-				:style="{ display: 'inline-flex', color: 'var(--p-primary-color)' }"
+				:style="{ display: 'inline-flex', color: 'var(--brand-color)' }"
 				v-html="appIcon"
 			></span>
 			<span class="brand">DevEnv</span>

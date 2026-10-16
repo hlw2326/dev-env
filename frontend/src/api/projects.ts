@@ -42,8 +42,8 @@ export const listProjectPlugins = ProjectAPI.Plugins
 // 执行项目插件操作
 export const runProjectPlugin = ProjectAPI.RunPlugin
 
-// 打开项目生成的 Nginx 配置文件
-export const openProjectNginxConfig = ProjectAPI.OpenNginxConfig
+// 打开项目生成的 Nginx 配置所在目录
+export const openProjectNginxDirectory = ProjectAPI.OpenNginxDirectory
 
 // 读取项目生成的完整 Nginx 配置
 export const readProjectNginxConfig = ProjectAPI.ReadNginxConfig

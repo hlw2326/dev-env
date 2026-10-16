@@ -62,8 +62,8 @@ export function Logs(arg1, arg2, arg3) {
   return window['go']['wails']['ProjectAPI']['Logs'](arg1, arg2, arg3);
 }
 
-export function OpenNginxConfig(arg1) {
-  return window['go']['wails']['ProjectAPI']['OpenNginxConfig'](arg1);
+export function OpenNginxDirectory(arg1) {
+  return window['go']['wails']['ProjectAPI']['OpenNginxDirectory'](arg1);
 }
 
 export function Plugins(arg1) {

@@ -33,7 +33,7 @@ export function List():Promise<Array<wails.ProjectDTO>>;
 
 export function Logs(arg1:number,arg2:string,arg3:number):Promise<Array<string>>;
 
-export function OpenNginxConfig(arg1:number):Promise<wails.Result>;
+export function OpenNginxDirectory(arg1:number):Promise<wails.Result>;
 
 export function Plugins(arg1:number):Promise<Array<wails.ProjectPluginDTO>>;
 

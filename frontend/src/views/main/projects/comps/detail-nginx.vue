@@ -8,9 +8,9 @@
 			<p-button
 				severity="secondary"
 				variant="outlined"
-				icon="pi pi-file-edit"
-				label="打开项目配置文件"
-				@click="openConfig"
+				icon="pi pi-folder-open"
+				label="打开配置目录"
+				@click="openConfigDirectory"
 			/>
 		</div>
 		<div v-if="project.kind === 'php'" class="environment-field">
@@ -55,7 +55,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { openProjectNginxConfig } from '@/api'
+import { openProjectNginxDirectory } from '@/api'
 import { formatError, toast } from '@/utils'
 import type { Project, ProjectUpdateInput } from '@/types'
 import CompNginxPreview from './nginx-preview.vue'
@@ -155,12 +155,12 @@ function syncScroll(): void {
 	}
 }
 
-async function openConfig(): Promise<void> {
+async function openConfigDirectory(): Promise<void> {
 	try {
-		const result = await openProjectNginxConfig(props.project.id)
-		if (!result.ok) toast.error('打开项目配置失败', result.message)
+		const result = await openProjectNginxDirectory(props.project.id)
+		if (!result.ok) toast.error('打开配置目录失败', result.message)
 	} catch (err: unknown) {
-		toast.error('打开项目配置失败', formatError(err))
+		toast.error('打开配置目录失败', formatError(err))
 	}
 }
 

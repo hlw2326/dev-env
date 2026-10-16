@@ -1,4 +1,5 @@
 :root {
+    --brand-color: var(--p-primary-color);
     --bg-app: #f8fafc;
     --bg-card: #ffffff;
     --bg-sidebar: #ffffff;
@@ -90,6 +91,7 @@
 }
 
 html.dark {
+    --brand-color: var(--on-primary);
     --bg-app: #090d16;
     --bg-card: #131b2e;
     --bg-sidebar: #0f172a;

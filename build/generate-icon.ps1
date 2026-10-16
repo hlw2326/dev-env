@@ -4,10 +4,6 @@ Add-Type -AssemblyName System.Drawing
 
 $source = [System.Drawing.Image]::FromFile((Join-Path $PSScriptRoot 'logo.png'))
 try {
-    if ($source.Width -ne $source.Height) {
-        throw 'Logo source must be square to preserve its aspect ratio.'
-    }
-
     $sizes = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
     $images = [System.Collections.Generic.List[byte[]]]::new()
     foreach ($size in $sizes) {
@@ -17,7 +13,12 @@ try {
         try {
             $canvas.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
             $canvas.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-            $canvas.DrawImage($source, 0, 0, $size, $size)
+            $canvas.Clear([System.Drawing.Color]::Transparent)
+            $scale = $size / [double][Math]::Max($source.Width, $source.Height)
+            $width = [single]($source.Width * $scale)
+            $height = [single]($source.Height * $scale)
+            $bounds = [System.Drawing.RectangleF]::new(($size - $width) / 2, ($size - $height) / 2, $width, $height)
+            $canvas.DrawImage($source, $bounds)
             $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
             $images.Add($stream.ToArray())
         } finally {

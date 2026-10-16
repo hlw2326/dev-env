@@ -676,7 +676,7 @@ func (s *ProjectService) Logs(ctx context.Context, id int64, kind string, limit 
 	return process.ReadTail(logFile, limit), nil
 }
 
-func (s *ProjectService) OpenNginxConfig(ctx context.Context, id int64) error {
+func (s *ProjectService) OpenNginxDirectory(ctx context.Context, id int64) error {
 	item, err := s.projects.Get(ctx, id)
 	if err != nil {
 		return err
@@ -691,7 +691,7 @@ func (s *ProjectService) OpenNginxConfig(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	return exec.Command("explorer.exe", configPath).Start()
+	return exec.Command("explorer.exe", filepath.Dir(configPath)).Start()
 }
 
 func (s *ProjectService) ReadNginxConfig(ctx context.Context, id int64) (string, error) {
