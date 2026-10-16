@@ -2,33 +2,10 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
-$source = [System.Drawing.Bitmap]::new(1024, 1024)
-$graphics = [System.Drawing.Graphics]::FromImage($source)
+$source = [System.Drawing.Image]::FromFile((Join-Path $PSScriptRoot 'logo.png'))
 try {
-    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $graphics.Clear([System.Drawing.Color]::Transparent)
-    $background = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#334155'))
-    $pen = [System.Drawing.Pen]::new([System.Drawing.Color]::White, 44)
-    $pen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
-    $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    try {
-        $graphics.FillEllipse($background, 16, 16, 992, 992)
-        $outline = [System.Drawing.PointF[]]@(
-            [System.Drawing.PointF]::new(512, 220),
-            [System.Drawing.PointF]::new(770, 365),
-            [System.Drawing.PointF]::new(770, 660),
-            [System.Drawing.PointF]::new(512, 805),
-            [System.Drawing.PointF]::new(254, 660),
-            [System.Drawing.PointF]::new(254, 365)
-        )
-        $graphics.DrawPolygon($pen, $outline)
-        $graphics.DrawLine($pen, 254, 365, 512, 510)
-        $graphics.DrawLine($pen, 770, 365, 512, 510)
-        $graphics.DrawLine($pen, 512, 510, 512, 805)
-    } finally {
-        $pen.Dispose()
-        $background.Dispose()
+    if ($source.Width -ne $source.Height) {
+        throw 'Logo source must be square to preserve its aspect ratio.'
     }
 
     $sizes = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
@@ -77,6 +54,5 @@ try {
         $icon.Dispose()
     }
 } finally {
-    $graphics.Dispose()
     $source.Dispose()
 }

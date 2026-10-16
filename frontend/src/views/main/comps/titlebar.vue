@@ -3,7 +3,13 @@
 	<header class="titlebar">
 		<!-- 左侧品牌与当前路由名称 -->
 		<div class="left">
-			<img class="logo" :src="appIcon" alt="DevEnv" />
+			<span
+				class="logo"
+				role="img"
+				aria-label="DevEnv"
+				:style="{ display: 'inline-flex', color: 'var(--p-primary-color)' }"
+				v-html="appIcon"
+			></span>
 			<span class="brand">DevEnv</span>
 			<span class="separator">/</span>
 			<span class="page font-mono">{{ routeName }}</span>
@@ -38,7 +44,7 @@ import { toggleWin, loadSettings, saveSettings } from '@/api'
 import { useTheme } from '@/composables/theme'
 import { toast, formatError } from '@/utils'
 import CompWindow from './window.vue'
-import appIcon from '../../../../../build/appicon.png'
+import appIcon from '@/assets/dev.svg?raw'
 import type { ThemeMode } from '@/composables/theme'
 
 // 当前路由对象
