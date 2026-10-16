@@ -18,6 +18,35 @@ import (
 	"devenv/internal/shared/paths"
 )
 
+func TestPersistentServiceAccessIsNonRecursive(t *testing.T) {
+	directory := t.TempDir()
+	arguments := persistentServiceAccessArguments(serviceAccess{path: directory, permission: "RX"})
+	for _, argument := range arguments {
+		if argument == "/T" {
+			t.Fatal("persistent service access must not recursively traverse project directories")
+		}
+	}
+	want := "*S-1-5-19:(OI)(CI)RX"
+	if len(arguments) != 3 || arguments[2] != want {
+		t.Fatalf("expected inheritable directory permission %q, got %v", want, arguments)
+	}
+}
+
+func TestPersistentServiceAccessState(t *testing.T) {
+	base := t.TempDir()
+	state := map[string]string{`d:\projects\demo|false`: "RX"}
+	if err := savePersistentServiceAccess(base, state); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadPersistentServiceAccess(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded[`d:\projects\demo|false`] != "RX" {
+		t.Fatalf("unexpected access state: %v", loaded)
+	}
+}
+
 // Explicit opt-in: this test restarts the real locally installed gateway.
 func TestInstalledNginxServiceRestart(t *testing.T) {
 	if os.Getenv("DEVENV_TEST_NGINX_RESTART") != "1" {

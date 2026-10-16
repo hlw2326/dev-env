@@ -13,6 +13,7 @@ type persistentService struct {
 type serviceAccess struct {
 	path       string
 	permission string
+	direct     bool
 }
 
 func configurePersistentService(string, persistentService) error { return nil }

@@ -3,11 +3,14 @@
 package gateway
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"devenv/internal/infra/windowsservice"
@@ -16,6 +19,8 @@ import (
 )
 
 const gatewayServiceAccount = `NT AUTHORITY\LocalService`
+
+var serviceAccessMutex sync.Mutex
 
 type persistentService struct {
 	name       string
@@ -73,7 +78,7 @@ func configurePersistentService(base string, service persistentService) error {
 		if strings.TrimSpace(access.path) == "" {
 			continue
 		}
-		if err := grantPersistentServiceAccess(access); err != nil {
+		if err := ensurePersistentServiceAccess(base, access); err != nil {
 			return err
 		}
 	}
@@ -116,15 +121,99 @@ func grantPersistentServiceAccess(access serviceAccess) error {
 	if access.direct {
 		return windowsservice.GrantDirectoryRead(access.path)
 	}
-	permission := "*S-1-5-19:" + access.permission
-	arguments := []string{access.path, "/grant", permission}
-	if info, err := os.Stat(access.path); err == nil && info.IsDir() && !access.direct {
-		arguments[2] = "*S-1-5-19:(OI)(CI)" + access.permission
-		arguments = append(arguments, "/T", "/C")
-	}
+	arguments := persistentServiceAccessArguments(access)
 	output, err := runPersistentServiceCommand("icacls", arguments...)
 	if err != nil {
 		return fmt.Errorf("grant service access to %s: %w: %s", access.path, err, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func persistentServiceAccessArguments(access serviceAccess) []string {
+	permission := "*S-1-5-19:" + access.permission
+	arguments := []string{access.path, "/grant", permission}
+	if info, err := os.Stat(access.path); err == nil && info.IsDir() {
+		arguments[2] = "*S-1-5-19:(OI)(CI)" + access.permission
+	}
+	return arguments
+}
+
+func ensurePersistentServiceAccess(base string, access serviceAccess) error {
+	serviceAccessMutex.Lock()
+	defer serviceAccessMutex.Unlock()
+
+	state, err := loadPersistentServiceAccess(base)
+	if err != nil {
+		return err
+	}
+	key, err := persistentServiceAccessKey(access)
+	if err != nil {
+		return err
+	}
+	if servicePermissionRank(state[key]) >= servicePermissionRank(access.permission) {
+		return nil
+	}
+	if err := grantPersistentServiceAccess(access); err != nil {
+		return err
+	}
+	state[key] = access.permission
+	return savePersistentServiceAccess(base, state)
+}
+
+func persistentServiceAccessKey(access serviceAccess) (string, error) {
+	absolute, err := filepath.Abs(strings.TrimSpace(access.path))
+	if err != nil {
+		return "", err
+	}
+	return strings.ToLower(filepath.Clean(absolute)) + "|" + strconv.FormatBool(access.direct), nil
+}
+
+func servicePermissionRank(permission string) int {
+	switch strings.ToUpper(strings.TrimSpace(permission)) {
+	case "M":
+		return 2
+	case "RX":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func loadPersistentServiceAccess(base string) (map[string]string, error) {
+	state := make(map[string]string)
+	content, err := os.ReadFile(paths.ServiceAccess(base))
+	if os.IsNotExist(err) {
+		return state, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(content, &state); err != nil {
+		return nil, fmt.Errorf("decode persistent service access state: %w", err)
+	}
+	return state, nil
+}
+
+func savePersistentServiceAccess(base string, state map[string]string) error {
+	path := paths.ServiceAccess(base)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	content, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	temporaryPath := path + ".tmp"
+	if err := os.WriteFile(temporaryPath, content, 0o600); err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		_ = os.Remove(temporaryPath)
+		return err
+	}
+	if err := os.Rename(temporaryPath, path); err != nil {
+		_ = os.Remove(temporaryPath)
+		return err
 	}
 	return nil
 }

@@ -53,7 +53,15 @@
 		</div>
 		<div class="actions">
 			<p-button
-				v-if="project.state === 'running'"
+				v-if="project.state === 'starting'"
+				size="small"
+				severity="secondary"
+				label="启动中"
+				:loading="true"
+				disabled
+			/>
+			<p-button
+				v-else-if="project.state === 'running'"
 				size="small"
 				severity="danger"
 				variant="outlined"
@@ -100,6 +108,7 @@
 				variant="outlined"
 				icon="pi pi-trash"
 				label="删除"
+				:disabled="project.state === 'starting'"
 				@click="confirmDelete($event)"
 			/>
 		</div>
@@ -157,6 +166,9 @@ const canOpen = computed(() => {
 	return currentTemplate.value !== null && currentTemplate.value.capabilities.includes('domain')
 })
 const stateLabel = computed(() => {
+	if (props.project.state === 'starting') {
+		return '启动中'
+	}
 	if (props.project.state === 'running') {
 		return '运行中'
 	}
@@ -166,6 +178,9 @@ const stateLabel = computed(() => {
 	return '已停止'
 })
 const stateColor = computed(() => {
+	if (props.project.state === 'starting') {
+		return 'info'
+	}
 	if (props.project.state === 'running') {
 		return 'success'
 	}

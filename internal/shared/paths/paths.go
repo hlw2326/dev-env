@@ -26,6 +26,7 @@ const (
 	SERVICE_FOLDER      = "services"
 	SERVICE_HOST_FOLDER = "service-host"
 	SERVICE_HOST_FILE   = "devenv-service.exe"
+	SERVICE_ACCESS_FILE = "access.json"
 	DB_FILE             = "devenv.db"
 	NGINX_CONFIG        = "nginx.conf"
 	NGINX_FASTCGI_FILE  = "fastcgi_params.conf"
@@ -75,6 +76,10 @@ func SoftwareLog(base, kind, version string) string {
 
 func ServiceConfig(base, serviceName string) string {
 	return filepath.Join(base, DATA_FOLDER, SERVICE_FOLDER, serviceName+".json")
+}
+
+func ServiceAccess(base string) string {
+	return filepath.Join(base, DATA_FOLDER, SERVICE_FOLDER, SERVICE_ACCESS_FILE)
 }
 
 func ServiceHost(base string) string {

@@ -66,7 +66,7 @@ ManifestDPIAware true
 
 !insertmacro MUI_UNPAGE_INSTFILES # Uinstalling page
 
-!insertmacro MUI_LANGUAGE "English" # Set the Language of the installer
+!insertmacro MUI_LANGUAGE "SimpChinese"
 
 ## The following two statements can be used to sign the installer and the uninstaller. The path to the binaries are provided in %1
 #!uninstfinalize 'signtool --file "%1"'
@@ -74,7 +74,7 @@ ManifestDPIAware true
 
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
-InstallDir "C:\Program Files\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
+InstallDir "C:\devenv"
 ShowInstDetails show # This will always show the installation details.
 
 Var CleanupOptions
@@ -89,7 +89,7 @@ Function .onInit
        # DRIVE_FIXED = 3; do not default to an optical, removable or missing drive.
        System::Call 'kernel32::GetDriveTypeW(w "D:\") i.r0'
        ${If} $0 == 3
-           StrCpy $INSTDIR "D:\Program Files\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
+           StrCpy $INSTDIR "D:\devenv"
        ${EndIf}
    ${EndIf}
 FunctionEnd

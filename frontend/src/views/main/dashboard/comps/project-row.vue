@@ -14,7 +14,14 @@
 
 		<!-- 右侧状态标签 -->
 		<h-tag
-			v-if="project.state === 'running'"
+			v-if="project.state === 'starting'"
+			color="info"
+			value="启动中"
+			dot
+			radius="full"
+		/>
+		<h-tag
+			v-else-if="project.state === 'running'"
 			color="success"
 			value="运行中"
 			dot

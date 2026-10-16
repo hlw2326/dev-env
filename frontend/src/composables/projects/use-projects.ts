@@ -173,9 +173,10 @@ export function useProjects() {
 		if (creating.value) return false
 		creating.value = true
 		try {
-			await createProject(input)
+			const created = await createProject(input)
+			const current = projects.value.find((item) => item.id === created.id)
+			projects.value = [current ?? created, ...projects.value.filter((item) => item.id !== created.id)]
 			toast.success('创建成功', `项目 ${input.name} 已创建`)
-			await refreshAll()
 			return true
 		} catch (err: unknown) {
 			toast.error('创建失败', formatError(err), 3500)
@@ -353,7 +354,7 @@ export function useProjects() {
 		stops.push(
 			listenEvent('project:status-changed', (payload: ProjectEvent) => {
 				if (payload.id > 0) {
-					refreshAll()
+					void refreshAll(true)
 				}
 			}),
 		)

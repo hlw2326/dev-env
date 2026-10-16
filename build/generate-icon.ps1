@@ -2,7 +2,12 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
-$source = [System.Drawing.Image]::FromFile((Join-Path $PSScriptRoot 'logo.png'))
+$root = Split-Path $PSScriptRoot -Parent
+$sourcePath = Join-Path $root 'doc\logo.png'
+$buildLogoPath = Join-Path $PSScriptRoot 'logo.png'
+[System.IO.File]::Copy($sourcePath, $buildLogoPath, $true)
+
+$source = [System.Drawing.Image]::FromFile($sourcePath)
 try {
     $sizes = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
     $images = [System.Collections.Generic.List[byte[]]]::new()
@@ -49,7 +54,9 @@ try {
         }
         foreach ($bytes in $images) { $writer.Write([byte[]]$bytes) }
         $writer.Flush()
-        [System.IO.File]::WriteAllBytes((Join-Path $PSScriptRoot 'windows/icon.ico'), $icon.ToArray())
+        $iconBytes = $icon.ToArray()
+        [System.IO.File]::WriteAllBytes((Join-Path $PSScriptRoot 'windows/icon.ico'), $iconBytes)
+        [System.IO.File]::WriteAllBytes((Join-Path $root 'doc/logo.ico'), $iconBytes)
     } finally {
         $writer.Dispose()
         $icon.Dispose()

@@ -58,9 +58,10 @@ type ProjectService struct {
 	git      ports.GitManager
 	metrics  *inframonitor.Collector
 
-	mu     sync.RWMutex
-	active map[int64]bool
-	failed map[int64]string
+	mu       sync.RWMutex
+	active   map[int64]bool
+	starting map[int64]bool
+	failed   map[int64]string
 }
 
 func NewProjectService(
@@ -89,6 +90,7 @@ func NewProjectService(
 		git:      gitManager,
 		metrics:  metrics,
 		active:   make(map[int64]bool),
+		starting: make(map[int64]bool),
 		failed:   make(map[int64]string),
 	}
 }
@@ -99,20 +101,32 @@ func (s *ProjectService) StartAuto(ctx context.Context) {
 		log.Printf("读取自动启动项目失败: %v", err)
 		return
 	}
+	routesPending := false
+	started := make([]project.Project, 0)
 	for _, item := range list {
 		if project.IsLocal(item.Kind) {
 			continue
 		}
 		if item.Autostart {
-			if err := s.Start(ctx, item.ID); err != nil {
+			if !s.beginStart(item.ID) {
+				continue
+			}
+			if err := s.runStart(ctx, item.ID, false); err != nil {
 				log.Printf("自动启动项目 %s 失败: %v", item.Name, err)
 				continue
 			}
+			started = append(started, item)
+			routesPending = routesPending || project.UsesNginx(item.Kind)
 		}
 	}
-	if err := s.syncRoutes(ctx); err != nil {
-		log.Printf("刷新自动启动项目路由失败: %v", err)
+	var routeError error
+	if routesPending {
+		routeError = s.activateRoutes(ctx)
+		if routeError != nil {
+			log.Printf("刷新自动启动项目路由失败: %v", routeError)
+		}
 	}
+	s.finishBatchStarts(started, routeError)
 	if err := s.syncHosts(ctx); err != nil {
 		log.Printf("同步自动启动项目域名失败: %v", err)
 		return
@@ -124,6 +138,8 @@ func (s *ProjectService) BindInstalled(ctx context.Context, installed software.S
 	if len(projectKinds) == 0 {
 		return
 	}
+	routesPending := false
+	started := make([]project.Project, 0)
 	for _, projectKind := range projectKinds {
 		missing, err := s.projects.ListMissingSoftware(ctx, projectKind)
 		if err != nil {
@@ -138,14 +154,25 @@ func (s *ProjectService) BindInstalled(ctx context.Context, installed software.S
 			if project.IsLocal(item.Kind) {
 				continue
 			}
-			if err := s.Start(ctx, item.ID); err != nil {
-				log.Printf("启动新绑定环境的项目 %s 失败: %v", item.Name, err)
+			if !s.beginStart(item.ID) {
+				continue
 			}
+			if err := s.runStart(ctx, item.ID, false); err != nil {
+				log.Printf("启动新绑定环境的项目 %s 失败: %v", item.Name, err)
+				continue
+			}
+			started = append(started, item)
+			routesPending = routesPending || project.UsesNginx(item.Kind)
 		}
 	}
-	if err := s.syncRoutes(ctx); err != nil {
-		log.Printf("刷新新绑定环境的项目路由失败: %v", err)
+	var routeError error
+	if routesPending {
+		routeError = s.activateRoutes(ctx)
+		if routeError != nil {
+			log.Printf("刷新新绑定环境的项目路由失败: %v", routeError)
+		}
 	}
+	s.finishBatchStarts(started, routeError)
 }
 
 func (s *ProjectService) List(ctx context.Context) ([]ProjectView, error) {
@@ -213,7 +240,7 @@ func (s *ProjectService) Templates() []project.ProjectTemplate {
 	return project.ProjectTemplates()
 }
 
-func (s *ProjectService) requireNginx(ctx context.Context) error {
+func (s *ProjectService) requireNginxInstalled(ctx context.Context) error {
 	installed, err := s.software.GetMain(ctx, software.KIND_NGINX)
 	if err != nil {
 		return err
@@ -229,14 +256,7 @@ func (s *ProjectService) requireNginx(ctx context.Context) error {
 	if info.IsDir() {
 		return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "nginx.exe 路径指向了目录")
 	}
-	if s.nginx.Port() > 0 {
-		return nil
-	}
-	settings, err := s.settings.Load(ctx)
-	if err != nil {
-		return err
-	}
-	return s.nginx.Start(settings.Port)
+	return nil
 }
 
 func (s *ProjectService) deleteCreated(ctx context.Context, id int64, source error) error {
@@ -300,7 +320,7 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 	}
 
 	if project.UsesNginx(kind) {
-		if err := s.requireNginx(ctx); err != nil {
+		if err := s.requireNginxInstalled(ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -392,12 +412,20 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 		ready = runtimeKind != "" && softwareID != nil && command != ""
 	}
 	if ready {
-		if err := s.Start(ctx, created.ID); err != nil {
-			return nil, s.deleteCreated(ctx, created.ID, err)
-		}
+		s.beginStart(created.ID)
 	}
-
-	return s.Get(ctx, created.ID)
+	view, err := s.Get(ctx, created.ID)
+	if err != nil {
+		return nil, err
+	}
+	if ready {
+		go func(id int64) {
+			if startErr := s.runStart(context.Background(), id, true); startErr != nil {
+				log.Printf("后台启动新项目 %d 失败: %v", id, startErr)
+			}
+		}(created.ID)
+	}
+	return view, nil
 }
 
 func (s *ProjectService) Update(ctx context.Context, in project.UpdateInput) (*ProjectView, error) {
@@ -529,56 +557,111 @@ func nginxSettingsChanged(previous, current project.Project) bool {
 }
 
 func (s *ProjectService) Start(ctx context.Context, id int64) error {
+	if !s.beginStart(id) {
+		return nil
+	}
+	return s.runStart(ctx, id, true)
+}
+
+func (s *ProjectService) runStart(ctx context.Context, id int64, activate bool) error {
 	current, err := s.projects.Get(ctx, id)
 	if err != nil {
+		s.failStart(id, err)
 		return err
 	}
 	if current == nil {
-		return appErrors.New(appErrors.NOT_FOUND, "项目不存在")
+		err = appErrors.New(appErrors.NOT_FOUND, "项目不存在")
+		s.failStart(id, err)
+		return err
 	}
 
 	switch {
 	case project.IsValidKind(current.Kind) && !project.HasCapability(current.Kind, project.CAPABILITY_RUNTIME) && !project.IsProcess(current.Kind):
-		s.markActive(current.ID)
 	case project.HasCapability(current.Kind, project.CAPABILITY_PHP_RUNTIME):
 		if _, err := s.projectRuntime(ctx, *current); err != nil {
+			s.failStart(id, err)
 			return err
 		}
-		s.markActive(current.ID)
 	case project.IsProcess(current.Kind):
 		runtime, err := s.projectRuntime(ctx, *current)
 		if err != nil {
+			s.failStart(id, err)
 			return err
 		}
 		if strings.TrimSpace(current.Command) == "" {
-			return appErrors.New(appErrors.INVALID_ARGUMENT, "未配置项目启动命令")
+			err = appErrors.New(appErrors.INVALID_ARGUMENT, "未配置项目启动命令")
+			s.failStart(id, err)
+			return err
 		}
 		if err := s.startProcess(*current, runtime); err != nil {
-			s.markFailed(current.ID, err)
+			s.failStart(id, err)
 			return err
 		}
-		s.markActive(current.ID)
 	default:
-		return appErrors.New(appErrors.INVALID_ARGUMENT, "项目类型无效: "+current.Kind)
+		err = appErrors.New(appErrors.INVALID_ARGUMENT, "项目类型无效: "+current.Kind)
+		s.failStart(id, err)
+		return err
 	}
 
-	if project.UsesNginx(current.Kind) {
-		if err := s.syncRoutes(ctx); err != nil {
-			s.markFailed(current.ID, err)
+	if activate && project.UsesNginx(current.Kind) {
+		if err := s.activateRoutes(ctx); err != nil {
 			if project.IsProcess(current.Kind) {
 				if stopError := s.runner.Stop(projectKey(current.ID)); stopError != nil {
-					return errors.Join(err, stopError)
+					err = errors.Join(err, stopError)
 				}
 			}
+			s.failStart(id, err)
 			return err
 		}
 	}
-	s.bus.Emit("project:status-changed", map[string]interface{}{
-		"id":      current.ID,
-		"state":   project.STATE_RUNNING,
-		"message": "",
-	})
+	if activate {
+		s.markActive(current.ID)
+		s.emitProjectState(current.ID, project.STATE_RUNNING, "")
+	}
 	return nil
+}
+
+func (s *ProjectService) finishBatchStarts(items []project.Project, source error) {
+	for _, item := range items {
+		if source != nil {
+			if project.IsProcess(item.Kind) && s.runner != nil {
+				_ = s.runner.Stop(projectKey(item.ID))
+			}
+			s.failStart(item.ID, source)
+			continue
+		}
+		s.markActive(item.ID)
+		s.emitProjectState(item.ID, project.STATE_RUNNING, "")
+	}
+}
+
+func (s *ProjectService) beginStart(id int64) bool {
+	s.mu.Lock()
+	if s.active[id] || s.starting[id] {
+		s.mu.Unlock()
+		return false
+	}
+	s.starting[id] = true
+	delete(s.failed, id)
+	s.mu.Unlock()
+	s.emitProjectState(id, project.STATE_STARTING, "")
+	return true
+}
+
+func (s *ProjectService) failStart(id int64, err error) {
+	s.markFailed(id, err)
+	s.emitProjectState(id, project.STATE_ERROR, err.Error())
+}
+
+func (s *ProjectService) emitProjectState(id int64, state, message string) {
+	if s.bus == nil {
+		return
+	}
+	s.bus.Emit("project:status-changed", map[string]interface{}{
+		"id":      id,
+		"state":   state,
+		"message": message,
+	})
 }
 
 func (s *ProjectService) Stop(ctx context.Context, id int64) error {
@@ -598,17 +681,14 @@ func (s *ProjectService) Stop(ctx context.Context, id int64) error {
 
 	s.mu.Lock()
 	delete(s.active, current.ID)
+	delete(s.starting, current.ID)
 	delete(s.failed, current.ID)
 	s.mu.Unlock()
 
 	if err := s.syncRoutes(ctx); err != nil {
 		return err
 	}
-	s.bus.Emit("project:status-changed", map[string]interface{}{
-		"id":      current.ID,
-		"state":   project.STATE_STOPPED,
-		"message": "",
-	})
+	s.emitProjectState(current.ID, project.STATE_STOPPED, "")
 	return nil
 }
 
@@ -985,6 +1065,7 @@ func (s *ProjectService) startProcess(current project.Project, runtimeItem *soft
 func (s *ProjectService) markActive(id int64) {
 	s.mu.Lock()
 	s.active[id] = true
+	delete(s.starting, id)
 	delete(s.failed, id)
 	s.mu.Unlock()
 }
@@ -992,8 +1073,23 @@ func (s *ProjectService) markActive(id int64) {
 func (s *ProjectService) markFailed(id int64, err error) {
 	s.mu.Lock()
 	delete(s.active, id)
+	delete(s.starting, id)
 	s.failed[id] = err.Error()
 	s.mu.Unlock()
+}
+
+func (s *ProjectService) activateRoutes(ctx context.Context) error {
+	if err := s.syncRoutes(ctx); err != nil {
+		return err
+	}
+	if s.nginx.Port() > 0 {
+		return nil
+	}
+	settings, err := s.settings.Load(ctx)
+	if err != nil {
+		return err
+	}
+	return s.nginx.Start(settings.Port)
 }
 
 func (s *ProjectService) syncRoutes(ctx context.Context) error {
@@ -1011,8 +1107,11 @@ func (s *ProjectService) syncRoutes(ctx context.Context) error {
 	}
 
 	s.mu.RLock()
-	activeCopy := make(map[int64]bool, len(s.active))
+	activeCopy := make(map[int64]bool, len(s.active)+len(s.starting))
 	for key, val := range s.active {
+		activeCopy[key] = val
+	}
+	for key, val := range s.starting {
 		activeCopy[key] = val
 	}
 	s.mu.RUnlock()
@@ -1106,12 +1205,15 @@ func (s *ProjectService) buildView(item project.Project, softwareMap map[int64]s
 
 	s.mu.RLock()
 	active := s.active[item.ID]
+	starting := s.starting[item.ID]
 	_, hasFailed := s.failed[item.ID]
 	s.mu.RUnlock()
 
 	state := project.STATE_STOPPED
 	if hasFailed {
 		state = project.STATE_ERROR
+	} else if starting {
+		state = project.STATE_STARTING
 	} else if active {
 		if project.IsProcess(item.Kind) {
 			status := s.runner.Status(projectKey(item.ID))

@@ -30,9 +30,10 @@ const (
 )
 
 const (
-	STATE_RUNNING = "running"
-	STATE_STOPPED = "stopped"
-	STATE_ERROR   = "error"
+	STATE_STARTING = "starting"
+	STATE_RUNNING  = "running"
+	STATE_STOPPED  = "stopped"
+	STATE_ERROR    = "error"
 )
 
 type Project struct {
