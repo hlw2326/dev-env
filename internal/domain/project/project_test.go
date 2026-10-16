@@ -120,6 +120,21 @@ func TestEnvironmentFilesPreferDevelopmentAndStayInProjectRoot(t *testing.T) {
 	}
 }
 
+func TestResolveEnvironmentFileSkipsMissingOptionalFile(t *testing.T) {
+	folder := t.TempDir()
+
+	resolved, err := ResolveEnvironmentFile(folder, ".env.dev")
+	if err != nil {
+		t.Fatalf("missing optional environment file should not stop startup: %v", err)
+	}
+	if resolved != "" {
+		t.Fatalf("expected missing environment file to be skipped, got %q", resolved)
+	}
+	if _, err := ResolveEnvironmentFile(folder, "../.env.dev"); err == nil {
+		t.Fatal("invalid environment file path should still fail")
+	}
+}
+
 func TestProjectTemplatesExposeSharedCapabilities(t *testing.T) {
 	phpTemplate, ok := ProjectTemplateForKind(KIND_PHP)
 	if !ok {

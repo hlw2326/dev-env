@@ -134,6 +134,30 @@ func TestRenderPHPRouteIncludesEnvironmentFile(t *testing.T) {
 	}
 }
 
+func TestServiceAccessDoesNotModifyProjectDirectory(t *testing.T) {
+	home := t.TempDir()
+	projectPath := filepath.Join(t.TempDir(), "public")
+	projectRoot := filepath.Dir(projectPath)
+	routes := []ports.Route{{
+		Kind: project.KIND_PHP,
+		Root: projectRoot,
+		Path: projectPath,
+		Log:  paths.ProjectLog(home, "demo", "access.log"),
+	}}
+
+	accessLists := [][]serviceAccess{
+		nginxServiceAccessList(home, filepath.Join(home, "software", "nginx"), routes),
+		phpServiceAccessList(home, filepath.Join(home, "software", "php", "php-cgi.exe"), 9000),
+	}
+	for _, accessList := range accessLists {
+		for _, access := range accessList {
+			if filepath.Clean(access.path) == filepath.Clean(projectPath) || filepath.Clean(access.path) == filepath.Clean(projectRoot) {
+				t.Fatalf("service startup must not grant access to project path %q", access.path)
+			}
+		}
+	}
+}
+
 func TestRenderNodeRouteSupportsWebSocket(t *testing.T) {
 	config, err := renderRoute(8080, ports.Route{
 		ID:    2,

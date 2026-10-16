@@ -233,8 +233,7 @@ func DefaultEnvironmentFile(root string) string {
 	return ""
 }
 
-// NormalizeEnvironmentFile validates a selected environment file and returns a relative path.
-func NormalizeEnvironmentFile(root, value string) (string, error) {
+func normalizeEnvironmentFile(value string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return "", nil
@@ -249,10 +248,22 @@ func NormalizeEnvironmentFile(root, value string) (string, error) {
 	if !strings.HasPrefix(cleaned, ".env") {
 		return "", errors.New("环境变量文件必须以 .env 开头")
 	}
+	return cleaned, nil
+}
+
+// NormalizeEnvironmentFile validates a selected environment file and returns a relative path.
+func NormalizeEnvironmentFile(root, value string) (string, error) {
+	cleaned, err := normalizeEnvironmentFile(value)
+	if err != nil || cleaned == "" {
+		return cleaned, err
+	}
 	target := filepath.Join(filepath.Clean(root), filepath.FromSlash(cleaned))
 	info, err := os.Stat(target)
 	if err != nil {
-		return "", errors.New("环境变量文件不存在: " + cleaned)
+		if os.IsNotExist(err) {
+			return "", errors.New("环境变量文件不存在: " + cleaned)
+		}
+		return "", errors.New("读取环境变量文件失败: " + cleaned)
 	}
 	if info.IsDir() {
 		return "", errors.New("环境变量文件不能是目录")
@@ -269,11 +280,22 @@ func ResolveEnvironmentFile(root, value string) (string, error) {
 	if selected == "" {
 		return "", nil
 	}
-	cleaned, err := NormalizeEnvironmentFile(root, selected)
+	cleaned, err := normalizeEnvironmentFile(selected)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(filepath.Clean(root), filepath.FromSlash(cleaned)), nil
+	target := filepath.Join(filepath.Clean(root), filepath.FromSlash(cleaned))
+	info, err := os.Stat(target)
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.New("读取环境变量文件失败: " + cleaned)
+	}
+	if info.IsDir() {
+		return "", errors.New("环境变量文件不能是目录")
+	}
+	return target, nil
 }
 
 func FindRun(root, kind string) string {

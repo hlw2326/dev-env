@@ -290,17 +290,7 @@ func (n *Nginx) reconcile() error {
 			Directory: installed.Path,
 			Log:       paths.GatewayLog(n.home, "nginx.log"),
 		},
-		accessList: []serviceAccess{
-			{path: installed.Path, permission: "RX"},
-			{path: paths.Nginx(n.home), permission: "M"},
-			{path: filepath.Dir(paths.GatewayLog(n.home, "nginx.log")), permission: "M"},
-		},
-	}
-	for _, route := range routes {
-		service.accessList = append(service.accessList,
-			serviceAccess{path: route.Path, permission: "RX"},
-			serviceAccess{path: filepath.Dir(route.Log), permission: "M"},
-		)
+		accessList: nginxServiceAccessList(n.home, installed.Path, routes),
 	}
 	if err := configurePersistentService(n.home, service); err != nil {
 		return cleanup(appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "配置 Nginx Windows 服务失败"))
@@ -421,11 +411,7 @@ func (n *Nginx) startPools(routes []ports.Route, nginxPort int) (map[string]pool
 				Environment: []string{"PHP_FCGI_CHILDREN=" + NGINX_PHP_CONCURRENCY, "PHP_FCGI_MAX_REQUESTS=0"},
 				Log:         paths.GatewayLog(n.home, fmt.Sprintf("php-%d.log", port)),
 			},
-			accessList: []serviceAccess{
-				{path: filepath.Dir(executable), permission: "RX"},
-				{path: routeRootForPHP(routes, executable), permission: "RX"},
-				{path: filepath.Dir(paths.GatewayLog(n.home, fmt.Sprintf("php-%d.log", port))), permission: "M"},
-			},
+			accessList: phpServiceAccessList(n.home, executable, port),
 		}
 		if err := configurePersistentService(n.home, service); err != nil {
 			return cleanup(appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "配置 PHP FastCGI Windows 服务失败"))
@@ -482,13 +468,23 @@ func (n *Nginx) stopPools(items []pool) error {
 	return errors.Join(stopErrors...)
 }
 
-func routeRootForPHP(routes []ports.Route, executable string) string {
-	for _, route := range routes {
-		if route.Kind == project.KIND_PHP && sameExecutable(route.PHP, executable) {
-			return route.Root
-		}
+func nginxServiceAccessList(home, installedPath string, routes []ports.Route) []serviceAccess {
+	accessList := []serviceAccess{
+		{path: installedPath, permission: "RX"},
+		{path: paths.Nginx(home), permission: "M"},
+		{path: filepath.Dir(paths.GatewayLog(home, "nginx.log")), permission: "M"},
 	}
-	return ""
+	for _, route := range routes {
+		accessList = append(accessList, serviceAccess{path: filepath.Dir(route.Log), permission: "M"})
+	}
+	return accessList
+}
+
+func phpServiceAccessList(home, executable string, port int) []serviceAccess {
+	return []serviceAccess{
+		{path: filepath.Dir(executable), permission: "RX"},
+		{path: filepath.Dir(paths.GatewayLog(home, fmt.Sprintf("php-%d.log", port))), permission: "M"},
+	}
 }
 
 func (n *Nginx) listeningPID(port int, imageName string) int {
