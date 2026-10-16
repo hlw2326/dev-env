@@ -25,7 +25,7 @@
 					@click="beginEdit"
 				/>
 				<template v-else>
-					<p-button severity="secondary" variant="outlined" label="取消" @click="cancelEdit" />
+					<p-button severity="secondary" variant="outlined" label="取消" :disabled="saving" @click="cancelEdit" />
 					<p-button icon="pi pi-save" label="保存" :loading="saving" @click="saveConfig" />
 				</template>
 			</div>
@@ -37,7 +37,7 @@
 			<textarea
 				v-model="draft"
 				class="preview-editor font-mono"
-				:readonly="!editing"
+				:readonly="!editing || saving"
 				wrap="off"
 				aria-label="完整 Nginx 配置"
 				@scroll="syncScroll"
@@ -96,6 +96,7 @@ function cancelEdit(): void {
 }
 
 async function saveConfig(): Promise<void> {
+	if (saving.value) return
 	if (draft.value.trim() === '') {
 		toast.error('保存 Nginx 配置失败', '配置不能为空')
 		return

@@ -34,6 +34,7 @@ declare module 'vue' {
     PPanel: typeof import('primevue/panel')['default']
     PProgressBar: typeof import('primevue/progressbar')['default']
     PSelect: typeof import('primevue/select')['default']
+    PSkeleton: typeof import('primevue/skeleton')['default']
     PSplitter: typeof import('primevue/splitter')['default']
     PSplitterPanel: typeof import('primevue/splitterpanel')['default']
     PTag: typeof import('primevue/tag')['default']

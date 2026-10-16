@@ -15,7 +15,9 @@
 		</template>
 
 		<!-- 无已安装服务提示 -->
-		<div v-if="services.length === 0" class="surface-card">
+		<p-message v-if="!ready && checking" severity="secondary" size="small" icon="pi pi-spin pi-spinner">正在检测已安装服务的运行状态…</p-message>
+		<p-message v-else-if="!ready && statusError !== ''" severity="error" size="small">检测失败：{{ statusError }}，请点击刷新重试。</p-message>
+		<div v-else-if="services.length === 0" class="surface-card">
 			<h-empty
 				icon="pi pi-server"
 				title="当前没有可管理的服务"
@@ -32,6 +34,9 @@
 				:key="item.id"
 				:item="item"
 				:busy="busy === item.id"
+				:checking="checking"
+				:unavailable="statusError !== ''"
+				:restarting="busy === item.id && operation === 'restart'"
 				show-restart
 				@start="startService"
 				@stop="stopService"
@@ -44,7 +49,7 @@
 		<h-service-config
 			v-model:visible="settingsVisible"
 			:item="activeService"
-			:busy="activeService !== null && busy === activeService.id"
+			:busy="checking || statusError !== '' || (activeService !== null && busy === activeService.id)"
 			@start="startConfiguredService"
 			@stop="stopConfiguredService"
 			@main="markMain"
@@ -65,8 +70,12 @@ import CompRedisData from './comps/redis-data.vue'
 // 服务管理数据与控制方法
 const {
 	services,
+	ready,
+	checking,
+	statusError,
 	loading,
 	busy,
+	operation,
 	loadData,
 	startService,
 	stopService,

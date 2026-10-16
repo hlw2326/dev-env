@@ -1,13 +1,16 @@
 import { ref, computed } from 'vue'
-import { listProjects, listSoftware, startSoftware, stopSoftware, loadSettings, loadSystemMetrics } from '@/api'
+import { listProjects, startSoftware, stopSoftware, loadSettings, loadSystemMetrics } from '@/api'
+import { useServiceStatus } from '@/composables/services/use-service-status'
 import { toast, formatError } from '@/utils'
-import type { Project, ProjectTraffic, Software, SystemMetrics } from '@/types'
+import type { Project, ProjectTraffic, SystemMetrics } from '@/types'
 
 // 项目列表状态
 const projects = ref<Project[]>([])
 
 // 已安装软件列表状态
-const installed = ref<Software[]>([])
+const { items: installed, ready: servicesReady, checking, error: serviceError, refresh: refreshServices } = useServiceStatus()
+const initialized = ref(false)
+const dashboardError = ref('')
 
 // 网关监听状态
 const listening = ref(false)
@@ -85,18 +88,20 @@ export function useDashboard() {
 			loading.value = true
 		}
 		try {
-			const [projectList, softwareList, settings, metrics] = await Promise.all([
+			const [projectList, , settings, metrics] = await Promise.all([
 				listProjects(),
-				listSoftware(),
+				refreshServices(silent),
 				loadSettings(),
 				loadSystemMetrics(),
 			])
 			projects.value = projectList
-			installed.value = softwareList
 			listening.value = settings.listening
 			nginxPort.value = settings.port
 			systemMetrics.value = metrics
+			initialized.value = true
+			dashboardError.value = ''
 		} catch (err: unknown) {
+			dashboardError.value = formatError(err)
 			if (!silent) {
 				toast.error(formatError(err))
 			}
@@ -124,6 +129,7 @@ export function useDashboard() {
 
 	// 启动指定守护进程服务
 	async function startService(id: number): Promise<void> {
+		if (!servicesReady.value || checking.value || serviceError.value !== '') return
 		busyId.value = id
 		try {
 			const result = await startSoftware(id)
@@ -142,6 +148,7 @@ export function useDashboard() {
 
 	// 停止指定守护进程服务
 	async function stopService(id: number): Promise<void> {
+		if (!servicesReady.value || checking.value || serviceError.value !== '') return
 		busyId.value = id
 		try {
 			const result = await stopSoftware(id)
@@ -159,6 +166,11 @@ export function useDashboard() {
 	}
 
 	return {
+		servicesReady,
+		checking,
+		serviceError,
+		initialized,
+		dashboardError,
 		projects,
 		installed,
 		readySoftware,

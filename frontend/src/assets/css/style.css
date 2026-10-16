@@ -135,14 +135,14 @@ html.dark {
     outline: none !important;
 }
 
-*:not(.pi-spin) {
+*:not(.pi-spin):not(.p-icon-spin) {
     transition: none !important;
     animation: none !important;
 }
 
-*:active,
-*:focus,
-*:hover {
+*:not(.pi-spin):not(.p-icon-spin):active,
+*:not(.pi-spin):not(.p-icon-spin):focus,
+*:not(.pi-spin):not(.p-icon-spin):hover {
     transition: none !important;
     animation: none !important;
     transform: none !important;

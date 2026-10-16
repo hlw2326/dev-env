@@ -80,10 +80,14 @@ func (s *SettingService) Settings(ctx context.Context) (SettingsView, error) {
 	s.mu.RLock()
 	errText := s.lastError
 	s.mu.RUnlock()
+	listening := s.nginx.Port() > 0
+	if listening {
+		errText = ""
+	}
 
 	return SettingsView{
 		Settings:  current,
-		Listening: s.nginx.Port() > 0 && errText == "",
+		Listening: listening,
 		Error:     errText,
 	}, nil
 }

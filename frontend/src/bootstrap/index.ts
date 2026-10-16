@@ -1,5 +1,6 @@
 import type { App } from 'vue'
 import PrimeVue from 'primevue/config'
+import type { ButtonPassThroughMethodOptions } from 'primevue/button'
 import ToastService from 'primevue/toastservice'
 import ConfirmationService from 'primevue/confirmationservice'
 import { definePreset } from '@primevue/themes'
@@ -8,6 +9,7 @@ import { router } from '@/router'
 import { pinia } from '@/store'
 import { initTheme, setMode } from '@/composables/theme'
 import { loadSettings } from '@/api'
+import { useServiceStatus } from '@/composables/services/use-service-status'
 import { toast, formatError } from '@/utils'
 
 import 'primeicons/primeicons.css'
@@ -93,12 +95,26 @@ export const AuraPreset = definePreset(Aura, {
 	},
 })
 
+// 普通图标与原生加载 SVG 共用尺寸，避免切换加载状态时尺寸变化。
+function buttonIcon({ props }: ButtonPassThroughMethodOptions<unknown>) {
+	let size = 'var(--icon-sm)'
+	if (props.size === 'small') size = 'var(--icon-xs)'
+	if (props.size === 'large') size = 'var(--icon-md)'
+	return { style: { width: size, height: size, fontSize: size, flexShrink: '0' } }
+}
+
 // 启动引导注册插件与主题
 export function bootstrap(app: App): void {
 	app.use(pinia)
 	app.use(router)
 	app.use(PrimeVue, {
 		ripple: false,
+		pt: {
+			button: {
+				icon: buttonIcon,
+				loadingIcon: buttonIcon,
+			},
+		},
 		theme: {
 			preset: AuraPreset,
 			options: {
@@ -110,6 +126,9 @@ export function bootstrap(app: App): void {
 	app.use(ConfirmationService)
 
 	initTheme()
+	void useServiceStatus().refresh().catch((error: unknown) => {
+		toast.error('检测服务状态失败', formatError(error))
+	})
 	loadSettings()
 		.then((settings) => {
 			if (settings.theme === 'light' || settings.theme === 'dark' || settings.theme === 'system') {

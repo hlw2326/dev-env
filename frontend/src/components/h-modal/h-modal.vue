@@ -5,8 +5,9 @@
 		:modal="modal"
 		:header="title"
 		:closable="closable"
-		:close-on-escape="true"
-		:dismissable-mask="maskClose"
+		:close-button-props="{ disabled: loading }"
+		:close-on-escape="!loading"
+		:dismissable-mask="maskClose && !loading"
 		:style="{ width }"
 		class="h-modal"
 	>
@@ -60,11 +61,13 @@ const emit = defineEmits<HModalEmits>()
 
 // 触发确认事件
 function confirm(): void {
+	if (loading) return
 	emit('ok')
 }
 
 // 关闭弹窗并触发取消事件
 function onCancel(): void {
+	if (loading) return
 	visible.value = false
 	emit('cancel')
 }
@@ -76,6 +79,7 @@ function open(): void {
 
 // 关闭弹窗
 function close(): void {
+	if (loading) return
 	visible.value = false
 }
 

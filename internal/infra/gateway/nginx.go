@@ -20,6 +20,7 @@ import (
 
 	"devenv/internal/domain/project"
 	"devenv/internal/domain/software"
+	"devenv/internal/infra/network"
 	processinfra "devenv/internal/infra/process"
 	"devenv/internal/ports"
 	appErrors "devenv/internal/shared/errors"
@@ -143,6 +144,11 @@ func (n *Nginx) Stop() error {
 	if err := n.stopPools(pools); err != nil {
 		stopErrors = append(stopErrors, err)
 	}
+	if listening > 0 {
+		if err := waitPortClosed(n.checker, listening); err != nil {
+			stopErrors = append(stopErrors, err)
+		}
+	}
 	if len(stopErrors) > 0 {
 		return errors.Join(stopErrors...)
 	}
@@ -160,19 +166,6 @@ func (n *Nginx) Stop() error {
 // adopted Nginx instance is terminated here explicitly; the regular Stop
 // method remains lifecycle-safe for application shutdown.
 func (n *Nginx) StopManaged() error {
-	n.mutex.RLock()
-	external := n.external
-	port := n.listening
-	n.mutex.RUnlock()
-	if external {
-		if finder, ok := n.checker.(interface{ ListeningPID(int) int }); ok {
-			if pid := finder.ListeningPID(port); pid > 0 && processinfra.MatchesImageName(pid, "nginx.exe") {
-				if err := processinfra.StopPID(pid); err != nil {
-					return err
-				}
-			}
-		}
-	}
 	return n.Stop()
 }
 
@@ -235,7 +228,7 @@ func (n *Nginx) Port() int {
 		return 0
 	}
 	defer n.mutex.RUnlock()
-	if !n.runner.Status(NGINX_KEY).Running {
+	if !n.runner.Status(NGINX_KEY).Running && !n.isExternalNginx(n.listening) {
 		return 0
 	}
 	return n.listening
@@ -288,20 +281,6 @@ func (n *Nginx) reconcile() error {
 		return cleanup(err)
 	}
 
-	if n.external {
-		if err := reloadNginx(executable, n.home); err != nil {
-			return cleanup(err)
-		}
-		if err := n.stopUnused(pools); err != nil {
-			return err
-		}
-		n.mutex.Lock()
-		n.listening = port
-		n.pools = pools
-		n.mutex.Unlock()
-		return nil
-	}
-
 	service := persistentService{
 		name:      NGINX_SERVICE_NAME,
 		autoStart: true,
@@ -317,12 +296,18 @@ func (n *Nginx) reconcile() error {
 			{path: filepath.Dir(paths.GatewayLog(n.home, "nginx.log")), permission: "M"},
 		},
 	}
+	for _, route := range routes {
+		service.accessList = append(service.accessList,
+			serviceAccess{path: route.Path, permission: "RX"},
+			serviceAccess{path: filepath.Dir(route.Log), permission: "M"},
+		)
+	}
 	if err := configurePersistentService(n.home, service); err != nil {
 		return cleanup(appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "配置 Nginx Windows 服务失败"))
 	}
 
 	if n.external {
-		if err := reloadNginx(executable, n.home); err != nil {
+		if err := ReloadNginxConfig(executable, n.home, port); err != nil {
 			return cleanup(err)
 		}
 	} else {
@@ -332,8 +317,9 @@ func (n *Nginx) reconcile() error {
 	}
 
 	if err := waitPort(n.checker, port); err != nil {
-		stopError := n.runner.Stop(NGINX_KEY)
-		return cleanup(errors.Join(err, stopError))
+		stopError := stopPersistentService(NGINX_SERVICE_NAME)
+		details := strings.Join(processinfra.ReadTail(service.options.Log, 5), "\n")
+		return cleanup(errors.Join(fmt.Errorf("%w\n%s", err, details), stopError))
 	}
 	if err := n.stopUnused(pools); err != nil {
 		return err
@@ -341,7 +327,7 @@ func (n *Nginx) reconcile() error {
 
 	n.mutex.Lock()
 	n.listening = port
-	n.external = false
+	n.external = n.isExternalNginx(port)
 	n.pools = pools
 	n.mutex.Unlock()
 	return nil
@@ -523,6 +509,10 @@ func (n *Nginx) adoptPool(executable string, port int) (pool, bool) {
 		return pool{}, false
 	}
 	pid := finder.ListeningPID(port)
+	serviceName := phpServiceName(executable)
+	if pid > 0 && persistentServiceOwnsProcess(serviceName, pid, executable) {
+		return pool{key: poolKey(executable), port: port, pid: pid, external: true, service: serviceName}, true
+	}
 	if pid <= 0 || !processinfra.MatchesImageName(pid, "php-cgi.exe") {
 		return pool{}, false
 	}
@@ -815,7 +805,25 @@ func checkNginx(executable, home string) error {
 	return nil
 }
 
-func reloadNginx(executable, home string) error {
+// ReloadNginxConfig applies configuration through the service manager when
+// Nginx runs under LocalService. User processes cannot signal its reload event.
+func ReloadNginxConfig(executable, home string, port int) error {
+	if persistentServiceExists(NGINX_SERVICE_NAME) {
+		if err := stopPersistentService(NGINX_SERVICE_NAME); err != nil {
+			return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "停止 Nginx 服务以应用配置失败")
+		}
+		if err := waitPortClosed(network.NewChecker(), port); err != nil {
+			return err
+		}
+		if err := startPersistentService(NGINX_SERVICE_NAME); err != nil {
+			return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "启动 Nginx 服务以应用配置失败")
+		}
+		if err := waitPort(network.NewChecker(), port); err != nil {
+			details := strings.Join(processinfra.ReadTail(paths.GatewayLog(home, "nginx.log"), 5), "\n")
+			return fmt.Errorf("%w\n%s", err, details)
+		}
+		return nil
+	}
 	command := exec.Command(executable, "-p", nginxPrefix(home), "-c", paths.NGINX_CONFIG, "-s", "reload")
 	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := command.CombinedOutput()
@@ -834,6 +842,17 @@ func waitPort(checker ports.PortChecker, port int) error {
 		time.Sleep(GATEWAY_POLL_INTERVAL)
 	}
 	return appErrors.New(appErrors.PROCESS_START_FAILED, fmt.Sprintf("端口 %d 未在限定时间内开始监听", port))
+}
+
+func waitPortClosed(checker ports.PortChecker, port int) error {
+	deadline := time.Now().Add(GATEWAY_START_TIMEOUT)
+	for time.Now().Before(deadline) {
+		if !checker.Listening(port) {
+			return nil
+		}
+		time.Sleep(GATEWAY_POLL_INTERVAL)
+	}
+	return appErrors.New(appErrors.PROCESS_START_FAILED, fmt.Sprintf("Nginx 停止后端口 %d 未在限定时间内释放", port))
 }
 
 func copyRoutes(routes []ports.Route) []ports.Route {

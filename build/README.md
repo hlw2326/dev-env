@@ -1,5 +1,11 @@
 # Build Directory
 
+## DevEnv 图标
+
+页面 Logo 使用 `appicon.png`；Windows 程序、安装器和托盘共用 `windows/icon.ico`。托盘通过 Go embed 嵌入，不依赖运行目录。
+
+修改品牌图标时统一修改 `generate-icon.ps1`，在项目根目录执行 `powershell -NoProfile -File build/generate-icon.ps1`，同时生成 PNG 和多尺寸 ICO，不要单独替换其中一份。
+
 The build directory is used to house all the build files and assets for your application. 
 
 The structure is:

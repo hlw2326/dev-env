@@ -51,6 +51,8 @@ const defaultRoot = ref('')
 
 // 加载中状态
 const loading = ref(false)
+const creating = ref(false)
+const saving = ref(false)
 
 // 搜索关键词
 const search = ref('')
@@ -168,6 +170,8 @@ export function useProjects() {
 
 	// 提交创建新项目
 	async function submitCreate(input: ProjectCreateInput): Promise<boolean> {
+		if (creating.value) return false
+		creating.value = true
 		try {
 			await createProject(input)
 			toast.success('创建成功', `项目 ${input.name} 已创建`)
@@ -176,11 +180,15 @@ export function useProjects() {
 		} catch (err: unknown) {
 			toast.error('创建失败', formatError(err), 3500)
 			return false
+		} finally {
+			creating.value = false
 		}
 	}
 
 	// 提交更新项目配置
 	async function submitUpdate(input: ProjectUpdateInput): Promise<boolean> {
+		if (saving.value) return false
+		saving.value = true
 		try {
 			const updated = await updateProject(input)
 			activeProject.value = updated
@@ -190,6 +198,8 @@ export function useProjects() {
 		} catch (err: unknown) {
 			toast.error('保存失败', formatError(err), 3500)
 			return false
+		} finally {
+			saving.value = false
 		}
 	}
 
@@ -392,6 +402,8 @@ export function useProjects() {
 		gitStatuses,
 		defaultRoot,
 		loading,
+		creating,
+		saving,
 		search,
 		kindFilter,
 		createVisible,

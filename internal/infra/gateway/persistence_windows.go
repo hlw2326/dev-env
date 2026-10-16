@@ -27,6 +27,7 @@ type persistentService struct {
 type serviceAccess struct {
 	path       string
 	permission string
+	direct     bool
 }
 
 func configurePersistentService(base string, service persistentService) error {
@@ -63,6 +64,11 @@ func configurePersistentService(base string, service persistentService) error {
 		serviceAccess{path: filepath.Dir(configPath), permission: "RX"},
 		serviceAccess{path: service.options.Binary, permission: "RX"},
 	)
+	// Nginx resolves long Windows paths by querying each ancestor directory.
+	// Traverse-only access is insufficient for paths inside a user profile.
+	for parent := filepath.Dir(base); parent != filepath.Dir(parent); parent = filepath.Dir(parent) {
+		service.accessList = append(service.accessList, serviceAccess{path: parent, permission: "RX", direct: true})
+	}
 	for _, access := range service.accessList {
 		if strings.TrimSpace(access.path) == "" {
 			continue
@@ -90,30 +96,37 @@ func configurePersistentService(base string, service persistentService) error {
 }
 
 func startPersistentService(name string) error {
-	output, err := runPersistentServiceCommand("sc.exe", "start", name)
-	if err != nil && !strings.Contains(string(output), "1056") {
-		return fmt.Errorf("start Windows service %s: %w: %s", name, err, strings.TrimSpace(string(output)))
-	}
-	return nil
+	return windowsservice.Start(name)
 }
 
 func stopPersistentService(name string) error {
-	output, err := runPersistentServiceCommand("sc.exe", "stop", name)
-	if err != nil && !strings.Contains(string(output), "1062") && !strings.Contains(string(output), "1061") {
-		return fmt.Errorf("stop Windows service %s: %w: %s", name, err, strings.TrimSpace(string(output)))
-	}
-	return nil
+	return windowsservice.Stop(name, GATEWAY_START_TIMEOUT)
 }
 
 func persistentServiceExists(name string) bool {
-	output, err := runPersistentServiceCommand("sc.exe", "query", name)
-	return err == nil || !strings.Contains(string(output), "1060")
+	exists, err := windowsservice.Exists(name)
+	return err == nil && exists
+}
+
+func persistentServiceOwnsProcess(name string, pid int, executable string) bool {
+	return windowsservice.OwnsProcess(name, pid, executable)
 }
 
 func grantPersistentServiceAccess(access serviceAccess) error {
-	permission := gatewayServiceAccount + ":(OI)(CI)" + access.permission
-	_, err := runPersistentServiceCommand("icacls", access.path, "/grant", permission, "/T", "/C")
-	return err
+	if access.direct {
+		return windowsservice.GrantDirectoryRead(access.path)
+	}
+	permission := "*S-1-5-19:" + access.permission
+	arguments := []string{access.path, "/grant", permission}
+	if info, err := os.Stat(access.path); err == nil && info.IsDir() && !access.direct {
+		arguments[2] = "*S-1-5-19:(OI)(CI)" + access.permission
+		arguments = append(arguments, "/T", "/C")
+	}
+	output, err := runPersistentServiceCommand("icacls", arguments...)
+	if err != nil {
+		return fmt.Errorf("grant service access to %s: %w: %s", access.path, err, strings.TrimSpace(string(output)))
+	}
+	return nil
 }
 
 func runPersistentServiceCommand(name string, arguments ...string) ([]byte, error) {

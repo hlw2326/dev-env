@@ -45,6 +45,7 @@
 			:default-root="defaultRoot"
 			:initial-kind="kindFilter"
 			:templates="projectTemplates"
+			:submitting="creating"
 			@submit="onCreate"
 		/>
 
@@ -57,6 +58,7 @@
 			:templates="projectTemplates"
 			:plugins="projectPlugins"
 			:plugin-busy="pluginBusy"
+			:saving="saving"
 			@save="submitUpdate"
 			@plugin="runPlugin"
 			@refresh-git="refreshGitStatuses"
@@ -82,6 +84,8 @@ const {
 	defaultRoot,
 	kindFilter,
 	createVisible,
+	creating,
+	saving,
 	activeProject,
 	detailVisible,
 	detailInitialTab,

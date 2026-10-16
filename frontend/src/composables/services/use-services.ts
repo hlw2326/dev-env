@@ -1,10 +1,11 @@
 import { computed, ref } from 'vue'
-import { listSoftware, listenEvent, restartSoftware, startSoftware, stopSoftware, setMain, setAutostart, openSoftware } from '@/api'
+import { listenEvent, restartSoftware, startSoftware, stopSoftware, setMain, setAutostart, openSoftware } from '@/api'
+import { useServiceStatus } from './use-service-status'
 import { formatError, toast } from '@/utils'
 import type { ServiceEvent, Software } from '@/types'
 
 // 已安装软件服务列表
-const items = ref<Software[]>([])
+const { items, ready, checking, error: statusError, refresh } = useServiceStatus()
 
 // 页面加载状态
 const loading = ref(false)
@@ -28,15 +29,12 @@ export function useServices() {
 			loading.value = true
 		}
 		try {
-			items.value = await listSoftware()
+			await refresh(silent)
 			const current = items.value.find((item) => item.id === busy.value)
 			if (current && operation.value === 'start' && current.running) {
 				clearBusy()
 			}
 			if (current && operation.value === 'stop' && !current.running) {
-				clearBusy()
-			}
-			if (current && operation.value === 'restart' && current.running) {
 				clearBusy()
 			}
 		} catch (err: unknown) {
@@ -50,6 +48,7 @@ export function useServices() {
 
 	// 启动指定服务
 	async function startService(id: number): Promise<void> {
+		if (checking.value || !ready.value || statusError.value !== '') return
 		setBusy(id, 'start')
 		try {
 			const result = await startSoftware(id)
@@ -59,7 +58,7 @@ export function useServices() {
 				return
 			}
 			toast.info('服务启动中')
-			await loadData()
+			await loadData(true)
 		} catch (err: unknown) {
 			clearBusy()
 			toast.error('启动失败', formatError(err))
@@ -68,6 +67,7 @@ export function useServices() {
 
 	// 停止指定服务
 	async function stopService(id: number): Promise<void> {
+		if (checking.value || !ready.value || statusError.value !== '') return
 		setBusy(id, 'stop')
 		try {
 			const result = await stopSoftware(id)
@@ -77,7 +77,7 @@ export function useServices() {
 				return
 			}
 			toast.info('服务停止中')
-			await loadData()
+			await loadData(true)
 		} catch (err: unknown) {
 			clearBusy()
 			toast.error('停止失败', formatError(err))
@@ -86,6 +86,7 @@ export function useServices() {
 
 	// 异步重启指定服务
 	async function restartService(id: number): Promise<void> {
+		if (checking.value || !ready.value || statusError.value !== '') return
 		setBusy(id, 'restart')
 		try {
 			const result = await restartSoftware(id)
@@ -95,7 +96,7 @@ export function useServices() {
 				return
 			}
 			toast.info('服务重启中')
-			await loadData()
+			await loadData(true)
 		} catch (err: unknown) {
 			clearBusy()
 			toast.error('重启失败', formatError(err))
@@ -174,14 +175,18 @@ export function useServices() {
 			if (payload.message !== '') {
 				toast.warn('服务状态变更', payload.message)
 			}
-			loadData()
+			void loadData(true)
 		})
 	}
 
 	return {
 		services,
+		ready,
+		checking,
+		statusError,
 		loading,
 		busy,
+		operation,
 		loadData,
 		startService,
 		stopService,

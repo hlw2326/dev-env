@@ -13,7 +13,17 @@
 						value="默认"
 					/>
 					<h-tag
-						v-if="item.service && item.running"
+						v-if="item.service && checking && !busy"
+						color="info"
+						value="检测中"
+					/>
+					<h-tag
+						v-else-if="item.service && unavailable"
+						color="warning"
+						value="待检测"
+					/>
+					<h-tag
+						v-else-if="item.service && item.running"
 						color="success"
 						value="运行中"
 						dot
@@ -40,7 +50,7 @@
 					</template>
 					<span v-else>{{ item.path }}</span>
 				</span>
-				<span v-if="item.service && item.running && item.pid > 0" class="resource-meta font-mono">
+				<span v-if="item.service" class="resource-meta font-mono">
 					<span>CPU {{ item.metrics.cpuPercent.toFixed(1) }}%</span>
 					<span>· 内存 {{ formatBytes(item.metrics.memoryBytes) }}</span>
 					<span>· I/O {{ formatBytes(item.metrics.readBytes) }}/{{ formatBytes(item.metrics.writeBytes) }}</span>
@@ -52,6 +62,9 @@
 		<!-- 右侧服务操作 -->
 		<div class="actions">
 			<template v-if="item.service">
+				<p-button v-if="checking && !busy" label="检测中" size="small" severity="secondary" :loading="true" disabled />
+				<p-button v-else-if="unavailable" label="待检测" size="small" severity="secondary" disabled />
+				<template v-else>
 				<p-button
 					v-if="item.kind === 'redis'"
 					label="数据"
@@ -72,17 +85,18 @@
 					@click="emit('configure', item)"
 				/>
 				<p-button
-					v-if="item.running && showRestart"
+					v-if="(item.running || restarting) && showRestart"
 					label="重启"
 					icon="pi pi-refresh"
 					size="small"
 					severity="secondary"
 					variant="outlined"
-					:loading="busy"
+					:loading="restarting"
+					:disabled="busy"
 					@click="emit('restart', item.id)"
 				/>
 				<p-button
-					v-if="!item.running"
+					v-if="!item.running && !restarting"
 					label="启动"
 					icon="pi pi-play"
 					size="small"
@@ -96,9 +110,11 @@
 					icon="pi pi-stop"
 					size="small"
 					severity="danger"
+					:loading="busy && !restarting"
 					:disabled="busy"
 					@click="emit('stop', item.id)"
 				/>
+				</template>
 			</template>
 			<p-button
 				v-else-if="!item.service"
@@ -126,6 +142,9 @@ defineOptions({
 withDefaults(defineProps<HServiceProps>(), {
 	configurable: true,
 	showRestart: false,
+	restarting: false,
+	checking: false,
+	unavailable: false,
 })
 
 // 定义服务控制事件

@@ -12,7 +12,8 @@
 				<i :class="card.icon"></i>
 			</div>
 			<div class="content">
-				<span class="value">{{ card.value }}</span>
+				<p-skeleton v-if="!initialized" width="3rem" height="1.5rem" />
+				<span v-else class="value">{{ card.value }}</span>
 				<span class="label">{{ card.label }}</span>
 			</div>
 		</div>
@@ -24,7 +25,7 @@ import { computed } from 'vue'
 import { useDashboard } from '@/composables'
 
 // 概览统计状态
-const { projects, readySoftware, daemonList, runningProjects, runningDaemons } = useDashboard()
+const { projects, readySoftware, daemonList, runningProjects, runningDaemons, initialized } = useDashboard()
 
 // 统计卡片配置列表
 const statCards = computed(() => [

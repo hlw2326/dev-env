@@ -49,6 +49,7 @@ export function useConfig() {
 
 	// 提交保存常用配置项并按需重启服务
 	async function submitConfig(id: number, restartNow: boolean, isRunning: boolean): Promise<void> {
+		if (saving.value) return
 		saving.value = true
 		try {
 			const map: Record<string, string> = {}
@@ -85,6 +86,7 @@ export function useConfig() {
 
 	// 保存配置文件全文
 	async function submitRaw(id: number): Promise<void> {
+		if (saving.value) return
 		saving.value = true
 		try {
 			const result = await writeConfig(id, rawText.value)

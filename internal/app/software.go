@@ -503,10 +503,8 @@ func (s *SoftwareService) List(ctx context.Context) ([]SoftwareView, error) {
 		ListeningPIDs([]int) map[int]int
 	})
 	listenerPIDs := make(map[int]int)
-	imageNames := map[int]string{}
 	if hasListenerSnapshot && len(portsToFind) > 0 {
 		listenerPIDs = listenerSnapshot.ListeningPIDs(portsToFind)
-		imageNames = process.ImageNames()
 	}
 	for _, item := range list {
 		if !software.IsValidKind(item.Kind) {
@@ -518,7 +516,7 @@ func (s *SoftwareService) List(ctx context.Context) ([]SoftwareView, error) {
 			if !status.Running {
 				if hasListenerSnapshot {
 					pid := listenerPIDs[item.Port]
-					if matchesServiceProcess(imageNames[pid], item.Kind) {
+					if s.ownsServiceProcess(item, pid) {
 						status = ports.Status{Running: true, PID: pid}
 					}
 				} else {
@@ -1623,7 +1621,7 @@ func (s *SoftwareService) configureManagedService(ctx context.Context, item soft
 	}
 
 	for _, accessPath := range serviceTraversalPaths(s.base) {
-		if err := ensureWindowsServiceAccess(accessPath, "X", false); err != nil {
+		if err := windowsservice.GrantDirectoryRead(accessPath); err != nil {
 			return err
 		}
 	}
@@ -1710,30 +1708,7 @@ func (s *SoftwareService) configureManagedService(ctx context.Context, item soft
 }
 
 func managedServiceExists(serviceName string) (bool, error) {
-	output, err := runWindowsCommand("sc.exe", "query", serviceName)
-	if err == nil {
-		return true, nil
-	}
-	if strings.Contains(string(output), "1060") {
-		return false, nil
-	}
-	return false, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "查询 Windows 服务失败: "+strings.TrimSpace(string(output)))
-}
-
-func managedServiceState(serviceName string) (int, error) {
-	output, err := runWindowsCommand("sc.exe", "query", serviceName)
-	if err != nil {
-		return 0, appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "查询 Windows 服务状态失败: "+strings.TrimSpace(string(output)))
-	}
-	matches := regexp.MustCompile(`STATE\s*:\s*(\d+)`).FindStringSubmatch(string(output))
-	if len(matches) != 2 {
-		return 0, appErrors.New(appErrors.PROCESS_START_FAILED, "无法读取 Windows 服务状态")
-	}
-	state, parseErr := strconv.Atoi(matches[1])
-	if parseErr != nil {
-		return 0, appErrors.Wrap(parseErr, appErrors.PROCESS_START_FAILED, "解析 Windows 服务状态失败")
-	}
-	return state, nil
+	return windowsservice.Exists(serviceName)
 }
 
 func (s *SoftwareService) startManagedService(ctx context.Context, item software.Software) error {
@@ -1752,8 +1727,8 @@ func (s *SoftwareService) startManagedService(ctx context.Context, item software
 		return err
 	}
 	serviceName := managedServiceName(item)
-	if output, startErr := runWindowsCommand("sc.exe", "start", serviceName); startErr != nil && !strings.Contains(string(output), "1056") {
-		return appErrors.Wrap(startErr, appErrors.PROCESS_START_FAILED, "启动 Windows 服务失败: "+strings.TrimSpace(string(output)))
+	if err := windowsservice.Start(serviceName); err != nil {
+		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "启动 Windows 服务失败")
 	}
 	deadline := time.Now().Add(START_TIMEOUT)
 	for time.Now().Before(deadline) {
@@ -1762,7 +1737,7 @@ func (s *SoftwareService) startManagedService(ctx context.Context, item software
 			s.emitServiceStatus(item.ID, true, status.PID, "")
 			return nil
 		}
-		if state, stateErr := managedServiceState(serviceName); stateErr == nil && state == 1 {
+		if stopped, stateErr := windowsservice.IsStopped(serviceName); stateErr == nil && stopped {
 			tail := process.ReadTail(options.Log, LOG_TAIL_LIMIT)
 			return appErrors.New(appErrors.PROCESS_START_FAILED, "服务启动失败:\n"+strings.Join(tail, "\n"))
 		}
@@ -1792,12 +1767,12 @@ func (s *SoftwareService) stopManagedService(item software.Software) error {
 		s.emitServiceStatus(item.ID, false, 0, "")
 		return nil
 	}
-	if output, stopErr := runWindowsCommand("sc.exe", "stop", serviceName); stopErr != nil && !strings.Contains(string(output), "1062") && !strings.Contains(string(output), "1061") {
-		return appErrors.Wrap(stopErr, appErrors.PROCESS_START_FAILED, "停止 Windows 服务失败: "+strings.TrimSpace(string(output)))
+	if err := windowsservice.Stop(serviceName, START_TIMEOUT); err != nil {
+		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "停止 Windows 服务失败")
 	}
 	deadline := time.Now().Add(START_TIMEOUT)
 	for time.Now().Before(deadline) {
-		if !s.externalStatus(item).Running {
+		if !s.probe.Listening(item.Port) {
 			s.emitServiceStatus(item.ID, false, 0, "")
 			return nil
 		}
@@ -1857,17 +1832,13 @@ func serviceTraversalPaths(target string) []string {
 }
 
 func ensureWindowsServiceAccess(target, right string, inherit bool) error {
-	currentAccess, _ := runWindowsCommand("icacls", target)
-	if right != "M" && strings.Contains(strings.ToLower(string(currentAccess)), "local service:") {
-		return nil
-	}
 	permission := "(" + right + ")"
 	if inherit {
 		permission = "(OI)(CI)" + right
 	}
-	grant := windowsServiceAccount + ":" + permission
+	grant := "*S-1-5-19:" + permission
 	if output, err := runWindowsCommand("icacls", target, "/grant", grant); err != nil {
-		return appErrors.Wrap(err, appErrors.PERMISSION_DENIED, "授予 PostgreSQL 服务目录权限失败: "+strings.TrimSpace(string(output)))
+		return appErrors.Wrap(err, appErrors.PERMISSION_DENIED, "授予服务目录权限失败: "+strings.TrimSpace(string(output)))
 	}
 	return nil
 }
@@ -2352,11 +2323,39 @@ func (s *SoftwareService) externalStatus(item software.Software) ports.Status {
 	if !software.IsDaemon(item.Kind) || item.Port <= 0 {
 		return ports.Status{}
 	}
-	pid := s.listeningPID(item.Port, serviceProcessNames(item.Kind)...)
-	if pid <= 0 {
+	finder, ok := s.probe.(listeningPIDFinder)
+	if !ok {
+		return ports.Status{}
+	}
+	pid := finder.ListeningPID(item.Port)
+	if !s.ownsServiceProcess(item, pid) {
 		return ports.Status{}
 	}
 	return ports.Status{Running: true, PID: pid}
+}
+
+func (s *SoftwareService) ownsServiceProcess(item software.Software, pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	path := process.ExecutablePath(pid)
+	if path != "" {
+		return matchesInstalledServicePath(item, path)
+	}
+	name := managedServiceName(item)
+	registeredPath, err := windowsservice.ExecutablePath(name)
+	if err != nil || !matchesInstalledServicePath(item, registeredPath) {
+		return false
+	}
+	return windowsservice.OwnsProcess(name, pid, registeredPath)
+}
+
+func matchesInstalledServicePath(item software.Software, path string) bool {
+	if path == "" || item.Path == "" || !matchesServiceProcess(filepath.Base(path), item.Kind) {
+		return false
+	}
+	relative, err := filepath.Rel(item.Path, path)
+	return err == nil && !filepath.IsAbs(relative) && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func serviceProcessNames(kind string) []string {

@@ -3,9 +3,7 @@
 	<header class="titlebar">
 		<!-- 左侧品牌与当前路由名称 -->
 		<div class="left">
-			<div class="logo">
-				<i class="pi pi-box"></i>
-			</div>
+			<img class="logo" :src="appIcon" alt="DevEnv" />
 			<span class="brand">DevEnv</span>
 			<span class="separator">/</span>
 			<span class="page font-mono">{{ routeName }}</span>
@@ -40,6 +38,7 @@ import { toggleWin, loadSettings, saveSettings } from '@/api'
 import { useTheme } from '@/composables/theme'
 import { toast, formatError } from '@/utils'
 import CompWindow from './window.vue'
+import appIcon from '../../../../../build/appicon.png'
 import type { ThemeMode } from '@/composables/theme'
 
 // 当前路由对象
@@ -119,13 +118,6 @@ async function toggleTheme(): Promise<void> {
 	.logo {
 		width: 1.375rem;
 		height: 1.375rem;
-		border-radius: var(--h-radius);
-		background: var(--p-primary-color);
-		color: var(--on-primary);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: var(--icon-xs);
 	}
 
 	/* 品牌名称 */

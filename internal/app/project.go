@@ -17,6 +17,7 @@ import (
 	domainmonitor "devenv/internal/domain/monitor"
 	"devenv/internal/domain/project"
 	"devenv/internal/domain/software"
+	"devenv/internal/infra/gateway"
 	inframonitor "devenv/internal/infra/monitor"
 	"devenv/internal/infra/process"
 	"devenv/internal/ports"
@@ -785,10 +786,10 @@ func (s *ProjectService) WriteNginxConfig(ctx context.Context, id int64, content
 		restore()
 		return err
 	}
-	if s.nginx.Port() > 0 {
-		if err := reloadNginxConfig(executable, s.base); err != nil {
+	if port := s.nginx.Port(); port > 0 {
+		if err := gateway.ReloadNginxConfig(executable, s.base, port); err != nil {
 			restore()
-			_ = reloadNginxConfig(executable, s.base)
+			_ = gateway.ReloadNginxConfig(executable, s.base, port)
 			return err
 		}
 	}
@@ -829,16 +830,6 @@ func validateNginxConfig(executable, base string) error {
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "Nginx 配置检查失败: "+strings.TrimSpace(string(output)))
-	}
-	return nil
-}
-
-func reloadNginxConfig(executable, base string) error {
-	command := exec.Command(executable, "-p", nginxPrefix(base), "-c", paths.NGINX_CONFIG, "-s", "reload")
-	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return appErrors.Wrap(err, appErrors.PROCESS_START_FAILED, "Nginx 配置重新加载失败: "+strings.TrimSpace(string(output)))
 	}
 	return nil
 }

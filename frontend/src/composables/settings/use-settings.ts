@@ -106,6 +106,7 @@ export function useSettings() {
 
 	// 保存全部全局设置
 	async function saveAll(): Promise<void> {
+		if (saving.value) return
 		saving.value = true
 		try {
 			const result = await saveSettings({

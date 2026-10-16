@@ -15,8 +15,10 @@
 		</template>
 
 		<!-- 空状态提示 -->
+		<p-message v-if="!servicesReady && checking" severity="secondary" size="small" icon="pi pi-spin pi-spinner">正在检测服务运行状态…</p-message>
+		<p-message v-else-if="!servicesReady && serviceError !== ''" severity="error" size="small">检测失败：{{ serviceError }}，请点击刷新重试。</p-message>
 		<h-empty
-			v-if="daemonList.length === 0"
+			v-else-if="daemonList.length === 0"
 			icon="pi pi-server"
 			description="暂无已安装的服务"
 		/>
@@ -28,6 +30,8 @@
 				:key="item.id"
 				:item="item"
 				:busy="busyId === item.id"
+				:checking="checking"
+				:unavailable="serviceError !== ''"
 				:configurable="false"
 				@start="startService"
 				@stop="stopService"
@@ -38,32 +42,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
-import { listenEvent } from '@/api'
 import { useDashboard } from '@/composables'
-import type { ServiceEvent } from '@/types'
 
 // 概览软件数据与刷新方法
-const { daemonList, loading, busyId, loadData, startService, stopService } = useDashboard()
+const { daemonList, loading, busyId, loadData, startService, stopService, servicesReady, checking, serviceError } = useDashboard()
 
-let stopEvents: (() => void) | null = null
-
-onMounted(() => {
-	stopEvents = listenEvent('service:status-changed', (payload: ServiceEvent) => {
-		// Start/Stop are asynchronous. Refresh after the backend has finished so
-		// the dashboard reflects the actual process state instead of the request state.
-		if (payload.id > 0) {
-			void loadData(true)
-		}
-	})
-})
-
-onUnmounted(() => {
-	if (stopEvents !== null) {
-		stopEvents()
-		stopEvents = null
-	}
-})
 </script>
 
 <style scoped lang="scss">

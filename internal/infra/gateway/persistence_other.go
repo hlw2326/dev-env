@@ -19,3 +19,4 @@ func configurePersistentService(string, persistentService) error { return nil }
 func startPersistentService(string) error                        { return nil }
 func stopPersistentService(string) error                         { return nil }
 func persistentServiceExists(string) bool                        { return false }
+func persistentServiceOwnsProcess(string, int, string) bool      { return false }

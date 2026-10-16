@@ -13,7 +13,7 @@
 		ok-text="保存修改"
 		ok-icon="pi pi-check"
 		cancel-text="取消"
-		:loading="false"
+		:loading="saving"
 		@ok="saveCurrentTab"
 	>
 		<template #top>
@@ -89,8 +89,10 @@ const props = withDefaults(defineProps<{
 	pluginBusy: string
 	templates: ProjectTemplate[]
 	initialTab?: string
+	saving: boolean
 }>(), {
 	initialTab: 'overview',
+	saving: false,
 })
 
 // 抽屉显隐双向绑定
@@ -182,6 +184,7 @@ watch(
 
 // 通过抽屉底部按钮保存当前设置
 function saveCurrentTab(): void {
+	if (props.saving) return
 	if (currentTab.value === 'overview' && overview.value !== null) {
 		overview.value.save()
 	} else if (currentTab.value === 'nginx' && nginxEditor.value !== null) {
