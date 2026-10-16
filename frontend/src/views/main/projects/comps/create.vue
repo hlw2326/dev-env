@@ -94,6 +94,7 @@ import type { ProjectCreateInput, ProjectTemplate } from '@/types'
 const props = defineProps<{
 	defaultRoot: string
 	templates: ProjectTemplate[]
+	submitting: boolean
 }>()
 
 const visible = defineModel<boolean>('visible', { required: true })
@@ -114,7 +115,6 @@ const form = reactive<ProjectCreateInput>({
 const hostTouched = ref(false)
 const rootTouched = ref(false)
 const moreOpen = ref(false)
-const submitting = ref(false)
 const previousKind = ref('php')
 
 function findTemplate(kind: string): ProjectTemplate | null {
@@ -203,6 +203,9 @@ async function detectRun(): Promise<void> {
 }
 
 function submitForm(): void {
+	if (props.submitting) {
+		return
+	}
 	emit('submit', { ...form })
 }
 

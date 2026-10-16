@@ -4,8 +4,8 @@
 		v-model:visible="visible"
 		:modal="modal"
 		:header="title"
-		:closable="closable"
-		:close-on-escape="true"
+		:closable="closable && !loading"
+		:close-on-escape="!loading"
 		:dismissable-mask="maskClose"
 		:style="{ width }"
 		class="h-modal"
@@ -65,6 +65,9 @@ function confirm(): void {
 
 // 关闭弹窗并触发取消事件
 function onCancel(): void {
+	if (loading) {
+		return
+	}
 	visible.value = false
 	emit('cancel')
 }
@@ -76,6 +79,9 @@ function open(): void {
 
 // 关闭弹窗
 function close(): void {
+	if (loading) {
+		return
+	}
 	visible.value = false
 }
 

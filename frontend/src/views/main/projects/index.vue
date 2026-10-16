@@ -42,6 +42,7 @@
 			v-model:visible="createVisible"
 			:default-root="defaultRoot"
 			:templates="projectTemplates"
+			:submitting="creating"
 			@submit="onCreate"
 		/>
 
@@ -75,6 +76,7 @@ const {
 	projectTemplates,
 	defaultRoot,
 	createVisible,
+	creating,
 	activeProject,
 	detailVisible,
 	installingKind,

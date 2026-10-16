@@ -201,7 +201,7 @@ func (s *ProjectService) Templates() []project.ProjectTemplate {
 	return project.ProjectTemplates()
 }
 
-func (s *ProjectService) requireNginx(ctx context.Context) error {
+func (s *ProjectService) requireNginxInstalled(ctx context.Context) error {
 	installed, err := s.software.GetMain(ctx, software.KIND_NGINX)
 	if err != nil {
 		return err
@@ -216,6 +216,13 @@ func (s *ProjectService) requireNginx(ctx context.Context) error {
 	}
 	if info.IsDir() {
 		return appErrors.New(appErrors.RUNTIME_NOT_INSTALLED, "nginx.exe 路径指向了目录")
+	}
+	return nil
+}
+
+func (s *ProjectService) requireNginx(ctx context.Context) error {
+	if err := s.requireNginxInstalled(ctx); err != nil {
+		return err
 	}
 	if s.nginx.Port() > 0 {
 		return nil
@@ -254,7 +261,7 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 		return nil, appErrors.New(appErrors.INVALID_ARGUMENT, "项目域名不能为空")
 	}
 	if project.UsesNginx(kind) {
-		if err := s.requireNginx(ctx); err != nil {
+		if err := s.requireNginxInstalled(ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -350,13 +357,25 @@ func (s *ProjectService) Create(ctx context.Context, in project.CreateInput) (*P
 	if project.IsProcess(kind) {
 		ready = runtimeKind != "" && softwareID != nil && command != ""
 	}
-	if ready {
-		if err := s.Start(ctx, created.ID); err != nil {
-			return nil, s.deleteCreated(ctx, created.ID, err)
-		}
+	view, err := s.Get(ctx, created.ID)
+	if err != nil {
+		return nil, err
 	}
+	if ready {
+		go s.startCreated(created.ID)
+	}
+	return view, nil
+}
 
-	return s.Get(ctx, created.ID)
+func (s *ProjectService) startCreated(id int64) {
+	if err := s.Start(context.Background(), id); err != nil {
+		s.markFailed(id, err)
+		s.bus.Emit("project:status-changed", map[string]interface{}{
+			"id":      id,
+			"state":   project.STATE_ERROR,
+			"message": err.Error(),
+		})
+	}
 }
 
 func (s *ProjectService) Update(ctx context.Context, in project.UpdateInput) (*ProjectView, error) {
@@ -457,6 +476,11 @@ func (s *ProjectService) Start(ctx context.Context, id int64) error {
 	}
 	if current == nil {
 		return appErrors.New(appErrors.NOT_FOUND, "项目不存在")
+	}
+	if project.UsesNginx(current.Kind) {
+		if err := s.requireNginx(ctx); err != nil {
+			return err
+		}
 	}
 
 	switch {

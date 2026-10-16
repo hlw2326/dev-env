@@ -56,6 +56,9 @@ const kindFilter = ref('all')
 // 创建弹窗显隐状态
 const createVisible = ref(false)
 
+// 创建项目请求状态
+const creating = ref(false)
+
 // 当前查看详情的项目
 const activeProject = ref<Project | null>(null)
 
@@ -131,14 +134,24 @@ export function useProjects() {
 
 	// 提交创建新项目
 	async function submitCreate(input: ProjectCreateInput): Promise<boolean> {
+		if (creating.value) {
+			return false
+		}
+		creating.value = true
 		try {
-			await createProject(input)
-			toast.success('创建成功', `项目 ${input.name} 已创建`)
+			const created = await createProject(input)
+			if (created.need !== '') {
+				toast.info('创建成功', `项目已创建，请先安装 ${created.need} 运行环境`)
+			} else {
+				toast.success('创建成功', `项目 ${input.name} 已创建，正在后台启动`)
+			}
 			await refreshAll()
 			return true
 		} catch (err: unknown) {
 			toast.error('创建失败', formatError(err), 3500)
 			return false
+		} finally {
+			creating.value = false
 		}
 	}
 
@@ -300,6 +313,9 @@ export function useProjects() {
 		const stops: Array<() => void> = []
 		stops.push(
 			listenEvent('project:status-changed', (payload: ProjectEvent) => {
+				if (payload.state === 'error' && payload.message !== '') {
+					toast.error('项目启动失败', payload.message, 4500)
+				}
 				if (payload.id > 0) {
 					refreshAll()
 				}
@@ -352,6 +368,7 @@ export function useProjects() {
 		search,
 		kindFilter,
 		createVisible,
+		creating,
 		activeProject,
 		detailVisible,
 	installingKind,
