@@ -4,7 +4,7 @@
 		<!-- 左侧品牌与当前路由名称 -->
 		<div class="left">
 			<div class="logo">
-				<i class="pi pi-box"></i>
+				<img class="logo-img" :src="devLogo" alt="" draggable="false" />
 			</div>
 			<span class="brand">DevEnv</span>
 			<span class="separator">/</span>
@@ -27,7 +27,6 @@
 				<i v-if="theme.mode === 'dark'" class="pi pi-sun toggle-icon"></i>
 				<i v-else class="pi pi-moon toggle-icon"></i>
 			</button>
-			<span class="badge font-mono">Win64 · Go & Wails</span>
 			<comp-window />
 		</div>
 	</header>
@@ -39,6 +38,7 @@ import { useRoute } from 'vue-router'
 import { toggleWin, loadSettings, saveSettings } from '@/api'
 import { useTheme } from '@/composables/theme'
 import { toast, formatError } from '@/utils'
+import devLogo from '@/assets/dev.svg'
 import CompWindow from './window.vue'
 import type { ThemeMode } from '@/composables/theme'
 
@@ -114,17 +114,19 @@ async function toggleTheme(): Promise<void> {
 	gap: 0.5rem;
 	--wails-draggable: drag;
 
-	/* 品牌色块图标 */
+	/* 品牌图标 */
 	.logo {
 		width: 1.375rem;
 		height: 1.375rem;
-		border-radius: var(--h-radius);
-		background: var(--p-primary-color);
-		color: var(--on-primary);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: var(--icon-xs);
+
+		.logo-img {
+			width: var(--icon-lg);
+			height: var(--icon-lg);
+			display: block;
+		}
 	}
 
 	/* 品牌名称 */
@@ -144,6 +146,10 @@ async function toggleTheme(): Promise<void> {
 		font-size: var(--font-sm);
 		color: var(--text-secondary);
 	}
+}
+
+:global(html.dark) .logo-img {
+	filter: brightness(0) invert(1);
 }
 
 /* 中间拖拽区域 */
@@ -195,15 +201,5 @@ async function toggleTheme(): Promise<void> {
 		}
 	}
 
-	/* 架构标识徽标 */
-	.badge {
-		font-size: var(--font-xs);
-		color: var(--text-secondary);
-		background: var(--bg-app);
-		padding: 0.125rem 0.5rem;
-		border-radius: var(--h-radius);
-		border: 1px solid var(--border-color);
-		--wails-draggable: no-drag;
-	}
 }
 </style>
