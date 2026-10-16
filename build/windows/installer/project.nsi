@@ -1,4 +1,4 @@
-Unicode true
+﻿Unicode true
 
 ####
 ## Please note: Template replacements don't work in this file. They are provided with default defines like
@@ -49,11 +49,14 @@ VIAddVersionKey "ProductName"     "${INFO_PRODUCTNAME}"
 ManifestDPIAware true
 
 !include "MUI.nsh"
+!include "LogicLib.nsh"
 
 !define MUI_ICON "..\icon.ico"
 !define MUI_UNICON "..\icon.ico"
 # !define MUI_WELCOMEFINISHPAGE_BITMAP "resources\leftimage.bmp" #Include this to add a bitmap on the left side of the Welcome Page. Must be a size of 164x314
 !define MUI_FINISHPAGE_NOAUTOCLOSE # Wait on the INSTFILES page so the user can take a look into the details of the installation steps
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${PRODUCT_EXECUTABLE}"
+!define MUI_FINISHPAGE_RUN_TEXT "立即启动 DevEnv"
 !define MUI_ABORTWARNING # This will warn the user if they exit from the installer.
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
@@ -83,8 +86,55 @@ OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the inst
 !endif # Default installing folder ($PROGRAMFILES is Program Files folder).
 ShowInstDetails show # This will always show the installation details.
 
+Var CleanupOptions
+Var DeleteUserData
+
 Function .onInit
    !insertmacro wails.checkArchitecture
+
+   # Prefer drive D and keep the configured drive C directory as the fallback.
+   IfFileExists "D:\*.*" 0 default_install_dir_ready
+   StrCpy $INSTDIR "D:\${INFO_PRODUCTNAME}"
+
+   default_install_dir_ready:
+FunctionEnd
+
+Function un.onInit
+    InitPluginsDir
+    StrCpy $DeleteUserData "0"
+    StrCpy $CleanupOptions "$PLUGINSDIR\cleanup-options.json"
+    File /oname=$PLUGINSDIR\devenv-uninstall-options.ps1 "uninstall-options.ps1"
+    File /oname=$PLUGINSDIR\devenv-uninstall-cleanup.ps1 "uninstall-cleanup.ps1"
+    File /oname=$PLUGINSDIR\devenv.ico "..\icon.ico"
+    CopyFiles /SILENT "$INSTDIR\${PRODUCT_EXECUTABLE}" "$PLUGINSDIR\devenv-cleanup.exe"
+    IfFileExists "$PLUGINSDIR\devenv-cleanup.exe" helperReady
+    MessageBox MB_ICONSTOP "无法准备卸载清理程序，已取消卸载。"
+    Abort
+helperReady:
+    FileOpen $0 $CleanupOptions w
+    FileWrite $0 '{$\"allEnvironments$\":false,$\"environments$\":[],$\"databaseData$\":false,$\"userData$\":false}'
+    FileClose $0
+    WriteINIStr "$CleanupOptions.ini" "cleanup" "userData" "0"
+    IfSilent done
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File "$PLUGINSDIR\devenv-uninstall-options.ps1" -OutputFile "$CleanupOptions" -IconPath "$PLUGINSDIR\devenv.ico"'
+    Pop $0
+    ${If} $0 != 0
+        Abort
+    ${EndIf}
+    ReadINIStr $DeleteUserData "$CleanupOptions.ini" "cleanup" "userData"
+done:
+FunctionEnd
+
+Function un.CleanDevEnv
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\devenv-uninstall-cleanup.ps1" -HelperPath "$PLUGINSDIR\devenv-cleanup.exe" -InstallExecutable "$INSTDIR\${PRODUCT_EXECUTABLE}" -OptionsFile "$CleanupOptions"'
+    Pop $0
+    ${If} $0 != 0
+        IfSilent cleanupFailed
+        MessageBox MB_ICONSTOP "环境或数据清理失败，已停止卸载。请查看卸载日志后重试，未完成的内容可能仍然保留。"
+cleanupFailed:
+        SetErrorLevel 1
+        Quit
+    ${EndIf}
 FunctionEnd
 
 Section
@@ -108,7 +158,11 @@ SectionEnd
 Section "uninstall"
     !insertmacro wails.setShellContext
 
-    RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
+    Call un.CleanDevEnv
+
+    ${If} $DeleteUserData == "1"
+        RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath only when selected
+    ${EndIf}
 
     RMDir /r $INSTDIR
 
