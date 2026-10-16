@@ -353,6 +353,9 @@ export function useProjects() {
 		const stops: Array<() => void> = []
 		stops.push(
 			listenEvent('project:status-changed', (payload: ProjectEvent) => {
+				if (payload.state === 'error' && payload.message !== '') {
+					toast.error('项目启动失败', payload.message, 4500)
+				}
 				if (payload.id > 0) {
 					void refreshAll(true)
 				}

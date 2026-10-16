@@ -574,6 +574,12 @@ func (s *ProjectService) runStart(ctx context.Context, id int64, activate bool) 
 		s.failStart(id, err)
 		return err
 	}
+	if project.UsesNginx(current.Kind) {
+		if err := s.requireNginxInstalled(ctx); err != nil {
+			s.failStart(id, err)
+			return err
+		}
+	}
 
 	switch {
 	case project.IsValidKind(current.Kind) && !project.HasCapability(current.Kind, project.CAPABILITY_RUNTIME) && !project.IsProcess(current.Kind):

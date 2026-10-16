@@ -43,6 +43,7 @@ import { useRoute } from 'vue-router'
 import { toggleWin, loadSettings, saveSettings } from '@/api'
 import { useTheme } from '@/composables/theme'
 import { toast, formatError } from '@/utils'
+import devLogo from '@/assets/dev.svg'
 import CompWindow from './window.vue'
 import appIcon from '@/assets/dev.svg?raw'
 import type { ThemeMode } from '@/composables/theme'
@@ -120,7 +121,7 @@ async function toggleTheme(): Promise<void> {
 	gap: 0.5rem;
 	--wails-draggable: drag;
 
-	/* 品牌色块图标 */
+	/* 品牌图标 */
 	.logo {
 		width: 1.375rem;
 		height: 1.375rem;
@@ -143,6 +144,10 @@ async function toggleTheme(): Promise<void> {
 		font-size: var(--font-sm);
 		color: var(--text-secondary);
 	}
+}
+
+:global(html.dark) .logo-img {
+	filter: brightness(0) invert(1);
 }
 
 /* 中间拖拽区域 */
