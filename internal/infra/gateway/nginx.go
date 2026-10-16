@@ -676,7 +676,6 @@ func renderRoute(port int, route ports.Route, fastCGIPort int, environmentConfig
 		body = fmt.Sprintf(`%s
 
     location ~ ^(.+?\.php)(/.*)?$ {
-        try_files $fastcgi_script_name =404;
         include %s;
         fastcgi_split_path_info ^(.+?\.php)(/.*)$;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;

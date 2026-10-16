@@ -59,6 +59,9 @@ func TestRenderPHPRouteUsesPathInfoFallback(t *testing.T) {
 			t.Fatalf("expected generated config to contain %q\n%s", expected, config)
 		}
 	}
+	if strings.Contains(config, "try_files $fastcgi_script_name =404;") {
+		t.Fatalf("PHP requests must reach FastCGI so runtime errors are visible\n%s", config)
+	}
 }
 
 func TestRenderPHPRouteUsesSelectedRewriteRule(t *testing.T) {
