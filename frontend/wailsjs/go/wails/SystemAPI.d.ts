@@ -21,4 +21,8 @@ export function SaveSettings(arg1:wails.SettingsInput):Promise<wails.Result>;
 
 export function SetContext(arg1:context.Context):Promise<void>;
 
+export function SetStartupEnabled(arg1:boolean):Promise<wails.Result>;
+
 export function Settings():Promise<wails.SettingsDTO>;
+
+export function StartupEnabled():Promise<boolean>;

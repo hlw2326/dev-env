@@ -29,7 +29,10 @@ defineOptions({
 })
 
 // 接收卡片属性
-defineProps<HCardProps>()
+withDefaults(defineProps<HCardProps>(), {
+	fill: false,
+	noPadding: false,
+})
 </script>
 
 <style scoped lang="scss">
@@ -41,6 +44,7 @@ defineProps<HCardProps>()
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
+	flex-shrink: 0;
 
 	/* 高度自适应修饰 */
 	&.fill {
@@ -50,6 +54,7 @@ defineProps<HCardProps>()
 
 	/* 卡片头部区域 */
 	.header {
+		flex-shrink: 0;
 		height: 3.25rem;
 		padding: 0 1.25rem;
 		border-bottom: 1px dashed var(--border-color);

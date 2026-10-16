@@ -7,6 +7,7 @@ import (
 
 	"devenv/internal/domain/deployment"
 	"devenv/internal/domain/software"
+	"devenv/internal/infra/autostart"
 	"devenv/internal/infra/catalog"
 	deployinfra "devenv/internal/infra/deployment"
 	environment "devenv/internal/infra/environment"
@@ -74,7 +75,7 @@ func Bootstrap() (*Container, error) {
 	softwareService := NewSoftwareService(base, softwareRepo, projectRepo, catalogClient, installerManager, runner, probe, settingRepo, nginx, bus, func(ctx context.Context, item software.Software) {
 		projectService.BindInstalled(ctx, item)
 	}, metrics, environment.NewUserPathManager(), environment.NewCommandInspector(), redisinfra.NewBrowser())
-	settingService := NewSettingService(base, settingRepo, projectRepo, nginx, hostsWriter)
+	settingService := NewSettingService(base, settingRepo, projectRepo, nginx, hostsWriter, autostart.NewApplication())
 	monitorService := NewMonitorService(metrics)
 
 	return &Container{

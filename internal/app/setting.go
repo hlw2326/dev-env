@@ -26,6 +26,7 @@ type SettingService struct {
 	projects ports.ProjectRepository
 	nginx    ports.Gateway
 	hosts    ports.HostsWriter
+	startup  ports.ApplicationStartup
 
 	mu        sync.RWMutex
 	lastError string
@@ -37,6 +38,7 @@ func NewSettingService(
 	projects ports.ProjectRepository,
 	nginx ports.Gateway,
 	hosts ports.HostsWriter,
+	startup ports.ApplicationStartup,
 ) *SettingService {
 	return &SettingService{
 		base:     base,
@@ -44,7 +46,16 @@ func NewSettingService(
 		projects: projects,
 		nginx:    nginx,
 		hosts:    hosts,
+		startup:  startup,
 	}
+}
+
+func (s *SettingService) StartupEnabled() (bool, error) {
+	return s.startup.Enabled()
+}
+
+func (s *SettingService) SetStartupEnabled(enabled bool) error {
+	return s.startup.Set(enabled)
 }
 
 func (s *SettingService) StartNginx(ctx context.Context) {

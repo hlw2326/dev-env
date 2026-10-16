@@ -9,6 +9,9 @@ export const loadSystemMetrics = SystemAPI.Metrics
 // 保存系统设置
 export const saveSettings = SystemAPI.SaveSettings
 
+export const loadApplicationStartup = SystemAPI.StartupEnabled
+export const setApplicationStartup = SystemAPI.SetStartupEnabled
+
 // 打开系统文件夹选择对话框
 export const pickFolder = SystemAPI.PickFolder
 

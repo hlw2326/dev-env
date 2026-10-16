@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"devenv/internal/infra/uninstall"
 	"devenv/internal/infra/windowsservice"
+	"devenv/internal/shared/paths"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -16,6 +18,17 @@ import (
 var assets embed.FS
 
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == "--uninstall-cleanup" {
+		options, err := uninstall.ReadOptions(os.Args[2])
+		if err == nil {
+			err = uninstall.Clean(paths.Base(), options)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if configPath, ok := windowsservice.ConfigPathFromArguments(os.Args); ok {
 		if err := windowsservice.Run(configPath); err != nil {
 			fmt.Fprintln(os.Stderr, err)

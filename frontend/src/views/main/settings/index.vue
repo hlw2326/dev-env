@@ -16,6 +16,7 @@
 			<comp-gateway />
 			<comp-wechat />
 			<comp-theme />
+			<comp-startup />
 		</div>
 	</h-page>
 </template>
@@ -26,6 +27,7 @@ import { useSettings } from '@/composables'
 import CompGateway from './comps/gateway.vue'
 import CompWechat from './comps/wechat.vue'
 import CompTheme from './comps/theme.vue'
+import CompStartup from './comps/startup.vue'
 
 // 全局设置状态与操作
 const { saving, fetchData, saveAll } = useSettings()

@@ -125,6 +125,12 @@ type UserPathManager interface {
 	Remove(path string) error
 }
 
+// ApplicationStartup controls only the desktop application's login entry.
+type ApplicationStartup interface {
+	Enabled() (bool, error)
+	Set(enabled bool) error
+}
+
 // CommandInspector only discovers commands; it never installs or imports them.
 type CommandInspector interface {
 	Inspect(ctx context.Context, kind, executable string) (software.EnvironmentScan, error)

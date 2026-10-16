@@ -26,8 +26,6 @@ declare module 'vue' {
     PColumn: typeof import('primevue/column')['default']
     PConfirmPopup: typeof import('primevue/confirmpopup')['default']
     PDataTable: typeof import('primevue/datatable')['default']
-    PInputGroup: typeof import('primevue/inputgroup')['default']
-    PInputGroupAddon: typeof import('primevue/inputgroupaddon')['default']
     PInputNumber: typeof import('primevue/inputnumber')['default']
     PInputText: typeof import('primevue/inputtext')['default']
     PMessage: typeof import('primevue/message')['default']

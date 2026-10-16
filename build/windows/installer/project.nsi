@@ -50,6 +50,7 @@ ManifestDPIAware true
 
 !include "MUI.nsh"
 !include "LogicLib.nsh"
+!include "FileFunc.nsh"
 
 !define MUI_ICON "..\icon.ico"
 !define MUI_UNICON "..\icon.ico"
@@ -73,42 +74,62 @@ ManifestDPIAware true
 
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
-!ifdef WAILS_INSTALL_SCOPE
-  !if "${WAILS_INSTALL_SCOPE}" == "user"
-    InstallDir "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
-  !else
-    InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
-  !endif
-!else
-  InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
-!endif # Default installing folder ($PROGRAMFILES is Program Files folder).
+InstallDir "C:\Program Files\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
 ShowInstDetails show # This will always show the installation details.
 
-Var DeleteData
+Var CleanupOptions
+Var DeleteUserData
 
 Function .onInit
    !insertmacro wails.checkArchitecture
+   # Preserve an explicit /D= command-line installation directory.
+   ClearErrors
+   ${GetOptions} $CMDLINE "/D=" $0
+   ${If} ${Errors}
+       # DRIVE_FIXED = 3; do not default to an optical, removable or missing drive.
+       System::Call 'kernel32::GetDriveTypeW(w "D:\") i.r0'
+       ${If} $0 == 3
+           StrCpy $INSTDIR "D:\Program Files\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
+       ${EndIf}
+   ${EndIf}
 FunctionEnd
 
 Function un.onInit
-    StrCpy $DeleteData "0"
+    InitPluginsDir
+    StrCpy $DeleteUserData "0"
+    StrCpy $CleanupOptions "$PLUGINSDIR\cleanup-options.json"
+    File /oname=$PLUGINSDIR\devenv-uninstall-options.ps1 "uninstall-options.ps1"
+    File /oname=$PLUGINSDIR\devenv.ico "..\icon.ico"
+    File /oname=$PLUGINSDIR\devenv-uninstall-cleanup.ps1 "uninstall-cleanup.ps1"
+    CopyFiles /SILENT "$INSTDIR\${PRODUCT_EXECUTABLE}" "$PLUGINSDIR\devenv-cleanup.exe"
+    IfFileExists "$PLUGINSDIR\devenv-cleanup.exe" helperReady
+    MessageBox MB_ICONSTOP "无法准备卸载清理程序，已取消卸载。"
+    Abort
+helperReady:
+    FileOpen $0 $CleanupOptions w
+    FileWrite $0 '{$\"allEnvironments$\":false,$\"environments$\":[],$\"databaseData$\":false,$\"userData$\":false}'
+    FileClose $0
+    WriteINIStr "$CleanupOptions.ini" "cleanup" "userData" "0"
     IfSilent done
-    MessageBox MB_ICONQUESTION|MB_YESNO "是否删除 DevEnv 的全部环境与数据？$\r$\n$\r$\n选择“是”将删除 %LOCALAPPDATA%\dev-env 中的软件、数据库、配置、日志和缓存，且无法恢复。$\r$\n$\r$\n选择“否”仅卸载 DevEnv 程序，保留数据供下次安装继续使用。" IDYES deleteData
-    Goto done
-deleteData:
-    StrCpy $DeleteData "1"
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File "$PLUGINSDIR\devenv-uninstall-options.ps1" -OutputFile "$CleanupOptions" -IconPath "$PLUGINSDIR\devenv.ico"'
+    Pop $0
+    ${If} $0 != 0
+        Abort
+    ${EndIf}
+    ReadINIStr $DeleteUserData "$CleanupOptions.ini" "cleanup" "userData"
 done:
 FunctionEnd
 
 Function un.CleanDevEnv
-    InitPluginsDir
-    File /oname=$PLUGINSDIR\devenv-uninstall-cleanup.ps1 "uninstall-cleanup.ps1"
-    ${If} $DeleteData == "1"
-        nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\devenv-uninstall-cleanup.ps1" -DeleteData'
-    ${Else}
-        nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\devenv-uninstall-cleanup.ps1"'
-    ${EndIf}
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\devenv-uninstall-cleanup.ps1" -HelperPath "$PLUGINSDIR\devenv-cleanup.exe" -InstallExecutable "$INSTDIR\${PRODUCT_EXECUTABLE}" -OptionsFile "$CleanupOptions"'
     Pop $0
+    ${If} $0 != 0
+        IfSilent cleanupFailed
+        MessageBox MB_ICONSTOP "环境或数据清理失败，已停止卸载。请查看卸载日志后重试，未完成的内容可能仍然保留。"
+cleanupFailed:
+        SetErrorLevel 1
+        Quit
+    ${EndIf}
 FunctionEnd
 
 Section
@@ -134,7 +155,9 @@ Section "uninstall"
 
     Call un.CleanDevEnv
 
-    RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
+    ${If} $DeleteUserData == "1"
+        RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath only when selected
+    ${EndIf}
 
     RMDir /r $INSTDIR
 

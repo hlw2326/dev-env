@@ -38,6 +38,14 @@ export function SetContext(arg1) {
   return window['go']['wails']['SystemAPI']['SetContext'](arg1);
 }
 
+export function SetStartupEnabled(arg1) {
+  return window['go']['wails']['SystemAPI']['SetStartupEnabled'](arg1);
+}
+
 export function Settings() {
   return window['go']['wails']['SystemAPI']['Settings']();
+}
+
+export function StartupEnabled() {
+  return window['go']['wails']['SystemAPI']['StartupEnabled']();
 }

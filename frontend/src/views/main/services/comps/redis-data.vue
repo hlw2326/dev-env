@@ -1,49 +1,49 @@
 <template>
-	<hlw-drawer v-model:visible="visible" title="Redis 数据" width="70%" :mask-close="true" :footer="true">
+	<hlw-drawer v-model:visible="visible" title="Redis 数据" width="min(90vw, 80rem)" :mask-close="true" :footer="true">
 		<template #top>
-			<p-toolbar>
+			<p-toolbar :pt="toolbarLayout">
 				<template #start>
-					<div class="toolbar">
-						<p-select v-model="selectedDatabase" size="small" :options="databaseOptions" option-label="label" option-value="value"
-							:loading="loadingDatabases" :disabled="loadingDatabases" @update:model-value="selectDatabase" />
-						<p-input-group>
-							<p-input-group-addon><i class="pi pi-search"></i></p-input-group-addon>
-							<p-input-text v-model="pattern" size="small" placeholder="键名匹配规则，例如 cache:*" @keyup.enter="searchKeys" />
-							<p-button size="small" label="查询" icon="pi pi-search" :loading="loadingKeys" @click="searchKeys" />
-						</p-input-group>
-					</div>
+					<p-select v-model="selectedDatabase" size="small" :options="databaseOptions" option-label="label" option-value="value"
+						:style="{ width: '12rem', maxWidth: '100%' }" aria-label="Redis 数据库"
+						:loading="loadingDatabases" :disabled="loadingDatabases || loadingKeys" @update:model-value="selectDatabase" />
+					<p-input-text v-model="pattern" size="small" placeholder="键名匹配规则，例如 cache:*" aria-label="键名匹配规则"
+						:style="{ flex: '1 1 14rem', minWidth: '0' }" :disabled="loadingDatabases" @keyup.enter="searchKeys" />
+					<p-button size="small" label="查询" icon="pi pi-search" :loading="loadingKeys" :disabled="loadingDatabases" @click="searchKeys" />
 				</template>
 				<template #end>
 					<p-button size="small" severity="secondary" variant="outlined" label="刷新" icon="pi pi-refresh"
-						:loading="loadingDatabases" @click="loadDatabases" />
+						:loading="loadingDatabases" :disabled="loadingKeys || loadingValue" @click="loadDatabases" />
 				</template>
 			</p-toolbar>
 		</template>
 
-		<p-splitter class="browser">
-			<p-splitter-panel :size="42" :min-size="30">
+		<p-splitter :style="{ height: 'max(24rem, calc(100dvh - 15rem))', overflow: 'hidden' }" :gutter-size="6">
+			<p-splitter-panel :size="42" :min-size="30" :pt="splitterPanelLayout">
 				<p-panel header="键列表" :pt="panelLayout">
 					<template #icons>
 						<span class="text-xs text-muted">第 {{ pageIndex + 1 }} 页</span>
 					</template>
 					<p-data-table v-model:selection="selectedKey" :value="keys" data-key="name" selection-mode="single" size="small"
 						:loading="loadingKeys" :table-style="{ width: '100%', tableLayout: 'fixed' }" @row-select="loadValue($event.data)">
-						<p-column field="name" header="键名" />
+						<template #empty>
+							<p-message severity="secondary" variant="simple" size="small">未找到匹配的键，可修改查询规则或继续扫描下一页。</p-message>
+						</template>
+						<p-column field="name" header="键名" :pt="textColumnLayout" />
 						<p-column field="type" header="类型" :style="{ width: '5rem' }" />
 						<p-column header="TTL" :style="{ width: '5rem' }">
 							<template #body="{ data }">{{ formatTTL(data.ttl) }}</template>
 						</p-column>
 					</p-data-table>
-					<div class="pagination">
+					<template #footer>
 						<p-button size="small" severity="secondary" variant="outlined" label="上一页" :disabled="pageIndex === 0 || loadingKeys"
 							@click="previousKeys" />
 						<p-button size="small" severity="secondary" variant="outlined" label="下一页" :disabled="nextCursor === 0 || loadingKeys"
 							@click="nextKeys" />
-					</div>
+					</template>
 				</p-panel>
 			</p-splitter-panel>
 
-			<p-splitter-panel :size="58" :min-size="35">
+			<p-splitter-panel :size="58" :min-size="35" :pt="splitterPanelLayout">
 				<p-panel header="键详情" :pt="panelLayout">
 					<template #icons>
 						<h-tag v-if="value !== null" :value="value.type" />
@@ -53,6 +53,7 @@
 						description="键内容仅在选中后读取，当前数据浏览为只读模式。" />
 					<p-message v-else-if="loadingValue" severity="secondary" size="small" icon="pi pi-spin pi-spinner" variant="simple">正在读取键内容…</p-message>
 					<template v-else-if="value !== null">
+						<p-message severity="secondary" variant="simple" size="small" :pt="{ text: { style: { overflowWrap: 'anywhere' } } }">{{ selectedKey.name }}</p-message>
 						<p-message v-if="value.type === 'string' && value.encoding === 'base64'" severity="warn" size="small">
 							当前值为二进制内容，已使用 Base64 展示。
 						</p-message>
@@ -61,8 +62,8 @@
 						</p-message>
 						<pre v-if="value.type === 'string'" class="value">{{ value.text }}</pre>
 						<p-data-table v-else-if="value.entries.length > 0" :value="value.entries" size="small" :table-style="{ width: '100%', tableLayout: 'fixed' }">
-							<p-column field="field" header="字段" :style="{ width: '30%' }" />
-							<p-column field="value" header="值" />
+							<p-column field="field" header="字段" :style="{ width: '30%' }" :pt="textColumnLayout" />
+							<p-column field="value" header="值" :pt="textColumnLayout" />
 							<p-column v-if="value.type === 'zset'" field="score" header="分数" :style="{ width: '7rem' }" />
 						</p-data-table>
 						<p-message v-else severity="secondary" size="small">当前键类型没有可展示的文本内容。</p-message>
@@ -106,7 +107,23 @@ const databaseOptions = computed(() => databases.value.map((item) => ({
 	label: `DB ${item.index} · ${item.keys} 个键`,
 	value: item.index,
 })))
-const panelLayout = { content: { style: { display: 'grid', gap: 'var(--h-padding)', padding: 'var(--h-padding)' } } }
+const toolbarLayout = {
+	root: { style: { gap: 'var(--h-padding)', padding: 'var(--h-padding)', border: '0', borderBottom: '1px solid var(--border-color)', borderRadius: '0' } },
+	start: { style: { display: 'flex', flex: '1 1 28rem', flexWrap: 'wrap', gap: 'var(--h-padding)', minWidth: '0' } },
+	end: { style: { marginLeft: 'auto' } },
+}
+const splitterPanelLayout = { root: { style: { minWidth: '0', minHeight: '0', overflow: 'hidden' } } }
+const flexColumn = { display: 'flex', flexDirection: 'column', flex: '1', minHeight: '0', minWidth: '0' }
+const panelLayout = {
+	root: { style: { ...flexColumn, height: '100%', border: '0', borderRadius: '0' } },
+	header: { style: { flexShrink: '0', padding: 'var(--h-padding)', borderBottom: '1px solid var(--border-color)' } },
+	headerActions: { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem' } },
+	contentContainer: { style: flexColumn },
+	contentWrapper: { style: flexColumn },
+	content: { style: { flex: '1', minHeight: '0', overflow: 'auto', padding: 'var(--h-padding)' } },
+	footer: { style: { display: 'flex', justifyContent: 'flex-end', gap: 'var(--h-padding)', padding: 'var(--h-padding)', borderTop: '1px solid var(--border-color)', flexShrink: '0' } },
+}
+const textColumnLayout = { bodyCell: { style: { overflowWrap: 'anywhere', whiteSpace: 'normal' } } }
 
 function formatTTL(value: number): string {
 	if (value === -1) return '永久'
@@ -116,25 +133,6 @@ function formatTTL(value: number): string {
 </script>
 
 <style scoped lang="scss">
-.toolbar,
-.pagination {
-	display: flex;
-	align-items: center;
-	gap: var(--h-padding);
-}
-
-.toolbar {
-	flex-wrap: wrap;
-}
-
-.pagination {
-	justify-content: flex-end;
-}
-
-.browser {
-	min-height: 32rem;
-}
-
 .value {
 	max-height: 24rem;
 	overflow: auto;

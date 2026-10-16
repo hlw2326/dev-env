@@ -36,6 +36,17 @@ func (a *SystemAPI) SetContext(ctx context.Context) {
 	a.ctx = ctx
 }
 
+func (a *SystemAPI) StartupEnabled() (bool, error) {
+	return a.service.StartupEnabled()
+}
+
+func (a *SystemAPI) SetStartupEnabled(enabled bool) Result {
+	if err := a.service.SetStartupEnabled(enabled); err != nil {
+		return Result{OK: false, Message: err.Error()}
+	}
+	return Result{OK: true, Message: "软件开机启动设置已更新"}
+}
+
 func (a *SystemAPI) Settings() (SettingsDTO, error) {
 	view, err := a.service.Settings(a.ctx)
 	if err != nil {
