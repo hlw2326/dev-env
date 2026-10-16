@@ -107,6 +107,28 @@ func TestGeneratedNginxLogsExposeTrafficMetrics(t *testing.T) {
 	}
 }
 
+func TestRenderOverviewUsesStyledProjectCards(t *testing.T) {
+	content := renderOverview([]ports.Route{
+		{Hosts: []string{"demo.localhost", "demo.localhost"}},
+		{Hosts: []string{"api.localhost"}},
+	}, 8080)
+
+	for _, expected := range []string{
+		"404 · 站点未配置",
+		"class='card'",
+		"2 个站点",
+		"http://api.localhost:8080",
+		"http://demo.localhost:8080",
+	} {
+		if !strings.Contains(content, expected) {
+			t.Fatalf("expected overview to contain %q\n%s", expected, content)
+		}
+	}
+	if strings.Count(content, "http://demo.localhost:8080") != 1 {
+		t.Fatalf("expected duplicate hosts to be rendered once\n%s", content)
+	}
+}
+
 func TestRenderPHPRouteIncludesEnvironmentFile(t *testing.T) {
 	file := filepath.Join(t.TempDir(), ".env.dev")
 	if err := os.WriteFile(file, []byte("APP_ENV=dev\nDB_HOST=127.0.0.1\n# ignored\n"), 0o600); err != nil {

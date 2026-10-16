@@ -29,6 +29,7 @@ import (
 
 const (
 	NGINX_KEY             = "gateway:nginx"
+	NGINX_DEFAULT_PORT    = 80
 	FASTCGI_PORT_START    = 9000
 	FASTCGI_PORT_COUNT    = 1000
 	GATEWAY_START_TIMEOUT = 10 * time.Second
@@ -614,7 +615,7 @@ func renderMain(nginxHome, home string, port int, routes []ports.Route) string {
 	errorLog := nginxPath(paths.GatewayLog(home, "error.log"))
 	pid := nginxPath(paths.NginxPID(home))
 	hosts := nginxPath(filepath.Join(paths.NginxHosts(home), "*.conf"))
-	overview := renderOverview(routes)
+	overview := renderOverview(routes, port)
 	return fmt.Sprintf(`worker_processes 1;
 error_log %s;
 pid %s;
@@ -767,26 +768,44 @@ func renderEnvironmentParameter(file string) (string, error) {
 	return "fastcgi_param ENV_NAME " + nginxQuote(environmentName) + ";\n", nil
 }
 
-func renderOverview(routes []ports.Route) string {
-	var builder strings.Builder
-	builder.WriteString("<!doctype html><html lang='zh-CN'><head><meta charset='utf-8'><title>DevEnv</title></head><body><h1>DevEnv 项目列表</h1>")
-	if len(routes) == 0 {
-		builder.WriteString("<p>当前没有运行中的项目</p>")
-	} else {
-		builder.WriteString("<ul>")
-		for _, route := range routes {
-			for _, host := range route.Hosts {
-				clean := html.EscapeString(strings.TrimSpace(host))
-				builder.WriteString("<li><a href='http://")
-				builder.WriteString(clean)
-				builder.WriteString("'>")
-				builder.WriteString(clean)
-				builder.WriteString("</a></li>")
+func renderOverview(routes []ports.Route, port int) string {
+	hosts := make([]string, 0)
+	seen := make(map[string]bool)
+	for _, route := range routes {
+		for _, host := range route.Hosts {
+			cleaned := strings.TrimSpace(host)
+			if cleaned == "" || seen[cleaned] {
+				continue
 			}
+			seen[cleaned] = true
+			hosts = append(hosts, cleaned)
 		}
-		builder.WriteString("</ul>")
 	}
-	builder.WriteString("</body></html>")
+	sort.Strings(hosts)
+
+	var builder strings.Builder
+	builder.WriteString(`<!doctype html><html lang='zh-CN'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>站点未配置 · DevEnv</title><style>*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;color:#172033;background:#f5f7fb}body{display:flex;justify-content:center;padding:clamp(32px,8vh,84px) 20px}.page{width:min(760px,100%)}.brand{display:flex;align-items:center;gap:10px;margin-bottom:28px;color:#26354d;font-size:15px;font-weight:600}.logo{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:#2563eb;color:#fff;font-family:Consolas,monospace;font-size:13px}.card{overflow:hidden;border:1px solid #dfe6f1;border-radius:16px;background:#fff}.hero{padding:34px 36px 30px;border-bottom:1px solid #e8edf5}.status{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border-radius:999px;background:#fff4e5;color:#b45309;font-size:12px;font-weight:600}.dot{width:6px;height:6px;border-radius:50%;background:#f59e0b}h1{margin:17px 0 9px;font-size:28px;line-height:1.3;letter-spacing:-.02em}p{margin:0;color:#71809a;font-size:14px;line-height:1.8}.projects{padding:25px 36px 32px}.heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.heading strong{font-size:14px}.count{color:#98a5ba;font-size:12px}.list{display:grid;gap:10px}.item{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border:1px solid #e3e9f2;border-radius:10px;color:#24324a;text-decoration:none;transition:border-color .18s,background .18s}.item:hover{border-color:#9dbcfb;background:#f7faff}.domain{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:Consolas,'SFMono-Regular',monospace;font-size:13px}.arrow{color:#7290bd;font-size:18px}.empty{padding:24px;border:1px dashed #d8e0ec;border-radius:10px;text-align:center;color:#8a98ad;font-size:13px}.footer{margin-top:18px;text-align:center;color:#a0aabc;font-size:12px}@media(max-width:560px){body{padding:20px 12px}.hero,.projects{padding:24px 20px}h1{font-size:23px}}</style></head><body><main class='page'><div class='brand'><span class='logo'>&lt;/&gt;</span><span>DevEnv 本地开发环境</span></div><section class='card'><div class='hero'><span class='status'><i class='dot'></i>404 · 站点未配置</span><h1>没有找到对应的本地站点</h1><p>当前域名尚未绑定到运行中的项目。请检查访问地址，或从下面选择一个已启动的项目。</p></div><div class='projects'><div class='heading'><strong>运行中的项目</strong><span class='count'>`)
+	builder.WriteString(strconv.Itoa(len(hosts)))
+	builder.WriteString(" 个站点</span></div>")
+	if len(hosts) == 0 {
+		builder.WriteString("<div class='empty'>当前没有正在运行的 Web 项目</div>")
+	} else {
+		builder.WriteString("<div class='list'>")
+		for _, host := range hosts {
+			address := host
+			if port != NGINX_DEFAULT_PORT {
+				address += ":" + strconv.Itoa(port)
+			}
+			safeAddress := html.EscapeString(address)
+			builder.WriteString("<a class='item' href='http://")
+			builder.WriteString(safeAddress)
+			builder.WriteString("'><span class='domain'>")
+			builder.WriteString(safeAddress)
+			builder.WriteString("</span><span class='arrow'>&rarr;</span></a>")
+		}
+		builder.WriteString("</div>")
+	}
+	builder.WriteString("</div></section><div class='footer'>请在 DevEnv 项目管理中检查域名和运行状态</div></main></body></html>")
 	return builder.String()
 }
 
