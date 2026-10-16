@@ -56,8 +56,10 @@ func (a *App) startTray() {
 
 func (a *App) showWindow() {
 	if a.ctx != nil {
+		if runtime.WindowIsMinimised(a.ctx) {
+			runtime.WindowUnminimise(a.ctx)
+		}
 		runtime.WindowShow(a.ctx)
-		runtime.WindowUnminimise(a.ctx)
 	}
 }
 
